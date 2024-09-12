@@ -1,0 +1,96 @@
+# .github/workflows/ci.yml
+name: CI
+  
+on: [push, pull_request]
+
+permissions:
+  issues: write  # Ensure the workflow has permission to write to issues
+
+jobs:  
+  run-tests:  
+    strategy:
+      fail-fast: false  
+      matrix:
+        os: [ubuntu-latest]
+        python-version: ["3.10", "3.11"]  
+    
+    runs-on: ${{ matrix.os }}
+    name: Python ${{ matrix.python-version }} on ${{ matrix.os }}
+
+    steps:  
+      - uses: actions/checkout@v3  
+      - name: Set up Python ${{ matrix.python-version }}  
+        uses: actions/setup-python@v4  
+        with:  
+          python-version: ${{ matrix.python-version }}  
+      - name: Install dependencies  
+        run: |  
+          sudo apt-get -y install graphviz libgraphviz-dev pkg-config
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi  
+          python -m pip install pytest coverage
+      - name: Test with pytest  
+        run: |  
+          coverage run -m pytest -v -s  
+      - name: Generate Coverage Report  
+        run: |  
+          coverage report -m
+  pylint:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.10"]
+    steps:
+    - uses: actions/checkout@v3
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v4
+      with:
+        python-version: ${{ matrix.python-version }}
+    - name: Install dependencies
+      run: |
+        sudo apt-get -y install graphviz libgraphviz-dev pkg-config
+        python -m pip install --upgrade pip
+        if [ -f requirements.txt ]; then pip install -r requirements.txt; fi  
+        python -m pip install pylint
+    - name: Run pylint
+      id: pylint
+      continue-on-error: true
+      run: |
+        pylint --disable=R,C $(git ls-files 'leap/*.py') > pylint_output.txt || echo "Pylint failed with signal $?. See pylint_output.txt for details."
+        if [ -f pylint_output.txt ]; then
+          score=$(grep -oP 'Your code has been rated at \K[\d.]+' pylint_output.txt)
+          echo "score=$score" >> $GITHUB_ENV
+        else
+          echo "score=0" >> $GITHUB_ENV
+
+    - name: Extract issue number from branch name
+      id: extract_issue_number
+      run: |
+        branch_name=${GITHUB_REF##*/}
+        issue_number=$(echo $branch_name | cut -d'-' -f1)
+        echo "issue_number=$issue_number" >> $GITHUB_ENV
+
+    - name: Post comment on issue
+      uses: actions/github-script@v6
+      with:
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        script: |
+          const score = process.env.score;
+          const issue_number = process.env.issue_number;
+          const fs = require('fs');
+          let pylint_output = '';
+          if (fs.existsSync('pylint_output.txt')) {
+            pylint_output = fs.readFileSync('pylint_output.txt', 'utf8');
+          } else {
+            pylint_output = 'Pylint output file not found.';
+          }
+          let comment_body = `Pylint Score: ${score}\n Please check the details below:\n\n\`\`\`\n${pylint_output}\n\`\`\``;
+          if (score === 'undefined') {
+            comment_body = `Pylint failed or returned no score. Please check the details below:\n\n\`\`\`\n${pylint_output}\n\`\`\``;
+          }
+          github.rest.issues.createComment({
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            issue_number: parseInt(issue_number),
+            body: comment_body
+          });

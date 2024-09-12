@@ -1,0 +1,200 @@
+// Reference: https://github.com/congeal/verilog_parser/blob/master/verilog.lark
+
+start: description*
+
+description: module_declaration
+module_declaration: [attribute_instances] ("module"|"macromodule") identifier [param_list] [port_list] ";" module_items* "endmodule"
+
+param_list: "#" "(" [params] ")"
+?params: [attribute_instances] param_declaration ("," param_declaration)*
+?param_declaration: ("parameter"|"localparam") param_assignment
+param_assignment: ["signed"] [range] lvalue "=" expression
+
+port_list: "(" [ports] ")"
+?ports: [attribute_instances] port_declaration ("," port_declaration)*
+?port_declaration: ["input"|"output"|"inout"] ["signed"] [range] identifier
+range: "[" expression [":" expression] "]"
+
+?attribute_instances: "(" "*" attr_spec "*" ")"
+attr_spec: variable_lvalue ["=" expression]
+
+//module item
+?module_items: module_or_generate_item
+    | ports ";"
+    | [attribute_instances] generated_instantiation
+    | params ";"
+
+
+?module_or_generate_item: [attribute_instances] module_or_generate_item_declaration
+    | [attribute_instances] continuous_assign
+    | [attribute_instances] module_instantiation
+    | [attribute_instances] always_construct
+    | [attribute_instances] initial_construct
+    | [attribute_instances] parameter_override ";"
+
+?module_or_generate_item_declaration: var_declaration
+    | function_declaration
+    | task_declaration
+
+//continuous assignment
+continuous_assign: "assign" net_assignment ("," net_assignment)* ";"
+net_assignment: net_lvalue "=" expression
+net_lvalue: lvalue
+
+//always construct
+always_construct: "always" statement
+initial_construct: "initial" statement
+
+//instantiation
+module_instantiation: identifier [param_assignment] module_instance ("," module_instance)* ";"
+module_instance: identifier [range] port_maps
+port_maps: "(" port_map ("," port_map)* ")"
+port_map: identifier
+    | "." identifier "(" expression ")"
+
+//statement
+?statement: [attribute_instances] [delay_or_event_control] statement_item
+?statement_item: blocking_assignment ";"
+    | nonblocking_assignment ";"
+    | case_statement
+    | conditional_statement
+    | loop_statement
+    | event_trigger ";"
+    | disable_statement ";"
+    | procedural_continuous_assignments ";"
+    | seq_block
+    | par_block
+    | task_enable ";"
+    | wait_statement
+    | ";" -> null_statement
+
+blocking_assignment: variable_lvalue "=" [delay_or_event_control] expression
+nonblocking_assignment: variable_lvalue "<=" [delay_or_event_control] expression
+variable_lvalue: lvalue
+?lvalue: identifier (range)*
+    | concatenation
+    | multiple_concatenation
+task_enable: variable_lvalue ["(" [expression ("," expression)*] ")"]
+event_trigger: "->" identifier
+disable_statement: "disable" identifier
+procedural_continuous_assignments: ("assign"|"force") blocking_assignment
+    | ("deassign"|"release") lvalue
+
+case_statement: ("case"|"casex"|"casex") "(" expression ")" case_item* "endcase"
+case_item: expression ("," expression)* ":" statement
+    | "default" ":" statement -> default_case_item
+
+conditional_statement: "if" "(" expression ")" statement ["else" statement]
+loop_statement: "forever" statement -> forever_loop
+    | "repeat" "(" expression ")" statement -> repeat_loop
+    | "while" "(" expression ")" statement -> while_loop
+    | "for" "(" blocking_assignment ";" expression ";" blocking_assignment ")" statement -> for_loop
+
+wait_statement: "wait" "(" expression ")" statement
+
+//delay or event control
+?delay_or_event_control: delay_control
+    | event_control
+
+?delay_control: "#" number
+?event_control: "@" event_expression
+    | "@" "(" event_expression ")"
+?event_expression: event_primary (("or"|",") event_primary)*
+?event_primary: "*" -> star_event
+    | "posedge" expression -> posedge_event
+    | "negedge" expression -> negedge_event
+    
+seq_block: "begin" [":" block_name] var_declaration* statement* "end"
+par_block: "fork" [":" block_name] var_declaration* statement* "join"
+block_name: identifier
+
+parameter_override: "defparam" blocking_assignment
+
+//generate block
+generated_instantiation: "generate" generate_item* "endgenerate"
+?generate_item: module_or_generate_item
+    | generate_block
+    | generate_loop_statement
+    | generate_conditional_statement
+generate_block: "begin" [":" block_name] generate_item* "end"
+generate_conditional_statement: "if" "(" expression ")" generate_item ["else" generate_item]
+generate_case_statement: "case" "(" expression ")" genvar_case_item* "endcase"
+genvar_case_item: expression ("," expression)* ":" generate_item
+    | "default" ":" generate_item -> default_genvar_case_item
+generate_loop_statement: "for" "(" blocking_assignment ";" expression ";" blocking_assignment ")" generate_item
+
+//expression
+?expression: or_expr ["?" or_expr ":" or_expr]
+?or_expr: and_expr (_or_op and_expr)*
+?and_expr: bitwise_or_expr (_and_op bitwise_or_expr)*
+?bitwise_or_expr: bitwise_xor_expr (_bitwise_or_op bitwise_xor_expr)*
+?bitwise_xor_expr: bitwise_and_expr (_bitwise_xor_op bitwise_and_expr)*
+?bitwise_and_expr: eq_expr (_bitwise_and_op eq_expr)*
+?eq_expr: comp_expr (_eq_op comp_expr)*
+?comp_expr: shift_expr (_comp_op shift_expr)*
+?shift_expr: arith_expr (_shift_op arith_expr)*
+?arith_expr: term (_add_op term)*
+?term: power (_mul_op power)*
+?power: factor [_power_op factor]
+?factor: [_factor_op] primary
+
+!_or_op: "||"
+!_and_op: "&&"
+!_bitwise_or_op: "|"|"~|"
+!_bitwise_xor_op: "^"|"^~"|"~^"
+!_bitwise_and_op: "&"|"~&"
+!_eq_op: "=="|"!="|"==="|"!=="
+!_comp_op: "<"|">"|">="|"<="
+!_shift_op: "<<"|"<<<"|">>"|">>>"
+!_add_op: "+"|"-"
+!_mul_op: "*"|"/"|"%"
+!_power_op: "**"
+!_factor_op: "+"|"-"|"~"|"!"
+
+?primary: number
+    | identifier (range)*
+    | concatenation
+    | multiple_concatenation
+    | function_call
+    | ESCAPED_STRING
+    | "(" expression ")"
+number: DEC_NUMBER | HEX_NUMBER | OCT_NUMBER | BIN_NUMBER | REAL_NUMBER
+
+concatenation: "{" expression ("," expression)* "}"
+multiple_concatenation: "{" expression concatenation "}"
+function_call: identifier "(" expression ("," expression)* ")"
+
+// declaration
+function_declaration: "function" ["automatic"] ["signed"] [range] identifier [port_list] ";" var_declaration* statement* "endfunction"
+task_declaration: "task" ["automatic"] ["signed"] [range] identifier [port_list] ";" var_declaration* statement* "endtask"
+var_declaration: ("reg"|"integer"|"real"|"real"|"realtime"|"event"|"genvar"|"wire") ["signed"] [range] variable_lvalue ("," variable_lvalue)* ";"
+
+// Terminals
+?identifier: CNAME
+    | ESC_NAME
+ESC_NAME: "\\"(ANY_CHAR+)
+ANY_CHAR: /[^ \t\r\n\f]/
+%import common.CNAME
+%import common.ESCAPED_STRING
+
+%import common.DIGIT
+INT: DIGIT+
+DEC_NUMBER: [INT] ["'" /[sS]?[dD]/] /[0-9_xXzZ]+/
+HEX_NUMBER.2: [INT] "'" /[sS]?[hH][0-9a-fA-F_xXzZ]+/
+OCT_NUMBER.2: [INT] "'" /[sS]?[oO][0-7_xXzZ]+/
+BIN_NUMBER.2 : [INT] "'" /[sS]?[bB][0-1_xXzZ]+/
+REAL_NUMBER.2: /((\d+\.\d*|\.\d+)(e[-+]?\d+)?|\d+(e[-+]?\d+))/i
+
+// Ignorable
+COMMENT: "//" /[^\n]*/
+%ignore COMMENT
+
+BLOCK_COMMENT: "/*" /(.|\n)*?/ "*/"
+%ignore BLOCK_COMMENT
+INLINE_COMMENT: "(*" /[^\n]*/ "*)"
+
+%import common.WS_INLINE
+%ignore WS_INLINE
+%import common.NEWLINE
+%ignore NEWLINE
+%ignore INLINE_COMMENT
