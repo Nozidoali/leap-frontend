@@ -1,2 +1,2 @@
 lark==1.1.9
-pygraphviz==1.13
+pygraphviz>=1.10
