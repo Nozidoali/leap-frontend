@@ -8,8 +8,10 @@ Last Modified by: Hanyu Wang
 Last Modified time: 2024-07-23 23:20:41
 """
 
-from .writer import *
-
+from ..modules import *
+from .headerWriter import *
+from .moduleWriter import *
+from .statementWriter import *
 
 def writeDefinitions(f, netlist: Netlist):
     definitions = netlist.getDefinitions()
@@ -48,7 +50,7 @@ def writeVerilog(netlist: Netlist, filename: str):
             writeInternalSignals(f, module)
             f.write("\n")
 
-            for name, moduleInst in module.submodules.items():
+            for _, moduleInst in module.submodules.items():
                 writeModuleInst(f, moduleInst)
 
             writeModuleDFG(f, module)

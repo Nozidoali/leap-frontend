@@ -8,7 +8,6 @@ Last Modified by: Hanyu Wang
 Last Modified time: 2024-07-23 23:19:24
 """
 
-from ...verilog import *
 from .headerWriter import *
 from .dfgWriter import *
 

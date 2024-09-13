@@ -10,3 +10,4 @@ Last Modified time: 2024-06-30 12:44:07
 
 from .utils import *
 from .verilog import *
+from .test import *

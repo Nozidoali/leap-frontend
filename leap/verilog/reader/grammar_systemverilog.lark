@@ -31,7 +31,7 @@ time_precision: NUMBER time_identifier
 time_identifier: "s" -> s | "ms" -> ms | "us" -> us | "ns" -> ns | "ps" -> ps
 
 // 1.3 Module Declaration
-?module: "module" module_definition ";" module_body* "endmodule"
+module: "module" module_definition ";" module_body* "endmodule"
 // TODO (fixed): this is a terrible way to define a module
 // This way we can check the meta data of the module to decide the port list and parameter list
 module_definition: CNAME parameter_list? port_list?

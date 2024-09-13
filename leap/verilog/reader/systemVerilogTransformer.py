@@ -19,7 +19,6 @@ from .sv import *
 
 class SystemVerilogTransformer(
     ModuleTransformer,
-    DeclarationTransformer,
     StatementTransformer,
     PortTransformer,
     ExpressionTransformer,
@@ -28,9 +27,12 @@ class SystemVerilogTransformer(
     NetlistTransformer,
 ):
     def start(self, items):
+        print(f"items = {items}")
+        assert len(items) == 1
+        assert isinstance(items[0], Netlist)
         return items[0]
 
-    # ?description: (macro_definition | timescale_directive | module)+
+    # description: (macro_definition | timescale_directive | module)+
     def description(self, items):
         modules = []
         definitions = {}

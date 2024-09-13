@@ -8,10 +8,6 @@ Last Modified by: Hanyu Wang
 Last Modified time: 2024-06-25 23:55:15
 """
 
-import logging
-
-logger = logging.getLogger(__name__)
-
 from .declaration import *
 from .expression import *
 from .assignment import *
@@ -93,7 +89,7 @@ class Module:
         self.loadDFG(module_items)
 
     def __repr__(self):
-        return self.module_name
+        return f"Module({self.module_name})"
 
     def getVariableType(self, variableName: str):
         if variableName in self.internal_signals:

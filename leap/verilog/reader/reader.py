@@ -22,7 +22,7 @@ from lark import Lark
 # http://www.verilog.com/VerilogBNF.html
 # http://www.externsoft.ch/download/verilog.html
 
-from .transformer import VerilogTransformer, SystemVerilogTransformer, Netlist
+from . import VerilogTransformer, SystemVerilogTransformer, Netlist
 
 verilog_keywords = {
     "always",
@@ -159,9 +159,9 @@ def parse_verilog(data: str, systemVerilog: bool = True) -> Netlist:
 
     curr_dir = os.path.dirname(os.path.abspath(__file__))
     grammar_file = (
-        os.path.join(curr_dir, "systemverilog.lark")
+        os.path.join(curr_dir, "grammar_systemverilog.lark")
         if systemVerilog
-        else os.path.join(curr_dir, "verilog.lark")
+        else os.path.join(curr_dir, "grammar_verilog.lark")
     )
     with open(grammar_file, "r") as f:
         verilog_netlist_grammar = f.read()
