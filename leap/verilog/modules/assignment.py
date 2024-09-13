@@ -8,7 +8,7 @@ Last Modified by: Hanyu Wang
 Last Modified time: 2024-07-01 20:28:12
 """
 
-from .expression import *
+from .dfg import *
 
 from enum import Enum
 
@@ -63,4 +63,4 @@ class Assignment:
         if self.condition is None:
             self.condition = condition
         else:
-            self.condition = createBinaryOpNode(BOPType.AND, self.condition, condition)
+            self.condition = BinaryOpNode(BOPType.AND, self.condition, condition)

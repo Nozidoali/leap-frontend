@@ -36,17 +36,12 @@ def writeVerilog(netlist: Netlist, filename: str):
 
     with open(filename, "w") as f:
         writeHeader(f)
-
         writeDefinitions(f, netlist)
-
         for moduleName in netlist.getModules():
             module = netlist.getModule(moduleName)
             writeModuleHeader(f, module)
-
             writeParameters(f, module)
-
             writeIODefinitions(f, module)
-
             writeInternalSignals(f, module)
             f.write("\n")
 

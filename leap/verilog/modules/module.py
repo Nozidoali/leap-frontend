@@ -8,8 +8,7 @@ Last Modified by: Hanyu Wang
 Last Modified time: 2024-06-25 23:55:15
 """
 
-from .declaration import *
-from .expression import *
+from .dfg import *
 from .assignment import *
 from .moduleInst import *
 from .moduleParameters import *
@@ -55,9 +54,6 @@ class ModuleBodyType(Enum):
             return ModuleBodyType.DEFINE_PARAMETER
         else:
             assert False, f"Unsupported module body type: {label}"
-            raise NotImplementedError
-            return None
-
 
 class Module:
     def __init__(
@@ -68,10 +64,6 @@ class Module:
         port_list: list,
         module_items: list,
     ):
-        logger.info(
-            f"Module: {module_name}, \n\tPorts: {port_list}, \n\tParameters: {param_list}"
-        )
-
         self.module_name = module_name
 
         # TODO: support parameter list
@@ -131,7 +123,6 @@ class Module:
                             else:
                                 self.internal_signals[port.getPortName()] = port
                     case ModuleBodyType.VARIABLE_ASSIGNMENT:
-                        logger.debug(f"Variable Assignment: {statement}")
                         assignment = statement[1]
                         # print(assignment)
 
@@ -157,7 +148,6 @@ class Module:
                                 )
 
                     case ModuleBodyType.PARAMETER_ASSIGNMENT:
-                        logger.debug(f"Parameter Assignment: {statement}")
                         parameter = statement[1]
                         self.param_list[parameter.getName()] = parameter
 
@@ -184,7 +174,6 @@ class Module:
                             moduleInst.addParameter(key, value)
 
                     case ModuleBodyType.SYSTEM_TASK:
-                        logger.debug(f"System Task: {statement}")
                         pass
 
                     case _:

@@ -8,6 +8,7 @@ Last Modified by: Hanyu Wang
 Last Modified time: 2024-07-23 23:19:24
 """
 
+from ..modules import *
 from .headerWriter import *
 from .dfgWriter import *
 
@@ -16,33 +17,16 @@ def writeModuleHeader(f, module: Module):
     name = module.getName()
     f.write(f"module {name}\n")
     f.write("(\n")
-    ports = module.getPortList()
-    portString = []
-    for port in ports:
-        portString.append(f"\t{port}")
-
+    portString = [f"\t{port}" for port in module.getPortList()]
     f.write(",\n".join(portString))
-    f.write("\n")
-    f.write(");\n\n")
-
-
-def portToString(port: Port):
-    portDirString = ""
-    if port.direction is not None:
-        portDirString = PortDirection.toString(port.direction) + " "
-    typeString = port.type + " " if port.type is not None else ""
-
-    # range is optional, the space is to be consistent with the space in the middle
-    rangeString = f"{port.range} " if port.range is not None else " "
-    return f"{portDirString}{typeString}{rangeString}{port.name}"
-
+    f.write("\n);\n\n")
 
 def writeParameters(f, module: Module):
     parameters: dict = module.getParameters()
 
-    for key, value in parameters.items():
+    for _, value in parameters.items():
         parameter: Parameter = value
-        rangeString = f"{parameter.range} " if parameter.range is not None else ""
+        rangeString = f"{rangeToString(parameter.range)} " if parameter.range is not None else ""
         f.write(f"parameter {rangeString}{parameter.name} = {parameter.value};\n")
 
     f.write("\n")

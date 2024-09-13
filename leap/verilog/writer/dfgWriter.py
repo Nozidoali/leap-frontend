@@ -23,7 +23,7 @@ def writeModuleDFG(f, module: Module):
         nodeType = module.getVariableType(node.label)
 
         # TODO: this could be done more elegantly
-        lhs = createVariableNode(variableName)
+        lhs = VariableNode(variableName)
         if node.range is not None:
             lhs.setRange(node.range)
 
@@ -52,14 +52,14 @@ def writeModuleDFG(f, module: Module):
                 if hasIf:
                     f.write("else begin\n")
 
-                childExpression = dfg.extractNodeHelper(child.children[0])
+                childExpression = dfg.extractNodeHelper(child.children[0]).toString()
                 if nodeType == "reg":
                     if isBlocking:
-                        f.write(f"\t{lhs} = {dfgNodeToString(childExpression)};\n")
+                        f.write(f"\t{lhs} = {childExpression};\n")
                     else:
-                        f.write(f"\t{lhs} <= {dfgNodeToString(childExpression)};\n")
+                        f.write(f"\t{lhs} <= {childExpression};\n")
                 else:
-                    f.write(f"assign {lhs} = {dfgNodeToString(childExpression)};\n\n")
+                    f.write(f"assign {lhs} = {childExpression};\n\n")
 
                 if hasIf:
                     f.write("end\n")
@@ -75,20 +75,20 @@ def writeModuleDFG(f, module: Module):
                 # this means that we have an if statement
                 hasIf = True
 
-                condition = dfg.extractNodeHelper(child.children[0])
-                trueExpression = dfg.extractNodeHelper(child.children[1])
+                condition = dfg.extractNodeHelper(child.children[0]).toString()
+                trueExpression = dfg.extractNodeHelper(child.children[1]).toString()
 
-                f.write(f"{ifString} ({dfgNodeToString(condition)}) begin\n")
+                f.write(f"{ifString} ({condition}) begin\n")
                 if nodeType == "reg":
                     if isBlocking:
-                        f.write(f"\t{lhs} = {dfgNodeToString(trueExpression)};\n")
+                        f.write(f"\t{lhs} = {trueExpression};\n")
                     else:
-                        f.write(f"\t{lhs} <= {dfgNodeToString(trueExpression)};\n")
+                        f.write(f"\t{lhs} <= {trueExpression};\n")
                 else:
                     assert isinstance(
                         lhs, str
                     ), f"variableName's type is {type(variableName)}"
-                    f.write(f"\tassign {lhs} = {dfgNodeToString(trueExpression)};\n\n")
+                    f.write(f"\tassign {lhs} = {trueExpression};\n\n")
                 f.write("end\n")
 
         if nodeType == "reg":

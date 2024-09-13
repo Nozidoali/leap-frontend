@@ -35,7 +35,7 @@ class EventTransformer(Transformer):
                 varAssign: Assignment
                 varAssignStr, varAssign = statement
                 
-                
+                # TODO: Implement initial block
                 varAssign.addCondition
             except ValueError:
                 logger.debug(f"initial_statement = {statement}")

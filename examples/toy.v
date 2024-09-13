@@ -20,11 +20,11 @@ module toy_fsm
     is_STATE_4
 );
 
-parameter [5:0] STATE_0 = 5'd00001;
-parameter [5:0] STATE_1 = 5'd00010;
-parameter [5:0] STATE_2 = 5'd00100;
-parameter [5:0] STATE_3 = 5'd01000;
-parameter [5:0] STATE_4 = 5'd10000;
+parameter [4:0] STATE_0 = 5'd00001;
+parameter [4:0] STATE_1 = 5'd00010;
+parameter [4:0] STATE_2 = 5'd00100;
+parameter [4:0] STATE_3 = 5'd01000;
+parameter [4:0] STATE_4 = 5'd10000;
 
 input  clk;
 input  reset;

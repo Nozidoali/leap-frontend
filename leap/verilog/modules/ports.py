@@ -9,7 +9,7 @@ Last Modified time: 2024-06-25 23:58:04
 """
 
 from enum import Enum, auto
-from .expression import DFGNode, dfgNodeToString
+from .dfg import *
 
 
 class PortDirection(Enum):
@@ -82,3 +82,13 @@ class Port:
             "(" + self.direction.value + ")" if self.direction is not None else ""
         )
         return f"-{self.name}{direction_str}-"
+
+def portToString(port: Port):
+    portDirString = ""
+    if port.direction is not None:
+        portDirString = PortDirection.toString(port.direction) + " "
+    typeString = port.type + " " if port.type is not None else ""
+
+    # range is optional, the space is to be consistent with the space in the middle
+    rangeString = f"{rangeToString(port.range)} " if port.range is not None else " "
+    return f"{portDirString}{typeString}{rangeString}{port.name}"

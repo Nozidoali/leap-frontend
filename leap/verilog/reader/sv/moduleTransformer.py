@@ -80,7 +80,7 @@ class ModuleTransformer(Transformer):
         if isinstance(signal, DFGNode):
             pass
         elif isinstance(signal, str):
-            signal = createVariableNode(signal)
+            signal = VariableNode(signal)
         else:
             raise ValueError(f"signal = {signal}")
 

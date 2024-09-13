@@ -8,10 +8,6 @@ Last Modified by: Hanyu Wang
 Last Modified time: 2024-06-28 12:24:21
 """
 
-import logging
-
-logger = logging.getLogger(__name__)
-
 from enum import Enum, auto
 
 
@@ -109,5 +105,4 @@ class BOPType(Enum):
         elif op == "binary_neq_ext":
             return BOPType.NEQ_EXT
         else:
-            logger.error(f"Unknown operator {op}")
             raise ValueError(f"Unknown operator {op}")

@@ -8,13 +8,7 @@ Last Modified by: Hanyu Wang
 Last Modified time: 2024-06-28 12:55:05
 """
 
-from .binary import *
-from .unary import *
-from .special import *
-from .array import *
-
-from .dfgNode import *
-from .createNode import *
+from .unit import *
 
 
 class DFGraph:
@@ -123,53 +117,34 @@ class DFGraph:
         node = self.__nodes[nodeIdx]
         if node.op == SOPType.VARIABLE:
             # we need to set the range
-            dfgNode = createVariableNode(node.label)
+            dfgNode = VariableNode(node.label)
             if node.range is not None:
                 dfgNode.setRange(node.range)
             return dfgNode
         if node.op == SOPType.CONST:
-            return createConstantNode(node.label)
+            return ConstantNode(node.label)
         if isinstance(node.op, BOPType):
             assert len(node.children) == 2
             left = self.extractNodeHelper(node.children[0])
             right = self.extractNodeHelper(node.children[1])
-            return createBinaryOpNode(node.op, left, right)
+            return BinaryOpNode(node.op, left, right)
         if isinstance(node.op, UOPType):
             assert len(node.children) == 1
             child = self.extractNodeHelper(node.children[0])
-            return createUnaryOpNode(node.op, child)
+            return UnaryOpNode(node.op, child)
         if isinstance(node.op, SOPType):
             if node.op == SOPType.WIRE:
                 # we don't need to do anything
                 assert len(node.children) == 1
                 return self.extractNodeHelper(node.children[0])
             if node.op == SOPType.CONDITIONAL_ASSIGN:
-                cond = self.extractNodeHelper(node.children[0])
-                branches = [
-                    self.extractNodeHelper(child) for child in node.children[1:]
-                ]
-                return createMuxNode(node.label, cond, branches)
+                raise NotImplementedError
             if node.op == SOPType.CONCAT:
                 children = [self.extractNodeHelper(child) for child in node.children]
-                return createConcatOpNode(children)
+                return ConcatOpNode(children)
             if node.op == SOPType.FUNCTION:
                 children = [self.extractNodeHelper(child) for child in node.children]
-                return createFuncCallNode(node.label, children)
-        if isinstance(node.op, AOPType):
-            # this should not happen in the new definition
-            # TODO: remove this
-            raise NotImplementedError
-            if node.op == AOPType.INDEX:
-                assert len(node.children) == 2
-                array = self.extractNodeHelper(node.children[0])
-                index = self.extractNodeHelper(node.children[1])
-                return createArrayIndexingNode(array, index)
-            if node.op == AOPType.SLICE:
-                assert len(node.children) == 3
-                array = self.extractNodeHelper(node.children[0])
-                start = self.extractNodeHelper(node.children[1])
-                end = self.extractNodeHelper(node.children[2])
-                return createArraySlicingNode(array, start, end)
+                return FuncNode(node.label, children)
         print(f"node = {node}, node.op = {node.op}")
         raise NotImplementedError
 

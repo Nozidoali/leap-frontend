@@ -12,7 +12,7 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-from .expression import *
+from .dfg import *
 
 
 class Parameter:
