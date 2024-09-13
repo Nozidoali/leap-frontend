@@ -17,7 +17,7 @@ def writeModuleHeader(f, module: Module):
     name = module.getName()
     f.write(f"module {name}\n")
     f.write("(\n")
-    portString = [f"\t{port}" for port in module.getPortList()]
+    portString = [f"\t{port}" for port in module.getIOs()]
     f.write(",\n".join(portString))
     f.write("\n);\n\n")
 
@@ -32,20 +32,12 @@ def writeParameters(f, module: Module):
     f.write("\n")
 
 
-def writeInternalSignals(f, module: Module):
-    for signalName in module.getInternalSignalList():
-        port = module.internal_signals[signalName]
-        portString = portToString(port)
-        f.write(f"{portString};\n")
-
-
-def writeIODefinitions(f, module: Module):
-    ports = module.getPortList()
+def writePortDefinitions(f, module: Module):
+    ports = module.getPorts()
     for portName in ports:
         port = module.getPort(portName)
         portString = portToString(port)
         f.write(f"{portString};\n")
-
     f.write("\n")
 
 

@@ -12,9 +12,8 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-from lark import Transformer, v_args, Tree
+from lark import Transformer, v_args
 from ...modules import *
-
 
 class ModuleTransformer(Transformer):
     # this is a list of lots of items, so we set inline=False
@@ -25,13 +24,12 @@ class ModuleTransformer(Transformer):
         module_name, param_list, port_list = module_definition
 
         module_items = items[1:]
-        return Module(
-            attribute_instances=[],
-            module_name=module_name,
-            param_list=param_list,
-            port_list=port_list,
-            module_items=module_items,
-        )
+        module = Module(module_name)
+        module.addPorts(port_list)
+        module.addParameters(param_list)
+        module.load(module_items)
+        
+        return module
 
     @v_args(inline=False)
     def module_definition(self, args):
@@ -40,7 +38,6 @@ class ModuleTransformer(Transformer):
         port_list = []
         for item in args[1:]:
             if not isinstance(item, list):
-                logger.info(f"item = {item} is not a list, skiping...")
                 continue
 
             if len(item) > 0 and isinstance(item[0], Port):

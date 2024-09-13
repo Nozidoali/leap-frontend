@@ -41,8 +41,7 @@ def writeVerilog(netlist: Netlist, filename: str):
             module = netlist.getModule(moduleName)
             writeModuleHeader(f, module)
             writeParameters(f, module)
-            writeIODefinitions(f, module)
-            writeInternalSignals(f, module)
+            writePortDefinitions(f, module)
             f.write("\n")
 
             for _, moduleInst in module.submodules.items():

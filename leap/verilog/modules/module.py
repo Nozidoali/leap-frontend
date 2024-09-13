@@ -12,6 +12,8 @@ from .dfg import *
 from .assignment import *
 from .moduleInst import *
 from .moduleParameters import *
+from .ports import *
+from .parameters import *
 
 from enum import Enum
 
@@ -55,48 +57,26 @@ class ModuleBodyType(Enum):
         else:
             assert False, f"Unsupported module body type: {label}"
 
-class Module:
+class Module(PortHandler, ParameterHandler):
     def __init__(
         self,
-        attribute_instances: list,
         module_name: str,
-        param_list: list,
-        port_list: list,
-        module_items: list,
     ):
+        PortHandler.__init__(self)
+        ParameterHandler.__init__(self)
         self.module_name = module_name
-
-        # TODO: support parameter list
-        self.param_list = {}
-        self.port_list = {}
-        for port in port_list:
-            self.port_list[port.getPortName()] = port
-        self.attribute_instances = attribute_instances
-
-        self.dfg = None
-        self.internal_signals = {}
-        self.node_is_blocking = {}
-
-        self.submodules = {}
-        self.loadDFG(module_items)
 
     def __repr__(self):
         return f"Module({self.module_name})"
 
-    def getVariableType(self, variableName: str):
-        if variableName in self.internal_signals:
-            return self.internal_signals[variableName].getType()
-        if variableName in self.port_list:
-            return self.port_list[variableName].getType()
-
     def getDFG(self):
         return self.dfg
 
-    def loadDFG(self, module_items: list):
+    def load(self, module_items: list):
         # load the DFG
         self.dfg = DFGraph()
-
-        self.internal_signals = {}
+        self.node_is_blocking = {}
+        self.submodules = {}
         for item in module_items:
             statements = []
             if isinstance(item, tuple):
@@ -114,14 +94,7 @@ class Module:
                 match bodyType:
                     case ModuleBodyType.PORT_DECLARATION:
                         ports = statement[1]
-                        for port in ports:
-                            if port.getPortName() in self.port_list:
-                                old_port = self.port_list[port.getPortName()]
-                                old_port.setRange(port.getRange())
-                                old_port.setHeader(port.getHeader())
-                                self.port_list[port.getPortName()] = old_port
-                            else:
-                                self.internal_signals[port.getPortName()] = port
+                        self.addPorts(ports)
                     case ModuleBodyType.VARIABLE_ASSIGNMENT:
                         assignment = statement[1]
                         # print(assignment)
@@ -180,25 +153,11 @@ class Module:
                         assert False, f"Unsupported module body type: {bodyType}"
                         raise NotImplementedError
 
-    def getPort(self, portName: str):
-        if portName in self.port_list:
-            return self.port_list[portName]
-        return None
-
-    def getPortList(self):
-        return list(self.port_list.keys())
+    def getNodeAtIndex(self, index: int) -> DFGNode:
+        return self.dfg.getNode(index)
 
     def getName(self):
         return self.module_name
 
-    def getParameters(self):
-        return self.param_list
-
     def getInternalSignalList(self):
         return list(self.internal_signals.keys())
-
-    def getNodeAtIndex(self, index: int):
-        return self.dfg.getNode(index)
-
-    def getSignals(self):
-        return list(self.internal_signals.keys()) + list(self.port_list.keys())
