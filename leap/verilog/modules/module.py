@@ -14,6 +14,7 @@ from .moduleInst import *
 from .moduleParameters import *
 from .ports import *
 from .parameters import *
+from .bng import *
 
 from enum import Enum
 
@@ -27,7 +28,6 @@ from enum import Enum
             | module_instantiation // This includes module instantiation
             | define_parameter // This includes defparam
 """
-
 
 class ModuleBodyType(Enum):
     ALWAYS_BLOCK = ("always_block",)
@@ -57,13 +57,30 @@ class ModuleBodyType(Enum):
         else:
             assert False, f"Unsupported module body type: {label}"
 
-class Module(PortHandler, ParameterHandler):
+def unzipItems(items: list):
+    allItems = []
+    for item in items:
+        statements = []
+        if isinstance(item, tuple):
+            statements = [item]
+        if isinstance(item, list):
+            statements = []
+            for subItem in item:
+                if isinstance(subItem, tuple):
+                    statements.append(subItem)
+                else:
+                    statements.extend(subItem)
+        allItems.extend(statements)
+    return allItems
+
+class Module(PortHandler, ParameterHandler, BNGraph):
     def __init__(
         self,
         module_name: str,
     ):
         PortHandler.__init__(self)
         ParameterHandler.__init__(self)
+        BNGraph.__init__(self)
         self.module_name = module_name
 
     def __repr__(self):
@@ -77,87 +94,50 @@ class Module(PortHandler, ParameterHandler):
         self.dfg = DFGraph()
         self.node_is_blocking = {}
         self.submodules = {}
-        for item in module_items:
-            statements = []
-            if isinstance(item, tuple):
-                statements = [item]
-            if isinstance(item, list):
-                statements = []
-                for subItem in item:
-                    if isinstance(subItem, tuple):
-                        statements.append(subItem)
-                    else:
-                        statements.extend(subItem)
-            for statement in statements:
-                assert isinstance(statement, tuple), f"statement = {statement}"
-                bodyType = ModuleBodyType.fromString(statement[0])
-                match bodyType:
-                    case ModuleBodyType.PORT_DECLARATION:
-                        ports = statement[1]
-                        self.addPorts(ports)
-                    case ModuleBodyType.VARIABLE_ASSIGNMENT:
-                        assignment = statement[1]
-                        # print(assignment)
+        
+        for statement in unzipItems(module_items):
+            bodyType = ModuleBodyType.fromString(statement[0])
+            match bodyType:
+                case ModuleBodyType.PORT_DECLARATION:
+                    self.addPorts(statement[1])
+                case ModuleBodyType.VARIABLE_ASSIGNMENT:
+                    self.addAssignment(statement[1])
+                    # assignment = statement[1]
 
-                        lhs: DFGNode = assignment.target
-                        rhs: DFGNode = assignment.expression
-                        # assert rhs.isVariable(), f"rhs = {rhs}"
-                        # assert lhs.isVariable(), f"lhs = {lhs}"
+                    # newNodes = createAssignNodes(
+                    #     assignment.expression,
+                    #     assignment.target,
+                    #     assignment.condition,
+                    # )
+                    # for node in newNodes:
+                    #     nodeIndex = self.dfg.insertNode(node)
+                    #     dfgNode = self.getNodeAtIndex(nodeIndex)
+                    #     if dfgNode.isVariable:
+                    #         self.node_is_blocking[dfgNode.label] = (
+                    #             assignment.isBlocking
+                    #         )
 
-                        newNodes = createAssignNodes(
-                            assignment.expression,
-                            assignment.target,
-                            assignment.condition,
-                        )
-                        for node in newNodes:
-                            nodeIndex = self.dfg.insertNode(node)
-                            dfgNode = self.getNodeAtIndex(nodeIndex)
-                            if dfgNode.isVariable:
-                                # print(
-                                #     f"Node: {nodeIndex}, label: {dfgNode.label}, isBlocking: {assignment.isBlocking}"
-                                # )
-                                self.node_is_blocking[dfgNode.label] = (
-                                    assignment.isBlocking
-                                )
+                case ModuleBodyType.PARAMETER_ASSIGNMENT:
+                    self.addParameter(statement[1])
 
-                    case ModuleBodyType.PARAMETER_ASSIGNMENT:
-                        parameter = statement[1]
-                        self.param_list[parameter.getName()] = parameter
+                case ModuleBodyType.MODULE_INSTANTIATION:
+                    self.submodules[statement[1].getInstName()] = statement[1]
 
-                    case ModuleBodyType.MODULE_INSTANTIATION:
-                        moduleInst = statement[1]
-                        assert isinstance(
-                            moduleInst, ModuleInst
-                        ), f"moduleInst = {moduleInst}"
-                        self.submodules[moduleInst.getInstName()] = moduleInst
+                case ModuleBodyType.DEFINE_PARAMETER:
+                    moduleParameter: ModuleParameters = statement[1]
+                    moduleInstName = moduleParameter.getInstName()
+                    moduleInst: Module = self.submodules[moduleInstName]
+                    parameters: dict = moduleParameter.getParameters()
+                    moduleInst.addParameters(parameters)
 
-                    case ModuleBodyType.DEFINE_PARAMETER:
-                        moduleParameter: ModuleParameters = statement[1]
+                case ModuleBodyType.SYSTEM_TASK:
+                    pass
 
-                        moduleInstName = moduleParameter.getInstName()
-                        assert (
-                            moduleInstName in self.submodules
-                        ), f"moduleInstName = {moduleInstName}, available = {self.submodules.keys()}"
-
-                        moduleInst = self.submodules[moduleInstName]
-
-                        parameters: dict = moduleParameter.getParameters()
-
-                        for key, value in parameters.items():
-                            moduleInst.addParameter(key, value)
-
-                    case ModuleBodyType.SYSTEM_TASK:
-                        pass
-
-                    case _:
-                        assert False, f"Unsupported module body type: {bodyType}"
-                        raise NotImplementedError
+                case _:
+                    assert False, f"Unsupported module body type: {bodyType}"
 
     def getNodeAtIndex(self, index: int) -> DFGNode:
         return self.dfg.getNode(index)
 
     def getName(self):
         return self.module_name
-
-    def getInternalSignalList(self):
-        return list(self.internal_signals.keys())

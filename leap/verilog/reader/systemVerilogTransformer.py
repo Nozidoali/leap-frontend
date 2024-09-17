@@ -27,7 +27,6 @@ class SystemVerilogTransformer(
     NetlistTransformer,
 ):
     def start(self, items):
-        print(f"items = {items}")
         assert len(items) == 1
         assert isinstance(items[0], Netlist)
         return items[0]

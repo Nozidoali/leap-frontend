@@ -32,8 +32,8 @@ class ParameterHandler:
     def __init__(self):
         self.param_list = {}
 
-    def addParameter(self, parameter: Parameter):
-        self.param_list[parameter.getName()] = parameter
+    def addParameter(self, param: Parameter):
+        self.param_list[param.getName()] = param
     
     def addParameters(self, parameters: list):
         for parameter in parameters:
