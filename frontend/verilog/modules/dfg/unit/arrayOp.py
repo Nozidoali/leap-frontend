@@ -1,6 +1,7 @@
 from .node import *
 from .variableNode import *
 
+
 class ArrayOpNode(VariableNode):
     def __init__(self, variable_name: str, start: int, end: int = None):
         super().__init__(variable_name)

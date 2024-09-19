@@ -13,6 +13,7 @@ from .headerWriter import *
 from .moduleWriter import *
 from .statementWriter import *
 
+
 def writeDefinitions(f, netlist: Netlist):
     definitions = netlist.getDefinitions()
     for key, value in definitions.items():

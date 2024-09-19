@@ -11,6 +11,7 @@ Last Modified time: 2024-07-24 01:11:59
 from .op import *
 from .range import Range
 
+
 class DFGNode:
     # Expressions are hard to handle because of the recursive nature
 
@@ -31,10 +32,10 @@ class DFGNode:
 
     def setRange(self, range: Range):
         self.range = range
-        
+
     def toString(self) -> str:
         return self.variable_name
-    
+
     @property
     def name(self):
         return self.variable_name
@@ -42,3 +43,10 @@ class DFGNode:
     @property
     def needsParentheses(self):
         return True
+
+    def replaceVariable(self, old: str, new: str):
+        if self.variable_name == old:
+            self.variable_name = new
+        child: DFGNode
+        for child in self.children:
+            child.replaceVariable(old, new)

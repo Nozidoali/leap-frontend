@@ -1,5 +1,6 @@
 from .node import *
 
+
 class MacroNode(DFGNode):
     def __init__(self, child: DFGNode):
         super().__init__("`")

@@ -83,6 +83,7 @@ class Port:
         )
         return f"-{self.name}{direction_str}-"
 
+
 def portToString(port: Port):
     portDirString = ""
     if port.direction is not None:
@@ -92,6 +93,7 @@ def portToString(port: Port):
     # range is optional, the space is to be consistent with the space in the middle
     rangeString = f"{rangeToString(port.range)} " if port.range is not None else " "
     return f"{portDirString}{typeString}{rangeString}{port.name}"
+
 
 class PortHandler:
     def __init__(self) -> None:
@@ -105,25 +107,27 @@ class PortHandler:
             self.portDefs[name].setHeader(port.getHeader())
         else:
             self.portDefs[name] = port
-    
+
         if port.direction is not None:
             self.ioPorts.add(name)
-    
+
     def addPorts(self, ports: list):
         for port in ports:
             self.addPort(port)
-            
+
     def getIOs(self):
         return self.ioPorts
-    
+
     def getPorts(self):
         return self.portDefs.keys()
-    
+
     def getPort(self, portName: str):
         return self.portDefs[portName]
-    
+
     def getVariableType(self, variableName: str):
         return self.portDefs[variableName].getType()
-    
+
     def getPortsByType(self, portType: PortDirection):
-        return [port.name for port in self.portDefs.values() if port.direction == portType]
+        return [
+            port.name for port in self.portDefs.values() if port.direction == portType
+        ]

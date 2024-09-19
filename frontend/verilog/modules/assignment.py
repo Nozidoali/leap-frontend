@@ -64,3 +64,9 @@ class Assignment:
             self.condition = condition
         else:
             self.condition = BinaryOpNode(BOPType.AND, self.condition, condition)
+
+    def replaceVariable(self, old: str, new: str):
+        self.target.replaceVariable(old, new)
+        self.expression.replaceVariable(old, new)
+        if self.condition is not None:
+            self.condition.replaceVariable(old, new)

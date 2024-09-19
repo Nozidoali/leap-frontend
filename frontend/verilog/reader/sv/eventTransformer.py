@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 from lark import Transformer, v_args, Tree
 from ...modules import *
 
+
 class EventTransformer(Transformer):
     def always_block(self, items):
         event_condition: Tree = items[0]
@@ -34,7 +35,7 @@ class EventTransformer(Transformer):
             try:
                 varAssign: Assignment
                 varAssignStr, varAssign = statement
-                
+
                 # TODO: Implement initial block
                 varAssign.addCondition
             except ValueError:

@@ -30,6 +30,7 @@ from enum import Enum
             | define_parameter // This includes defparam
 """
 
+
 class ModuleBodyType(Enum):
     ALWAYS_BLOCK = ("always_block",)
     PORT_DECLARATION = ("port_declaration",)
@@ -58,6 +59,7 @@ class ModuleBodyType(Enum):
         else:
             assert False, f"Unsupported module body type: {label}"
 
+
 def unzipItems(items: list):
     """
     Due to the structure of the AST, the items may not arrive in the same level / depth.
@@ -77,6 +79,7 @@ def unzipItems(items: list):
         allItems.extend(statements)
     return allItems
 
+
 class Module(PortHandler, ParameterHandler, ExtendedGraph):
     def __init__(
         self,
@@ -84,7 +87,7 @@ class Module(PortHandler, ParameterHandler, ExtendedGraph):
         PortHandler.__init__(self)
         ParameterHandler.__init__(self)
         BNGraph.__init__(self)
-    
+
     def setName(self, module_name: str):
         self.module_name = module_name
 
@@ -99,7 +102,7 @@ class Module(PortHandler, ParameterHandler, ExtendedGraph):
         self.dfg = DFGraph()
         self.node_is_blocking = {}
         self.submodules = {}
-        
+
         for statement in unzipItems(module_items):
             bodyType = ModuleBodyType.fromString(statement[0])
             match bodyType:

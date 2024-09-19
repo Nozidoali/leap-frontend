@@ -28,19 +28,20 @@ class Parameter:
     def getName(self):
         return self.name
 
+
 class ParameterHandler:
     def __init__(self):
         self.param_list = {}
 
     def addParameter(self, param: Parameter):
         self.param_list[param.getName()] = param
-    
+
     def addParameters(self, parameters: list):
         for parameter in parameters:
             self.addParameter(parameter)
-    
+
     def getParameter(self, name: str):
         return self.param_list[name]
-    
+
     def getParameters(self):
         return self.param_list

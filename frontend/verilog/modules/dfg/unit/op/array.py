@@ -10,6 +10,7 @@ Last Modified time: 2024-07-01 18:50:17
 
 from enum import Enum, auto
 
+
 class AOPType(Enum):
     SLICE = "[:]"
     INDEX = "[]"

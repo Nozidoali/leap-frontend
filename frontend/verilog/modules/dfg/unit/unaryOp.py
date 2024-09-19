@@ -1,5 +1,6 @@
 from .node import *
 
+
 class UnaryOpNode(DFGNode):
     def __init__(self, op: UOPType, child: DFGNode):
         op = op if isinstance(op, UOPType) else UOPType.fromString(op)
@@ -12,7 +13,7 @@ class UnaryOpNode(DFGNode):
         if self.operation == UOPType.MACRO:
             return False
         return True
-    
+
     def toString(self) -> str:
         childStr = self.children[0].toString()
         if self.children[0].needsParentheses:

@@ -21,12 +21,15 @@ def writeModuleHeader(f, module: Module):
     f.write(",\n".join(portString))
     f.write("\n);\n\n")
 
+
 def writeParameters(f, module: Module):
     parameters: dict = module.getParameters()
 
     for _, value in parameters.items():
         parameter: Parameter = value
-        rangeString = f"{rangeToString(parameter.range)} " if parameter.range is not None else ""
+        rangeString = (
+            f"{rangeToString(parameter.range)} " if parameter.range is not None else ""
+        )
         f.write(f"parameter {rangeString}{parameter.name} = {parameter.value};\n")
 
     f.write("\n")

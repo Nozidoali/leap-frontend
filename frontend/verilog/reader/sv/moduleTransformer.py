@@ -15,6 +15,7 @@ logger = logging.getLogger(__name__)
 from lark import Transformer, v_args
 from ...modules import *
 
+
 class ModuleTransformer(Transformer):
     # this is a list of lots of items, so we set inline=False
     # module: "module" CNAME module_definition ";" declaration* "endmodule"
@@ -29,7 +30,7 @@ class ModuleTransformer(Transformer):
         module.addPorts(port_list)
         module.addParameters(param_list)
         module.load(module_items)
-        
+
         return module
 
     @v_args(inline=False)

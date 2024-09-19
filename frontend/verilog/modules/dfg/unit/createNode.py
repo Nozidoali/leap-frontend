@@ -14,11 +14,13 @@ from .range import *
 from .constantNode import *
 from .variableNode import *
 
+
 def _createInputAssignNode(assignFrom: DFGNode):
     node = DFGNode("=")
     node.operation = SOPType.WIRE
     node.children = [assignFrom]
     return node
+
 
 def _createOutputAssignNode(
     assignFrom: DFGNode, assignTo: DFGNode, condition: DFGNode = None
