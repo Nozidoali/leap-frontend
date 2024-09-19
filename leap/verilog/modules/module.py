@@ -14,7 +14,7 @@ from .moduleInst import *
 from .moduleParameters import *
 from .ports import *
 from .parameters import *
-from .bng import *
+from .bnGraph import *
 
 from enum import Enum
 
