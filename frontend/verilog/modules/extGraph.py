@@ -1,9 +1,10 @@
-from .bnGraph import *
+from .dotGraph import *
+import re
 
-class ExtendedGraph(BNGraph):
+class ExtendedGraph(DotGraph):
     def __init__(self):
         super().__init__()
-        
+
     def exportDOT(self, varName: str = None, params: dict = {}):
         super().exportDOT(varName, params)
 
@@ -49,6 +50,7 @@ class ExtendedGraph(BNGraph):
 
         if extractARG:
             argGraph = self.graph.add_subgraph(name='cluster_arg', label='args', style='dashed', color='purple')
+            node: pgv.Node
             for node in self.graph.nodes():
                 if node.attr['label'].startswith('arg'):
                     argGraph.graph_attr['rankdir'] = 'LR'

@@ -1,38 +1,10 @@
-from .dfg import *
-from .assignment import *
+from .bnGraph import *
 import pygraphviz as pgv
 
-import re
-
-highlightColors_extended = {
-    'CYAN': {"fillcolor": "#B3E5FC", "fontcolor": "#0288D1"},  # Light cyan, Dark cyan
-    'INDIGO': {"fillcolor": "#C5CAE9", "fontcolor": "#303F9F"},  # Light indigo, Dark indigo
-    'VIOLET': {"fillcolor": "#D1C4E9", "fontcolor": "#512DA8"},  # Light violet, Dark violet
-    'TEAL': {"fillcolor": "#B2DFDB", "fontcolor": "#00796B"},  # Light teal, Dark teal
-    'GREY_BLUE': {"fillcolor": "#B0BEC5", "fontcolor": "#37474F"},  # Light grey-blue, Dark grey-blue
-    'GREEN': {"fillcolor": "#C8E6C9", "fontcolor": "#388E3C"},  # Light green, Dark green
-    'PURPLE': {"fillcolor": "#E1BEE7", "fontcolor": "#7B1FA2"},  # Light purple, Dark purple
-    'ORANGE': {"fillcolor": "#FFE0B2", "fontcolor": "#FF6F00"},  # Light orange, Dark orange
-}
-
-class BNGraph:
+class DotGraph(BNGraph):
     def __init__(self):
-        self.assignments = []
-        self.var2assigns = {}
-        self.graph = None
+        super().__init__()
         
-    def addAssignment(self, assignment: Assignment):
-        self.assignments.append(assignment)
-        
-        variableName = assignment.target.name
-        if variableName not in self.var2assigns:
-            self.var2assigns[variableName] = []
-        self.var2assigns[variableName].append(assignment)
-    
-    def traverse(self):
-        # link the assignments by the names
-        pass
-    
     def writeDOT(self, filename: str):
         self.graph.write(filename)
     
@@ -43,11 +15,9 @@ class BNGraph:
 
         # parse the params
         skipConstants = params.get('skipConstants', True)
-
         assignmentsToExport = self.assignments if varName is None else self.var2assigns[varName]
         
         for i, assignment in enumerate(assignmentsToExport):
-            
             if skipConstants and assignment.expression.isConstant():
                 continue
             
@@ -75,8 +45,7 @@ class BNGraph:
     
     @staticmethod
     def _moveToSubgraph(node: pgv.Node, graph: pgv.AGraph, subgraph: pgv.AGraph):
-        # graph.delete_node(node)
-        subgraph.add_node(node, **node.attr)
+        subgraph.add_node(node.name, **node.attr)
     
     @staticmethod
     def _highlightNode(node: pgv.Node, color: str = 'CYAN'):

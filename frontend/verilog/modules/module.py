@@ -80,11 +80,12 @@ def unzipItems(items: list):
 class Module(PortHandler, ParameterHandler, ExtendedGraph):
     def __init__(
         self,
-        module_name: str,
     ):
         PortHandler.__init__(self)
         ParameterHandler.__init__(self)
         BNGraph.__init__(self)
+    
+    def setName(self, module_name: str):
         self.module_name = module_name
 
     def __repr__(self):

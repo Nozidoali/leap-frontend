@@ -24,7 +24,8 @@ class ModuleTransformer(Transformer):
         module_name, param_list, port_list = module_definition
 
         module_items = items[1:]
-        module = Module(module_name)
+        module = Module()
+        module.setName(module_name)
         module.addPorts(port_list)
         module.addParameters(param_list)
         module.load(module_items)

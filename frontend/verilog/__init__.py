@@ -10,7 +10,8 @@ Last Modified time: 2024-05-17 15:08:34
 
 from .modules import *
 from .reader import *
-from .writer.writer import *
+from .writer import *
 from .fixVerilog import *
 from .writer import *
 from .changeName import *
+from .algorithms import *

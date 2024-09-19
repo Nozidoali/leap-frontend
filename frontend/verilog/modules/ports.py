@@ -124,3 +124,6 @@ class PortHandler:
     
     def getVariableType(self, variableName: str):
         return self.portDefs[variableName].getType()
+    
+    def getPortsByType(self, portType: PortDirection):
+        return [port.name for port in self.portDefs.values() if port.direction == portType]
