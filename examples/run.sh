@@ -1,5 +1,5 @@
 
-input_file=toy.v
+input_file=toy.opt.v
 output_file=toy.blif
 top_module=toy
 

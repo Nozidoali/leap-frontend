@@ -34,6 +34,10 @@ class DFGNode:
         
     def toString(self) -> str:
         return self.variable_name
+    
+    @property
+    def name(self):
+        return self.variable_name
 
     @property
     def needsParentheses(self):

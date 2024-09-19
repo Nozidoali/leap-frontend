@@ -58,6 +58,9 @@ class ModuleBodyType(Enum):
             assert False, f"Unsupported module body type: {label}"
 
 def unzipItems(items: list):
+    """
+    Due to the structure of the AST, the items may not arrive in the same level / depth.
+    """
     allItems = []
     for item in items:
         statements = []
