@@ -2,6 +2,19 @@ from .dfg import *
 from .assignment import *
 import pygraphviz as pgv
 
+import re
+
+highlightColors_extended = {
+    'CYAN': {"fillcolor": "#B3E5FC", "fontcolor": "#0288D1"},  # Light cyan, Dark cyan
+    'INDIGO': {"fillcolor": "#C5CAE9", "fontcolor": "#303F9F"},  # Light indigo, Dark indigo
+    'VIOLET': {"fillcolor": "#D1C4E9", "fontcolor": "#512DA8"},  # Light violet, Dark violet
+    'TEAL': {"fillcolor": "#B2DFDB", "fontcolor": "#00796B"},  # Light teal, Dark teal
+    'GREY_BLUE': {"fillcolor": "#B0BEC5", "fontcolor": "#37474F"},  # Light grey-blue, Dark grey-blue
+    'GREEN': {"fillcolor": "#C8E6C9", "fontcolor": "#388E3C"},  # Light green, Dark green
+    'PURPLE': {"fillcolor": "#E1BEE7", "fontcolor": "#7B1FA2"},  # Light purple, Dark purple
+    'ORANGE': {"fillcolor": "#FFE0B2", "fontcolor": "#FF6F00"},  # Light orange, Dark orange
+}
+
 class BNGraph:
     def __init__(self):
         self.assignments = []
@@ -30,7 +43,6 @@ class BNGraph:
 
         # parse the params
         skipConstants = params.get('skipConstants', True)
-        extractFSM = params.get('extractFSM', True)
 
         assignmentsToExport = self.assignments if varName is None else self.var2assigns[varName]
         
@@ -43,23 +55,13 @@ class BNGraph:
             id_rhs = self.exportDOTRec(assignment.expression)
             
             # add the edge from the rhs to the lhs
-            self.graph.add_edge(id_rhs, id_lhs, style='dashed', color='red', xlabel=f'val{i}')
+            self.graph.add_edge(id_rhs, id_lhs, xlabel=f'val{i}')
             
             # add the edge from the condition to the lhs
             if assignment.condition is not None:
                 id_con = self.exportDOTRec(assignment.condition)
-                self.graph.add_edge(id_con, id_lhs, style='dashed', color='blue', xlabel=f'cond{i}')
+                self.graph.add_edge(id_con, id_lhs, style='dashed', color='red', xlabel=f'cond{i}')
         
-        if extractFSM:
-            # extract the FSM into a subgraph
-            fsmGraph = self.graph.add_subgraph(name='cluster_fsm', label='FSM', style='dashed', color='blue')
-            fsmGraph.graph_attr['rankdir'] = 'LR'     # Left-to-right layout
-            
-            # add the nodes
-            fsmPorts = ["next_state", "finish"]
-            self.applyToFrame(fsmPorts, lambda node: self._moveToSubgraph(node, self.graph, fsmGraph))
-            self.applyToFrame(fsmPorts, self._highlightNode)
-
         self.graph.layout(prog='dot')
 
     def exportDOTRec(self, node: DFGNode):
@@ -77,15 +79,15 @@ class BNGraph:
         subgraph.add_node(node, **node.attr)
     
     @staticmethod
-    def _highlightNode(node: pgv.Node):
-        node.attr['color'] = "#0288D1"
+    def _highlightNode(node: pgv.Node, color: str = 'CYAN'):
+        node.attr['color'] = highlightColors_extended[color]['fontcolor']
         node.attr['style'] = "filled"
-        node.attr['fillcolor'] = "#B3E5FC"
+        node.attr['fillcolor'] = highlightColors_extended[color]['fillcolor']
         # text color
-        node.attr['fontcolor'] = "#0288D1"
+        node.attr['fontcolor'] = highlightColors_extended[color]['fontcolor']
     
-    def colorFrame(self, variables: list):
-        self.applyToFrame(variables, self._highlightNode)
+    def colorFrame(self, variables: list, color: str = 'CYAN'):
+        self.applyToFrame(variables, self._highlightNode, color)
     
     def applyToFrame(self, variables: list, func: callable):
         # color the nodes reachable from the current node

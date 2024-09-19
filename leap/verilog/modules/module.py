@@ -15,6 +15,7 @@ from .moduleParameters import *
 from .ports import *
 from .parameters import *
 from .bnGraph import *
+from .extGraph import *
 
 from enum import Enum
 
@@ -76,7 +77,7 @@ def unzipItems(items: list):
         allItems.extend(statements)
     return allItems
 
-class Module(PortHandler, ParameterHandler, BNGraph):
+class Module(PortHandler, ParameterHandler, ExtendedGraph):
     def __init__(
         self,
         module_name: str,
