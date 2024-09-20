@@ -1,7 +1,12 @@
 # .github/workflows/pypi.yml
 name: Deploy
 
-on: [deployment]
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
 
 jobs:
   deploy:
