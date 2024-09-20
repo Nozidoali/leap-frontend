@@ -146,8 +146,8 @@ class Module(PortHandler, ParameterHandler, ExtendedGraph):
     def getName(self):
         return self.module_name
 
-    def getGraph(self) -> pgv.AGraph:
-        DotGraph.exportDOT(self)
+    def getGraph(self, skipConstants=True) -> pgv.AGraph:
+        DotGraph.exportDOT(self, params={"skipConstants": skipConstants})
         return self.graph
     
     def separateCDFG(self, DFG: pgv.AGraph, CFG: pgv.AGraph):
