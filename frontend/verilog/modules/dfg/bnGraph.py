@@ -1,4 +1,3 @@
-from .dfg import *
 from .assignment import *
 
 highlightColors_extended = {
@@ -67,8 +66,17 @@ class BNGraph:
         return variableName in self.var2assigns
 
     def getAssignmentsOf(self, variableName: str):
+        if variableName not in self.var2assigns:
+            return []
         for idx in self.var2assigns[variableName]:
             yield self.assignments[idx]
+
+    def getAssignNode(self, variableName: str):
+        # get the node corresponding to the variable
+        for assignment in self.getAssignmentsOf(variableName):
+            # should be only one
+            return assignment.expression
+        return None
 
     def getDependencies(self, variableName: str, excludeControls=False):
         # get the dependencies of the variable
@@ -89,3 +97,27 @@ class BNGraph:
         for child in node.children:
             dependencies.extend(self.getDependenciesRec(child))
         return dependencies
+
+    def expandAssignment(self):
+        # extract the assignment of the variable, merge the predecessors
+        # until we reach the inputs
+        for assignment in self.assignments:
+            root = assignment.expression
+            newNode = self._expandAssignmentRec(root)
+            assignment.expression = newNode
+
+    def _expandAssignmentRec(self, node: DFGNode) -> DFGNode:
+        # expand the assignment recursively
+        if node.isVariable():
+            depNode = self.getAssignNode(node.name)
+            if depNode is not None:
+                return self._expandAssignmentRec(depNode)
+            return node.copy()
+
+        newNode: DFGNode = node.copy()
+        children = []
+        for child in node.children:
+            childNode = self._expandAssignmentRec(child)
+            children.append(childNode)
+        newNode.children = children
+        return newNode

@@ -8,8 +8,7 @@ Last Modified by: Hanyu Wang
 Last Modified time: 2024-07-01 20:28:12
 """
 
-from .dfg import *
-
+from .unit import *
 from enum import Enum
 
 
@@ -28,9 +27,9 @@ class AssignmentType(Enum):
 
 class Assignment:
     def __init__(self, target, expression, condition=None) -> None:
-        self.target = target
-        self.expression = expression
-        self.condition = condition
+        self.target: DFGNode = target
+        self.expression: DFGNode = expression
+        self.condition: DFGNode = condition
         self.type = None
 
     def setCondition(self, condition):
@@ -59,7 +58,6 @@ class Assignment:
     def addCondition(self, condition: DFGNode):
         if condition is None:
             return
-
         if self.condition is None:
             self.condition = condition
         else:

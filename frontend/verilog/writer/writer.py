@@ -11,7 +11,6 @@ Last Modified time: 2024-07-23 23:20:41
 from ..modules import *
 from .headerWriter import *
 from .moduleWriter import *
-from .statementWriter import *
 
 
 def writeDefinitions(f, netlist: Netlist):
@@ -40,13 +39,4 @@ def writeVerilog(netlist: Netlist, filename: str):
         writeDefinitions(f, netlist)
         for moduleName in netlist.getModules():
             module = netlist.getModule(moduleName)
-            writeModuleHeader(f, module)
-            writeParameters(f, module)
-            writePortDefinitions(f, module)
-            f.write("\n")
-
-            for _, moduleInst in module.submodules.items():
-                writeModuleInst(f, moduleInst)
-
-            writeModuleDFG(f, module)
-            f.write("endmodule\n")
+            writeModule(module)

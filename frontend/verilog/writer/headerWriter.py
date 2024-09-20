@@ -20,5 +20,4 @@ def writeHeader(f):
         "// " + "Date: " + datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S") + "\n"
     )
     headerString += "//" + "-" * 78 + "\n"
-
     f.write(headerString)

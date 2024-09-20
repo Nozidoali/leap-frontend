@@ -40,17 +40,24 @@ class DotGraph(BNGraph):
         self.graph.layout(prog="dot")
 
     def exportDOTRec(self, node: DFGNode):
-        idx = self.graph.number_of_nodes()
-        idx = node.toString() if node.isVariable() else f"node{idx}"
+        if node.isVariable():
+            name = node.toString()
+            label = name
+            shape = "box"
+        else:
+            name = self.graph.number_of_nodes()
+            label = node.name
+            shape = "ellipse"
+
         self.graph.add_node(
-            idx,
-            label=node.name,
-            shape="box" if isinstance(node, VariableNode) else "ellipse",
+            name,
+            label=label,
+            shape=shape,
         )
         for child in node.children:
             child_idx = self.exportDOTRec(child)
-            self.graph.add_edge(child_idx, idx)
-        return idx
+            self.graph.add_edge(child_idx, name)
+        return name
 
     @staticmethod
     def _moveToSubgraph(node: pgv.Node, graph: pgv.AGraph, subgraph: pgv.AGraph):

@@ -9,7 +9,7 @@ Last Modified time: 2024-07-24 01:11:59
 """
 
 from .op import *
-from .range import Range
+from .range import *
 
 
 class DFGNode:
@@ -34,7 +34,11 @@ class DFGNode:
         self.range = range
 
     def toString(self) -> str:
-        return self.variable_name
+        return (
+            self.variable_name
+            if self.range is None
+            else f"{self.variable_name}{rangeToString(self.range)}"
+        )
 
     @property
     def name(self):
@@ -50,3 +54,11 @@ class DFGNode:
         child: DFGNode
         for child in self.children:
             child.replaceVariable(old, new)
+
+    def copy(self):
+        node = DFGNode(self.variable_name)
+        node.operation = self.operation
+        node.range = self.range
+        for child in self.children:
+            node.children.append(child.copy())
+        return node

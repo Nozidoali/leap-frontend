@@ -95,6 +95,40 @@ def portToString(port: Port):
     return f"{portDirString}{typeString}{rangeString}{port.name}"
 
 
+class BasicPort(Port):
+    def __init__(
+        self,
+        name: str,
+        direction: PortDirection,
+        type: str = "wire",
+        range: tuple = None,
+    ):
+        super().__init__(name)
+        self.setDirection(direction)
+        self.setType(type)
+        self.setRange(range)
+
+
+class OutputPort(BasicPort):
+    def __init__(
+        self,
+        name: str,
+        type: str = "wire",
+        range: tuple = None,
+    ):
+        super().__init__(name, PortDirection.OUTPUT, type, range)
+
+
+class InputPort(BasicPort):
+    def __init__(
+        self,
+        name: str,
+        type: str = "wire",
+        range: tuple = None,
+    ):
+        super().__init__(name, PortDirection.INPUT, type, range)
+
+
 class PortHandler:
     def __init__(self) -> None:
         self.portDefs = {}

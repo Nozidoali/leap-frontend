@@ -81,3 +81,16 @@ def writeModuleInst(f, moduleInst: ModuleInst):
         f.write(";\n")
 
         f.write("\n")
+
+
+def writeModule(f, module: Module):
+    writeModuleHeader(f, module)
+    writeParameters(f, module)
+    writePortDefinitions(f, module)
+    f.write("\n")
+
+    for _, moduleInst in module.submodules.items():
+        writeModuleInst(f, moduleInst)
+
+    writeAssignments(f, module)
+    f.write("endmodule\n")

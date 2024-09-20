@@ -1,5 +1,4 @@
 from .node import *
-from .range import *
 
 
 class VariableNode(DFGNode):
@@ -12,10 +11,3 @@ class VariableNode(DFGNode):
     @property
     def needsParentheses(self):
         return False
-
-    def toString(self) -> str:
-        return (
-            self.variable_name
-            if self.range is None
-            else f"{self.variable_name}{rangeToString(self.range)}"
-        )

@@ -11,6 +11,26 @@ Last Modified time: 2024-07-24 02:14:45
 from ..modules import *
 
 
+def writeAssignment(f, assignment: Assignment):
+    target = assignment.target
+    expression = assignment.expression
+    condition = assignment.condition
+
+    f.write("always @(*) begin\n")
+    if condition is not None:
+        f.write(f"if ({condition}) begin\n")
+    f.write(f"\t{target} = {expression};\n")
+    if condition is not None:
+        f.write("end\n")
+    f.write("end\n\n")
+
+
+def writeAssignments(f, module: Module):
+    for var in module.var2assigns:
+        for assign in module.getAssignmentsOf(var):
+            writeAssignment(f, assign)
+
+
 def writeModuleDFG(f, module: Module):
     dfg = module.getDFG()
     for node in dfg.getNodes():

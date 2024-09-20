@@ -9,13 +9,11 @@ Last Modified time: 2024-06-25 23:55:15
 """
 
 from .dfg import *
-from .assignment import *
+from .dfg.assignment import *
 from .moduleInst import *
 from .moduleParameters import *
 from .ports import *
 from .parameters import *
-from .bnGraph import *
-from .extGraph import *
 
 from enum import Enum
 
@@ -87,6 +85,8 @@ class Module(PortHandler, ParameterHandler, ExtendedGraph):
         PortHandler.__init__(self)
         ParameterHandler.__init__(self)
         BNGraph.__init__(self)
+        self.setName("top")
+        self.submodules = {}
 
     def setName(self, module_name: str):
         self.module_name = module_name
@@ -94,12 +94,8 @@ class Module(PortHandler, ParameterHandler, ExtendedGraph):
     def __repr__(self):
         return f"Module({self.module_name})"
 
-    def getDFG(self):
-        return self.dfg
-
     def load(self, module_items: list):
         # load the DFG
-        self.dfg = DFGraph()
         self.node_is_blocking = {}
         self.submodules = {}
 
