@@ -11,7 +11,7 @@ Last Modified time: 2024-06-28 23:19:18
 from setuptools import setup, find_packages
 
 setup(
-    name="leap",
+    name="frontend",
     version="0.1.0",
     author="Hanyu Wang",
     description="Yet another extensible compiler.",
@@ -19,5 +19,5 @@ setup(
         "Programming Language :: Python :: 3",
         "Operating System :: OS Independent",
     ],
-    packages=find_packages(include=["leap", "leap.*"]),
+    packages=find_packages(include=["frontend", "frontend.*"]),
 )
