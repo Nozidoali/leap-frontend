@@ -31,8 +31,32 @@ def writeVerilogAST(module: Module, filename: str):
     module.dfg.toGraph(filename)
 
 
-def writeVerilog(netlist: Netlist, filename: str):
-    assert isinstance(netlist, Netlist), "netlist should be an instance of Netlist"
+def writeVerilog(netlist: Netlist | Module, filename: str):
+    """
+    Write the netlist to a verilog file
+
+    :param netlist: the netlist or module to write
+    :type netlist: Netlist | Module
+    :param filename: the name of the file to write
+    :type filename: str
+    
+    .. note::
+        The input can be either a netlist or a module
+
+    Example usage:
+
+    .. code-block:: python
+
+        netlist = readVerilog("path/to/verilog/file.v")
+        writeVerilog(netlist, "path/to/output/file.v")
+
+    .. seealso::
+
+        Related functions: :func:`readVerilog`
+    """
+    if isinstance(netlist, Module):
+        writeModule(netlist)
+        return
 
     with open(filename, "w") as f:
         writeHeader(f)

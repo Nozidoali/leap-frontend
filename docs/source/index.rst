@@ -3,11 +3,12 @@
    You can adapt this file completely to your liking, but it should at least
    contain the root `toctree` directive.
 
-leap-frontend documentation
-===========================
+Welcome
+=======
 
 .. toctree::
-   :maxdepth: 2
+   :maxdepth: 1
+   :caption: Leap frontend's documentation:
 
    usage/installation
-   usage/quickstart
+   modules/io

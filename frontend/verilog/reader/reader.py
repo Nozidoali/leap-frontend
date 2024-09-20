@@ -181,14 +181,19 @@ def parse_verilog(data: str, systemVerilog: bool = True) -> Netlist:
 
 # reference: https://codeberg.org/tok/py-verilog-parser/src/branch/master/verilog_parser/parser.py
 def readVerilog(filename: str) -> Netlist:
-    import os
+    """Read the verilog from a file and return the netlist.
 
+    :param filename: the name of the file to read
+    :type filename: str
+    :raises FileNotFoundError: if the file does not exist
+    :return: the netlist
+    :rtype: Netlist
+    """
+    import os
     if not os.path.exists(filename):
         raise FileNotFoundError(f"file {filename} not found")
-
     with open(filename, "r") as f:
         data = f.read()
-
     # exit(0)
     return parse_verilog(data)
 
