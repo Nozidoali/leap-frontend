@@ -10,17 +10,9 @@ Last Modified time: 2024-06-28 23:19:18
 
 from setuptools import setup, find_packages
 
-import os
-def get_version():
-    version_file = os.path.join(os.path.dirname(__file__), 'frontend', '__init__.py')
-    with open(version_file, 'r') as f:
-        for line in f:
-            if line.startswith('__version__'):
-                return line.split('=')[1].strip().strip("'\"")
-
 setup(
     name="frontend",
-    version=get_version(),
+    version="0.1.0",
     author="Hanyu Wang",
     description="Yet another extensible compiler.",
     classifiers=[

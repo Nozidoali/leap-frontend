@@ -8,7 +8,4 @@ Last Modified by: Hanyu Wang
 Last Modified time: 2024-06-30 12:44:07
 """
 
-# Define the version of the current package
-__version__ = '0.1.0'  
-
 from .verilog import *
