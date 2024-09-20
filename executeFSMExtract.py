@@ -1,3 +1,7 @@
+## Assumptions:
+# 1. The name of the "end" signal is known (default: "finish")
+# 2. The name of the "reset" signal is known (default: "reset")
+
 if __name__ == '__main__':
     from frontend import *
 
@@ -13,7 +17,8 @@ if __name__ == '__main__':
     module = network.getModule("toy")
     finishPort = "finish"
     outputsNames = [ port for port in  module.getPortsByType(PortDirection.OUTPUT) if port != finishPort]
-    DFG, CFG = extractDataFlowControlFlow( module.getGraph(), outputsNames)
+    CDFG = module.getGraph()
+    DFG, CFG = extractDataFlowControlFlow( CDFG , outputsNames)
     module.separateCDFG(DFG, CFG)
     #module.exportDOT(params=parameters)
     #module.exportDOT()
