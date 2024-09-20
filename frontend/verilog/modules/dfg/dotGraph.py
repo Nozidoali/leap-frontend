@@ -21,14 +21,15 @@ class DotGraph(BNGraph):
         )
 
         for i, assignment in enumerate(assignmentsToExport):
-            if skipConstants and assignment.expression.isConstant():
+            if skipConstants and assignment.expression.isConstant() and assignment.condition is None:
                 continue
 
             id_lhs = self.exportDOTRec(assignment.target)
-            id_rhs = self.exportDOTRec(assignment.expression)
+            if not assignment.expression.isConstant() or not skipConstants:
+                id_rhs = self.exportDOTRec(assignment.expression)
 
-            # add the edge from the rhs to the lhs
-            self.graph.add_edge(id_rhs, id_lhs, xlabel=f"val{i}")
+                # add the edge from the rhs to the lhs
+                self.graph.add_edge(id_rhs, id_lhs, xlabel=f"val{i}")
 
             # add the edge from the condition to the lhs
             if assignment.condition is not None:
@@ -38,6 +39,12 @@ class DotGraph(BNGraph):
                 )
 
         self.graph.layout(prog="dot")
+
+        # Remove reset node
+        nodes_list = list(self.graph.nodes())
+        for node in nodes_list:
+            if node == "reset" or node == "rst":
+                self.graph.remove_node(node)
 
     def exportDOTRec(self, node: DFGNode):
         if node.isVariable():
