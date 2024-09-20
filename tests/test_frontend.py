@@ -26,3 +26,4 @@ def test_01_Parser():
         if file.endswith(".v"):
             netlist: Netlist = readVerilog("examples/verilogs/" + file)
             assert netlist is not None, "Failed to parse " + file
+
