@@ -145,3 +145,16 @@ class Module(PortHandler, ParameterHandler, ExtendedGraph):
 
     def getName(self):
         return self.module_name
+
+    def getGraph(self) -> pgv.AGraph:
+        DotGraph.exportDOT(self)
+        return self.graph
+    
+    def separateCDFG(self, CFG: pgv.AGraph, DFG: pgv.AGraph):
+        fsmGraph = self.graph.add_subgraph(CFG,
+            name="cluster_fsm_new", label="FSM_new", style="dashed", color="blue"
+        )
+        fsmGraph.graph_attr["rankdir"] = "LR"  # Left-to-right layout
+
+        for node in CFG.nodes():
+            self._highlightNode(node, "CYAN")        
