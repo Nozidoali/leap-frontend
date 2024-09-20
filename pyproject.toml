@@ -1,0 +1,32 @@
+[build-system]
+requires = ["setuptools>=61", "wheel", "setuptools_scm", "pytest"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name="leap-fronted"
+
+# read it from the file
+version = "0.1.0"
+dependencies = [
+    "lark>=1.2",
+    "pygraphviz>=1.10"
+]
+requires-python = ">=3.11"
+authors = [
+  {name = "Hanyu Wang"},
+]
+description = "The frontend of the LEAP framework"
+readme = "README.md"
+license = {file = "LICENSE"}
+keywords = ["high-level synthesis", "verilog", "system verilog"]
+classifiers=[
+    "Programming Language :: Python :: 3",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+Documentation = "https://leap-frontend.readthedocs.io/en/latest/"
+Repository = "https://github.com/Nozidoali/leap-frontend"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
