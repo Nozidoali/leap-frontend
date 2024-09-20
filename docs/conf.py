@@ -19,7 +19,7 @@ sys.path.insert(0, os.path.abspath(".."))
 project = "frontend"
 copyright = "2024, Hanyu Wang"
 author = "Hanyu Wang"
-release = "1.0.0"
+release = "0.1.0"
 
 # -- General configuration ---------------------------------------------------
 
