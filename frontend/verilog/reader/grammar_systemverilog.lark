@@ -214,6 +214,12 @@ macro_usage: "`" CNAME
 
 // 8.1 Operators
 // Operators are used to perform operations on variables and values.
+unary_operator: "!"     -> unary_not
+                | "~"   -> unary_inv
+                | "^"   -> unary_xor // TODO: figure out what this is
+                | "+"   -> unary_pos // Unary plus (extend as needed)
+                | "-"   -> unary_neg // Unary minus (extend as needed)
+
 binary_operator: "+"    -> binary_add       // Addition or unary plus
                 | "-"   -> binary_sub       // Subtraction or unary negation
                 | "*"   -> binary_mul       // Multiplication
@@ -240,11 +246,6 @@ binary_operator: "+"    -> binary_add       // Addition or unary plus
                 | "===" -> binary_eq_ext    // Case equality
                 | "!==" -> binary_neq_ext   // Case inequality
 
-unary_operator: "!"     -> unary_not
-                | "~"   -> unary_inv
-                | "^"   -> unary_xor // TODO: figure out what this is
-                | "+"   -> unary_pos // Unary plus (extend as needed)
-                | "-"   -> unary_neg // Unary minus (extend as needed)
 
 // 8.2 Concatenation and Repetition
 concatenation: "{" expression ("," expression)* "}"
