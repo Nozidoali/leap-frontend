@@ -8,9 +8,9 @@ Last Modified by: Hanyu Wang
 Last Modified time: 2024-07-01 18:50:17
 """
 
-from enum import Enum, auto
+from .basicOp import *
 
 
-class AOPType(Enum):
+class AOPType(OPType):
     SLICE = "[:]"
     INDEX = "[]"

@@ -26,7 +26,9 @@ class AssignmentType(Enum):
 
 
 class Assignment:
-    def __init__(self, target, expression, condition=None) -> None:
+    def __init__(
+        self, target: DFGNode, expression: DFGNode, condition: DFGNode = None
+    ) -> None:
         self.target: DFGNode = target
         self.expression: DFGNode = expression
         self.condition: DFGNode = condition

@@ -149,11 +149,14 @@ class PortHandler:
         for port in ports:
             self.addPort(port)
 
-    def getIOs(self):
+    def getIOs(self) -> set:
         return self.ioPorts
 
-    def getPorts(self):
-        return self.portDefs.keys()
+    def getPorts(self) -> dict:
+        return self.portDefs
+
+    def getPortNames(self) -> list:
+        return list(self.portDefs.keys())
 
     def getPort(self, portName: str):
         return self.portDefs[portName]

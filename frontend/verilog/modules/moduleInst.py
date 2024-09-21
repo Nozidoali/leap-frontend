@@ -36,6 +36,9 @@ class ModuleInst:
     def getPorts(self):
         return self.port_list
 
+    def getPortNames(self):
+        return self.port_list
+
     def addParameter(self, name: str, value: str):
         self.parameter_list[name] = value
 

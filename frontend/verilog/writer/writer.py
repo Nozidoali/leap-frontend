@@ -39,7 +39,7 @@ def writeVerilog(netlist: Netlist | Module, filename: str):
     :type netlist: Netlist | Module
     :param filename: the name of the file to write
     :type filename: str
-    
+
     .. note::
         The input can be either a netlist or a module
 

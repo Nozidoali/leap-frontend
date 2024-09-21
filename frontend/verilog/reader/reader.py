@@ -148,8 +148,11 @@ verilog_keywords = {
     "xor",
 }
 
+SV_GRAMMAR_FILE = "grammar_systemverilog.lark"
+VERILOG_GRAMMAR_FILE = "grammar_verilog.lark"
 
-def parse_verilog(data: str, systemVerilog: bool = True) -> Netlist:
+
+def transformVerilogToNetlist(data: str, systemVerilog: bool = True) -> Netlist:
     """
     Parse a string containing data of a verilog file.
     :param data: Raw verilog string.
@@ -159,9 +162,9 @@ def parse_verilog(data: str, systemVerilog: bool = True) -> Netlist:
 
     curr_dir = os.path.dirname(os.path.abspath(__file__))
     grammar_file = (
-        os.path.join(curr_dir, "grammar_systemverilog.lark")
+        os.path.join(curr_dir, SV_GRAMMAR_FILE)
         if systemVerilog
-        else os.path.join(curr_dir, "grammar_verilog.lark")
+        else os.path.join(curr_dir, VERILOG_GRAMMAR_FILE)
     )
     with open(grammar_file, "r") as f:
         verilog_netlist_grammar = f.read()
@@ -190,17 +193,18 @@ def readVerilog(filename: str) -> Netlist:
     :rtype: Netlist
     """
     import os
+
     if not os.path.exists(filename):
         raise FileNotFoundError(f"file {filename} not found")
     with open(filename, "r") as f:
         data = f.read()
     # exit(0)
-    return parse_verilog(data)
+    return transformVerilogToNetlist(data)
 
 
 def parseVerilogFromLines(lines: list[str], systemVerilog: bool = True) -> Netlist:
     data = "\n".join(lines)
-    return parse_verilog(data, systemVerilog)
+    return transformVerilogToNetlist(data, systemVerilog)
 
 
 def parseVerilog(data: str, systemVerilog: bool = True) -> Netlist:
@@ -209,9 +213,9 @@ def parseVerilog(data: str, systemVerilog: bool = True) -> Netlist:
     grammer = None
     curr_dir = os.path.dirname(os.path.abspath(__file__))
     grammar_file = (
-        os.path.join(curr_dir, "systemverilog.lark")
+        os.path.join(curr_dir, SV_GRAMMAR_FILE)
         if systemVerilog
-        else os.path.join(curr_dir, "verilog.lark")
+        else os.path.join(curr_dir, VERILOG_GRAMMAR_FILE)
     )
     with open(grammar_file, "r") as f:
         grammer = f.read()
@@ -229,9 +233,9 @@ def printVerilogAST(filename: str, textFile: str = None, systemVerilog: bool = T
     grammer = None
     curr_dir = os.path.dirname(os.path.abspath(__file__))
     grammar_file = (
-        os.path.join(curr_dir, "systemverilog.lark")
+        os.path.join(curr_dir, SV_GRAMMAR_FILE)
         if systemVerilog
-        else os.path.join(curr_dir, "verilog.lark")
+        else os.path.join(curr_dir, VERILOG_GRAMMAR_FILE)
     )
     with open(grammar_file, "r") as f:
         grammer = f.read()

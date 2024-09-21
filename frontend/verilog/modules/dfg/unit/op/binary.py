@@ -8,7 +8,7 @@ Last Modified by: Hanyu Wang
 Last Modified time: 2024-06-28 12:24:21
 """
 
-from enum import Enum, auto
+from .basicOp import *
 
 
 # binary_operator: "+"    -> binary_add       // Addition or unary plus
@@ -33,7 +33,7 @@ from enum import Enum, auto
 #                 | ">="  -> binary_geq       // Greater than or equal
 #                 | "===" -> binary_eq_ext    // Case equality
 #                 | "!==" -> binary_neq_ext   // Case inequality
-class BOPType(Enum):
+class BOPType(OPType):
     ADD = "+"
     SUB = "-"
     MUL = "*"
@@ -106,3 +106,7 @@ class BOPType(Enum):
             return BOPType.NEQ_EXT
         else:
             raise ValueError(f"Unknown operator {op}")
+
+    @property
+    def numOperands(self):
+        return 2

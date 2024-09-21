@@ -149,12 +149,16 @@ class Module(PortHandler, ParameterHandler, ExtendedGraph):
     def getGraph(self, skipConstants=True) -> pgv.AGraph:
         DotGraph.exportDOT(self, params={"skipConstants": skipConstants})
         return self.graph
-    
+
     def separateCDFG(self, DFG: pgv.AGraph, CFG: pgv.AGraph):
-        fsmGraph = self.graph.add_subgraph(DFG,
-            name="cluster_data_flow", label="DATA_FLOW", style="dashed", color="blue"
+        fsmGraph = self.graph.add_subgraph(
+            DFG,
+            name="cluster_data_flow",
+            label="DATA_FLOW",
+            style="dashed",
+            color="blue",
         )
         fsmGraph.graph_attr["rankdir"] = "LR"  # Left-to-right layout
 
         for node in DFG.nodes():
-            self._highlightNode(node, "CYAN")        
+            self._highlightNode(node, "CYAN")

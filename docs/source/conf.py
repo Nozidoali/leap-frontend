@@ -11,16 +11,16 @@ import sys
 
 sys.path.insert(0, os.path.abspath("../../frontend"))
 
-project = 'leap-frontend'
-copyright = '2024, Hanyu Wang'
-author = 'Hanyu Wang'
+project = "leap-frontend"
+copyright = "2024, Hanyu Wang"
+author = "Hanyu Wang"
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration
 
 extensions = []
 
-templates_path = ['_templates']
+templates_path = ["_templates"]
 exclude_patterns = []
 
 # Add any Sphinx extension module names here, as strings. They can be
@@ -41,6 +41,7 @@ extensions = [
 #
 html_theme = "sphinx_rtd_theme"
 import sphinx_rtd_theme
+
 html_theme_path = [sphinx_rtd_theme.get_html_theme_path()]
 
 # Theme options are theme-specific and customize the look and feel of a theme

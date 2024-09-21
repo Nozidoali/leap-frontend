@@ -13,47 +13,51 @@ from .headerWriter import *
 from .dfgWriter import *
 
 
-def writeModuleHeader(f, module: Module):
+def moduleHeaderToString(module: Module):
     name = module.getName()
-    f.write(f"module {name}\n")
-    f.write("(\n")
-    portString = [f"\t{port}" for port in module.getIOs()]
-    f.write(",\n".join(portString))
-    f.write("\n);\n\n")
+    portString = [f"{port}" for port in module.getIOs()]
+    return f"module {name}(\n" + ",\n".join(portString) + "\n);\n\n"
+
+
+def writeModuleHeader(f, module: Module):
+    headerString = moduleHeaderToString(module)
+    f.write(headerString)
+
+
+def parametersToString(parameters: dict):
+    retString = ""
+    for _, parameter in parameters.items():
+        rangeString = rangeToString(parameter.range)
+        retString += f"parameter {rangeString}{parameter.name} = {parameter.value};\n"
+    return retString + "\n"
 
 
 def writeParameters(f, module: Module):
     parameters: dict = module.getParameters()
+    if len(parameters) > 0:
+        f.write(parametersToString(parameters))
 
-    for _, value in parameters.items():
-        parameter: Parameter = value
-        rangeString = (
-            f"{rangeToString(parameter.range)} " if parameter.range is not None else ""
-        )
-        f.write(f"parameter {rangeString}{parameter.name} = {parameter.value};\n")
 
-    f.write("\n")
+def portDefsToString(portDefs: dict):
+    retString = ""
+    for _, port in portDefs.items():
+        retString += portToString(port) + ";\n"
+    return retString + "\n"
 
 
 def writePortDefinitions(f, module: Module):
-    ports = module.getPorts()
-    for portName in ports:
-        port = module.getPort(portName)
-        portString = portToString(port)
-        f.write(f"{portString};\n")
-    f.write("\n")
+    portDefs: dict = module.getPorts()
+    if len(portDefs) > 0:
+        f.write(portDefsToString(portDefs))
 
 
-def writeModuleInst(f, moduleInst: ModuleInst):
-
+def moduleInstToString(moduleInst: ModuleInst):
     inplaceParameterString = ""
     if moduleInst.hasInplaceParameters():
         inplaceParameterList = [str(x) for x in moduleInst.getInplaceParameters()]
         inplaceParameterString = "#(" + ",".join(inplaceParameterList) + ")"
 
-    f.write(
-        f"{moduleInst.getModuleName()} {inplaceParameterString} {moduleInst.getInstName()} (\n"
-    )
+    retString = f"{moduleInst.getModuleName()} {inplaceParameterString} {moduleInst.getInstName()} (\n"
     portStrings = []
     if moduleInst.is_standard_inst:
         ports = moduleInst.getPortList()
@@ -61,26 +65,48 @@ def writeModuleInst(f, moduleInst: ModuleInst):
             # we skip the comma for the last port
             portStrings.append(f"\t.{port} ({moduleInst.getPort(port)})")
     else:
-        ports = moduleInst.getPorts()
+        ports = moduleInst.getPortNames()
         for port in ports:
             portStrings.append(f"\t{port}")
-    f.write(",\n".join(portStrings))
-    f.write("\n")
-    f.write(");\n")
+    retString += ",\n".join(portStrings) + "\n"
+    retString += ");\n"
 
     parameters = moduleInst.getParameters()
     parameterStrings = []
     if moduleInst.hasParameters():
-        f.write("\n")
-        f.write("defparam\n")
+        retString += "\n"
+        retString += "defparam\n"
 
         for key, value in parameters.items():
             parameterStrings.append(f"\t{moduleInst.getInstName()}.{key} = {value}")
 
-        f.write(",\n".join(parameterStrings))
-        f.write(";\n")
+        retString += ",\n".join(parameterStrings) + ";\n"
 
-        f.write("\n")
+        retString += "\n"
+    return retString
+
+
+def writeModuleInst(f, moduleInst: ModuleInst):
+    moduleInstString = moduleInstToString(moduleInst)
+    f.write(moduleInstString)
+
+
+def moduleToString(module: Module):
+    moduleString = ""
+    moduleString += moduleHeaderToString(module)
+    moduleString += parametersToString(module.getParameters())
+    moduleString += portDefsToString(module.getPorts())
+    moduleString += "\n"
+
+    for _, moduleInst in module.submodules.items():
+        moduleString += moduleInstToString(moduleInst)
+
+    for var in module.var2assigns:
+        for assign in module.getAssignmentsOf(var):
+            # TODO: consider the wire/latch/reg
+            moduleString += "assign " + assignmentToString(assign) + ";\n"
+    moduleString += "endmodule\n"
+    return moduleString
 
 
 def writeModule(f, module: Module):

@@ -11,11 +11,23 @@ Last Modified time: 2024-07-24 02:14:45
 from ..modules import *
 
 
+def assignmentToString(assignment: Assignment):
+    target = assignment.target
+    expression = assignment.expression
+    condition = assignment.condition
+
+    # TODO: consider wire/latch/reg
+    if condition is not None:
+        return f"{target} = {expression} ({condition})"
+    return f"{target} = {expression}"
+
+
 def writeAssignment(f, assignment: Assignment):
     target = assignment.target
     expression = assignment.expression
     condition = assignment.condition
 
+    # TODO: consider wire/latch/reg
     f.write("always @(*) begin\n")
     if condition is not None:
         f.write(f"if ({condition}) begin\n")

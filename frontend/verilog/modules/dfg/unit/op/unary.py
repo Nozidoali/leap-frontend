@@ -8,7 +8,7 @@ Last Modified by: Hanyu Wang
 Last Modified time: 2024-06-28 12:27:56
 """
 
-from enum import Enum, auto
+from .basicOp import *
 
 
 # unary_operator: "!"     -> unary_not
@@ -16,7 +16,7 @@ from enum import Enum, auto
 #                 | "^"   -> unary_xor // TODO: figure out what this is
 #                 | "+"   -> unary_pos // Unary plus (extend as needed)
 #                 | "-"   -> unary_neg // Unary minus (extend as needed)
-class UOPType(Enum):
+class UOPType(OPType):
     NOT = "!"
     NEG = "-"
     POS = "+"
@@ -40,3 +40,7 @@ class UOPType(Enum):
             return UOPType.MACRO
         else:
             raise ValueError(f"Unknown unary operator {op}")
+
+    @property
+    def numOperands(self):
+        return 1

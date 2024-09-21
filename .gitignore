@@ -161,3 +161,6 @@ tests/*.csv
 *.pkl
 *.txt
 !requirements.txt
+!requirements-dev.txt
+
+.DS_Store

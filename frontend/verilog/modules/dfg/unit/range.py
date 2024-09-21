@@ -5,6 +5,8 @@ class Range:
 
 
 def rangeToString(range: Range) -> str:
+    if range is None:
+        return ""
     assert isinstance(range, Range), f"Expected Range, got {type(range)}"
     return (
         f"[{range.start}:{range.end}]" if range.end is not None else f"[{range.start}]"

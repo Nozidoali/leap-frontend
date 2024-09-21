@@ -21,7 +21,11 @@ class DotGraph(BNGraph):
         )
 
         for i, assignment in enumerate(assignmentsToExport):
-            if skipConstants and assignment.expression.isConstant() and assignment.condition is None:
+            if (
+                skipConstants
+                and assignment.expression.isConstant()
+                and assignment.condition is None
+            ):
                 continue
 
             id_lhs = self.exportDOTRec(assignment.target)

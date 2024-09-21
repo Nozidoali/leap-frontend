@@ -8,10 +8,10 @@ Last Modified by: Hanyu Wang
 Last Modified time: 2024-06-28 12:40:32
 """
 
-from enum import Enum, auto
+from .basicOp import *
 
 
-class SOPType(Enum):
+class SOPType(OPType):
     VARIABLE = "#"
     CONCAT = "\{\}"
     FUNCTION = "$"
