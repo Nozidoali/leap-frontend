@@ -73,15 +73,15 @@ It is recommended to use a virtual environment to manage dependencies and isolat
 
    - On macOS/Linux:
 
-     .. code-block:: bash
+      .. code-block:: bash
 
-        source venv/bin/activate
+         source venv/bin/activate
 
    - On Windows:
 
-     .. code-block:: bash
+      .. code-block:: bash
 
-        venv\Scripts\activate
+         venv\Scripts\activate
 
 3. Install the package and dependencies:
 
