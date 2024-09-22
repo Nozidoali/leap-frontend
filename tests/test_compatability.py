@@ -18,5 +18,18 @@ def test_00_legup():
     module.writeDOT("tmp.dot")
 
 
+# test 01
+# compatibility with Google XLS
+def test_01_xls():
+    verilogDir = "examples/verilogs/external/"
+    verilogFile = os.path.join(verilogDir, "xls.v")
+    netlist: Netlist = readVerilog(verilogFile)
+    module: Module = netlist.getModuleAt(0)
+
+    assert module is not None
+    module.exportDOT()
+    module.writeDOT("tmp.dot")
+
 if __name__ == "__main__":
     test_00_legup()
+    test_01_xls()

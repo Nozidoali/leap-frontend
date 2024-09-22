@@ -141,10 +141,13 @@ tmp.*
 # Visualizations
 *.dot
 *.png
-*.pdf
 *.svg
+!static/*.svg
 *.log
 !static/*.png
+*.pdf
+!static/*.pdf
+
 
 .vscode
 
