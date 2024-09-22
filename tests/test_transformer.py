@@ -4,6 +4,7 @@ import os
 # change the working directory to the root directory of the project
 os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+
 def test_00_transformer():
     verilogDir = "examples/verilogs/grammars/"
     for file in os.listdir(verilogDir):
@@ -14,6 +15,7 @@ def test_00_transformer():
             module.exportDOT()
             module.writeDOT("tmp.dot")
     assert True
-    
+
+
 if __name__ == "__main__":
     test_00_transformer()

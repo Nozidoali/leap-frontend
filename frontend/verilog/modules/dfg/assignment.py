@@ -63,7 +63,9 @@ class Assignment:
         if self.condition is None:
             self.condition = condition
         else:
-            self.condition = OPNode("&&", NodeType.BINARY_AND, self.condition, condition)
+            self.condition = OPNode(
+                "&&", NodeType.BINARY_AND, self.condition, condition
+            )
 
     def replaceVariable(self, old: str, new: str):
         self.target.replaceVariable(old, new)

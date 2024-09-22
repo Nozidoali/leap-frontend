@@ -1,5 +1,6 @@
 import lark
 
+
 def test_00_lark():
     grammar = """
     start: expression

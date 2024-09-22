@@ -11,46 +11,56 @@ Last Modified time: 2024-06-28 12:45:25
 from lark import Transformer, v_args
 from ...modules import *
 
+
 class ExpressionTransformer(Transformer):
-    
+
     # constant nodes
     def extended_based_number(self, items):
         return ConstantNode(items[0])
+
     def regular_number(self, items):
         return ConstantNode(items[0])
+
     def string(self, items):
         return ConstantNode(items[0])
+
     def based_number(self, items):
         return ConstantNode(items[0])
-    
+
     def macro_usage(self, items):
-        return OPNode('`', NodeType.MACRO, ConstantNode(items[0]))
+        return OPNode("`", NodeType.MACRO, ConstantNode(items[0]))
+
     def variable_expression(self, items):
         return VarNode(items[0])
 
     # array nodes
     def concatenation(self, items):
-        return OPNode('{{{}}}', NodeType.ARRAY_CONCAT, items)
+        return OPNode("{{{}}}", NodeType.ARRAY_CONCAT, items)
+
     def repeated_concatenation(self, items):
         # TODO: i think this is wrong
-        return OPNode('{n{}}', NodeType.ARRAY_REPLICATE, items[0], items[1])
-    
+        return OPNode("{n{}}", NodeType.ARRAY_REPLICATE, items[0], items[1])
+
     def array_slicing(self, items):
-        return OPNode('[]', NodeType.ARRAY_SLICE, items[0], items[1])
+        return OPNode("[]", NodeType.ARRAY_SLICE, items[0], items[1])
+
     def array_indexing(self, items):
-        return OPNode('[]', NodeType.ARRAY_INDEX, items[0], items[1])
+        return OPNode("[]", NodeType.ARRAY_INDEX, items[0], items[1])
 
     def array_concat(self, items):
-        return OPNode('{,}', NodeType.ARRAY_CONCAT, *items)
+        return OPNode("{,}", NodeType.ARRAY_CONCAT, *items)
+
     def array_replicate(self, items):
-        return OPNode('{n{}}', NodeType.ARRAY_REPLICATE, items[0], items[1])
+        return OPNode("{n{}}", NodeType.ARRAY_REPLICATE, items[0], items[1])
+
     def array_slice(self, items):
-        return OPNode('[]', NodeType.ARRAY_SLICE, items[0], items[1])
+        return OPNode("[]", NodeType.ARRAY_SLICE, items[0], items[1])
+
     def array_index(self, items):
-        return OPNode('[]', NodeType.ARRAY_INDEX, items[0], items[1])
+        return OPNode("[]", NodeType.ARRAY_INDEX, items[0], items[1])
 
     def function_call(self, items):
-        return OPNode('()', NodeType.FUNCTION_CALL, VarNode(items[0]), *items[1])
+        return OPNode("()", NodeType.FUNCTION_CALL, VarNode(items[0]), *items[1])
 
     def function_parameters(self, items):
         return items

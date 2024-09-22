@@ -10,6 +10,7 @@ Last Modified time: 2024-07-24 01:11:59
 
 from typing import Any
 
+
 class Range:
     def __init__(self, start: int, end: int = None):
         self.start = start
@@ -23,6 +24,7 @@ def rangeToString(range: Range) -> str:
     return (
         f"[{range.start}:{range.end}]" if range.end is not None else f"[{range.start}]"
     )
+
 
 class DFGNode:
     # Expressions are hard to handle because of the recursive nature
@@ -75,7 +77,9 @@ class DFGNode:
             node.children.append(child.copy())
         return node
 
+
 from enum import Enum
+
 
 class NodeType(Enum):
     BINARY_AND = "binary_and"
@@ -109,7 +113,7 @@ class NodeType(Enum):
     UNARY_NOR = "unary_nor"
     UNARY_XNOR = "unary_xnor"
     CONDITIONAL_EXPRESSION = "conditional_expression"
-    
+
     VARIABLE = "variable"
     CONSTANT = "constant"
     MACRO = "macro"
@@ -118,21 +122,23 @@ class NodeType(Enum):
     ARRAY_REPLICATE = "array_replicate"
     ARRAY_SLICE = "array_slice"
     ARRAY_INDEX = "array_index"
-    
+
     FUNCTION_CALL = "function_call"
-    
+
 
 class OPNode(DFGNode):
     def __init__(self, op: str, operation: NodeType, *children) -> None:
         super().__init__(op)
         self.operation = operation
         self.children = children
-        
+
+
 class VarNode(DFGNode):
     def __init__(self, name: str) -> None:
         super().__init__(name)
         self.operation = NodeType.VARIABLE
-        
+
+
 class ConstantNode(DFGNode):
     def __init__(self, value: Any) -> None:
         super().__init__(str(value))

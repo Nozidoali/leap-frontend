@@ -69,6 +69,7 @@ def test_00_precedence():
             higherOp: OPType = getPrioritized(op1, op2)
             print(f"{op1} {op2} -> {higherOp}")
 
+
 # test 01
 # corner cases are stored in the examples/verilogs/operators_precedence.v file
 def test_01_cornercases():
@@ -78,7 +79,7 @@ def test_01_cornercases():
     # mut1.writeDOT("test1.dot")
     tree = parseVerilog(open("examples/verilogs/operators_precedence.v").read())
     from lark.visitors import CollapseAmbiguities
-    
+
     for tree in CollapseAmbiguities().transform(tree):
         # check the inv is operated first
         print(tree.pretty())
