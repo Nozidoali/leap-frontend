@@ -13,7 +13,6 @@ from .ports import *
 from .module import *
 from .netlist import *
 from .dfg import *
-from .dfg.assignment import *
 from .timeUnit import *
-from .moduleParameters import *
 from .moduleInst import *
+from .statement import *

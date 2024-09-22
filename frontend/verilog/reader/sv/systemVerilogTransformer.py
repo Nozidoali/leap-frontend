@@ -12,27 +12,23 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-from lark import Transformer, v_args, Tree
-from ..modules import *
-from .sv import *
+from ...modules import *
+from .expressionTransformer import *
+from .conditionTransformer import *
+from .portTransformer import *
+from .eventTransformer import *
+from .moduleTransformer import *
 
 
 class SystemVerilogTransformer(
     ModuleTransformer,
-    StatementTransformer,
+    ConditionTransformer,
     PortTransformer,
     ExpressionTransformer,
-    FSMTransformer,
     EventTransformer,
-    NetlistTransformer,
 ):
-    def start(self, items):
-        assert len(items) == 1
-        assert isinstance(items[0], Netlist)
-        return items[0]
-
     # description: (macro_definition | timescale_directive | module)+
-    def description(self, items):
+    def start(self, items):
         modules = []
         definitions = {}
         for item in items:
@@ -65,31 +61,10 @@ class SystemVerilogTransformer(
     def macro_definition(self, items):
         identifier = str(items[0])
         macro_body = str(items[1])
-        return {identifier: macro_body}
+        return MacroDefinition(identifier, macro_body)
 
     def identifier(self, items):
         return items[0]
 
     def macro_body(self, items):
         return items[0]
-
-    # we override the default method to return the data directly
-    # this requires us to override all the methods without children
-    def __default__(self, data, children, meta):
-        assert isinstance(data, str)
-        # use switch case to handle the data
-        match data:
-            # These are the AST nodes partially handled
-            case "params":
-                logger.info(
-                    f"children[1:]: \n data = {data}, children = {children}, meta = {meta}"
-                )
-                return children[:]
-            # These are the transparent AST nodes
-            case "param_list" | "param_declaration" | "attribute_instances":
-                logger.info(
-                    f"children[0]: \n data = {data}, children = {children}, meta = {meta}"
-                )
-                return children[0]
-            case _:
-                return Tree(data, children, meta)

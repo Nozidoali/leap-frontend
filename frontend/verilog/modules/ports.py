@@ -13,9 +13,9 @@ from .dfg import *
 
 
 class PortDirection(Enum):
-    INPUT = "INPUT"
-    OUTPUT = "OUTPUT"
-    INOUT = "INOUT"
+    INPUT = "input"
+    OUTPUT = "output"
+    INOUT = "inout"
 
     @staticmethod
     def fromString(direction: str):
@@ -31,6 +31,39 @@ class PortDirection(Enum):
     @staticmethod
     def toString(direction: "PortDirection"):
         return direction.value.lower() if direction is not None else None
+
+
+class PortType(Enum):
+    WIRE = "wire"
+    REG = "reg"
+    INTEGER = "integer"
+    REAL = "real"
+    TIME = "time"
+    PARAMETER = "parameter"
+    LOCALPARAM = "localparam"
+
+    @staticmethod
+    def fromString(type: str):
+        if type == "wire":
+            return PortType.WIRE
+        elif type == "reg":
+            return PortType.REG
+        elif type == "integer":
+            return PortType.INTEGER
+        elif type == "real":
+            return PortType.REAL
+        elif type == "time":
+            return PortType.TIME
+        elif type == "parameter":
+            return PortType.PARAMETER
+        elif type == "localparam":
+            return PortType.LOCALPARAM
+        else:
+            return None
+
+    @staticmethod
+    def toString(type: "PortType"):
+        return type.value if type is not None else None
 
 
 class Port:
@@ -55,15 +88,22 @@ class Port:
 
     def setDirection(self, direction: PortDirection):
         if self.direction is None and direction is not None:
+            assert isinstance(direction, PortDirection)
             self.direction = direction
             return True
         return False
 
     def setType(self, type: str):
         if self.type is None and type is not None:
+            assert isinstance(type, PortType)
             self.type = type
             return True
         return False
+
+    def setAll(self, direction: PortDirection, type: str, range: tuple):
+        return (
+            self.setDirection(direction) and self.setType(type) and self.setRange(range)
+        )
 
     def getType(self):
         return self.type
@@ -81,7 +121,7 @@ class Port:
         direction_str = (
             "(" + self.direction.value + ")" if self.direction is not None else ""
         )
-        return f"-{self.name}{direction_str}-"
+        return f"Port({self.name} {direction_str})"
 
 
 def portToString(port: Port):
@@ -129,7 +169,7 @@ class InputPort(BasicPort):
         super().__init__(name, PortDirection.INPUT, type, range)
 
 
-class PortHandler:
+class Frame:
     def __init__(self) -> None:
         self.portDefs = {}
         self.ioPorts = set()
@@ -168,3 +208,15 @@ class PortHandler:
         return [
             port.name for port in self.portDefs.values() if port.direction == portType
         ]
+
+    @property
+    def numInputs(self) -> int:
+        return len(self.getPortsByType(PortDirection.INPUT))
+
+    @property
+    def numOutputs(self) -> int:
+        return len(self.getPortsByType(PortDirection.OUTPUT))
+
+    @property
+    def numInouts(self) -> int:
+        return len(self.getPortsByType(PortDirection.INOUT))

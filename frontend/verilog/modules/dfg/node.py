@@ -39,10 +39,10 @@ class DFGNode:
         return f"Node({self.variable_name})"
 
     def isVariable(self):
-        return self.operation == NodeType.VARIABLE
+        return self.operation == OPType.VARIABLE
 
     def isConstant(self):
-        return self.operation == NodeType.CONSTANT
+        return self.operation == OPType.CONSTANT
 
     def setRange(self, range: Range):
         self.range = range
@@ -81,7 +81,7 @@ class DFGNode:
 from enum import Enum
 
 
-class NodeType(Enum):
+class OPType(Enum):
     BINARY_AND = "binary_and"
     BINARY_OR = "binary_or"
     BINARY_BITAND = "binary_bitand"
@@ -100,7 +100,7 @@ class NodeType(Enum):
     BINARY_RSHIFT_EXT = "binary_rshift_ext"
     BINARY_LSHIFT = "binary_lshift"
     BINARY_LSHIFT_EXT = "binary_lshift_ext"
-    
+
     # Arithmetic operations
     BINARY_ADD = "binary_add"
     BINARY_SUB = "binary_sub"
@@ -108,7 +108,7 @@ class NodeType(Enum):
     BINARY_DIV = "binary_div"
     BINARY_MOD = "binary_mod"
     BINARY_POW = "binary_pow"
-    
+
     # Unary operations
     UNARY_POS = "unary_pos"
     UNARY_NEG = "unary_neg"
@@ -133,9 +133,19 @@ class NodeType(Enum):
 
     FUNCTION_CALL = "function_call"
 
+    EVENT_INIT = "event_init"
+    EVENT_COMB = "event_comb"
+    EVENT_POSEDGE = "event_posedge"
+    EVENT_NEGEDGE = "event_negedge"
+
+    EVENT_AND = "event_and"
+    EVENT_OR = "event_or"
+
+    UNKNOWN = "unknown"
+
 
 class OPNode(DFGNode):
-    def __init__(self, op: str, operation: NodeType, *children) -> None:
+    def __init__(self, op: str, operation: OPType, *children) -> None:
         super().__init__(op)
         self.operation = operation
         self.children = children
@@ -144,10 +154,28 @@ class OPNode(DFGNode):
 class VarNode(DFGNode):
     def __init__(self, name: str) -> None:
         super().__init__(name)
-        self.operation = NodeType.VARIABLE
+        self.operation = OPType.VARIABLE
 
 
 class ConstantNode(DFGNode):
     def __init__(self, value: Any) -> None:
         super().__init__(str(value))
-        self.operation = NodeType.CONSTANT
+        self.operation = OPType.CONSTANT
+
+
+class EmptyEvent(DFGNode):
+    def __init__(self) -> None:
+        super().__init__("*")
+        self.operation = OPType.EVENT_COMB
+
+
+class InitEvent(DFGNode):
+    def __init__(self) -> None:
+        super().__init__("*")
+        self.operation = OPType.EVENT_INIT
+
+
+class UndefinedNode(DFGNode):
+    def __init__(self) -> None:
+        super().__init__("*")
+        self.operation = OPType.UNKNOWN

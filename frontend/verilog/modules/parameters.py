@@ -37,6 +37,8 @@ class ParameterHandler:
         self.param_list[param.getName()] = param
 
     def addParameters(self, parameters: list):
+        if not parameters:
+            return
         for parameter in parameters:
             self.addParameter(parameter)
 

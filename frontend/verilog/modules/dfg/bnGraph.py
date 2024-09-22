@@ -1,4 +1,4 @@
-from .assignment import *
+from .node import *
 
 highlightColors_extended = {
     "CYAN": {"fillcolor": "#B3E5FC", "fontcolor": "#0288D1"},  # Light cyan, Dark cyan
@@ -36,7 +36,7 @@ class BNGraph:
         self.var2assigns = {}
         self.graph = None
 
-    def addAssignment(self, assignment: Assignment):
+    def addAssignment(self, assignment):
         self.assignments.append(assignment)
         variableName = assignment.target.name
         if variableName not in self.var2assigns:

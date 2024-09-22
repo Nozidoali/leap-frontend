@@ -1,44 +1,31 @@
-#!/usr/bin/env python
-# -*- encoding=utf8 -*-
-
-"""
-Author: Hanyu Wang
-Created time: 2024-07-01 13:24:16
-Last Modified by: Hanyu Wang
-Last Modified time: 2024-07-01 18:45:52
-"""
-
-import logging
-
-logger = logging.getLogger(__name__)
-
-from lark import Transformer, v_args, Tree
+from lark import Transformer, v_args
 from ...modules import *
+from .larkUtils import *
 
 
 class EventTransformer(Transformer):
+
     def always_block(self, items):
-        event_condition: Tree = items[0]
-        statements = items[1]
-        if event_condition.data == "combinational_event":
-            logger.debug(f"combinational_event = {statements}")
-            return statements
-        if event_condition.data == "sequential_event":
-            logger.debug(f"sequential_event = {statements}")
-            return statements
-        raise NotImplementedError
+        event_condition: DFGNode = items[0]
+        assert isinstance(event_condition, DFGNode)
+        return [x.setEvent(event_condition) for x in items[1]]
 
     def initial_block(self, items):
-        statements = items[0]
-        newStatements = []
-        for statement in statements:
-            try:
-                varAssign: Assignment
-                varAssignStr, varAssign = statement
+        event_condition: DFGNode = InitEvent()
+        assert isinstance(event_condition, DFGNode)
+        return [x.setEvent(event_condition) for x in items[0]]
 
-                # TODO: Implement initial block
-                varAssign.addCondition
-            except ValueError:
-                logger.debug(f"initial_statement = {statement}")
-                raise NotImplementedError
-        return newStatements
+    def combinational_event_expression(self, _):
+        return EmptyEvent()
+
+    def posedge_event_expression(self, items):
+        return OPNode("posedge", OPType.EVENT_POSEDGE, items[0])
+
+    def negedge_event_expression(self, items):
+        return OPNode("negedge", OPType.EVENT_NEGEDGE, items[0])
+
+    def event_or(self, items):
+        return OPNode("or", OPType.EVENT_OR, items)
+
+    def event_and(self, items):
+        return OPNode("and", OPType.EVENT_AND, items)

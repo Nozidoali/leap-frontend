@@ -22,15 +22,13 @@ from lark import Lark
 # http://www.verilog.com/VerilogBNF.html
 # http://www.externsoft.ch/download/verilog.html
 
-from . import VerilogTransformer, SystemVerilogTransformer, Netlist
-from .verilogKeywords import verilog_keywords
-from lark.visitors import CollapseAmbiguities
+from .sv import *
+from ..modules import *
 
-SV_GRAMMAR_FILE = "grammar_systemverilog.lark"
-VERILOG_GRAMMAR_FILE = "grammar_verilog.lark"
+GRAMMAR_FILE = "grammar_systemverilog.lark"
 
 
-def transformVerilogToNetlist(data: str, systemVerilog: bool = True) -> Netlist:
+def transformVerilogToNetlist(data: str) -> Netlist:
     """
     Parse a string containing data of a verilog file.
     :param data: Raw verilog string.
@@ -39,25 +37,34 @@ def transformVerilogToNetlist(data: str, systemVerilog: bool = True) -> Netlist:
     import os
 
     curr_dir = os.path.dirname(os.path.abspath(__file__))
-    grammar_file = (
-        os.path.join(curr_dir, SV_GRAMMAR_FILE)
-        if systemVerilog
-        else os.path.join(curr_dir, VERILOG_GRAMMAR_FILE)
-    )
+    grammar_file = os.path.join(curr_dir, GRAMMAR_FILE)
     with open(grammar_file, "r") as f:
         verilog_netlist_grammar = f.read()
 
     # select the transformer
-    transformer = SystemVerilogTransformer() if systemVerilog else VerilogTransformer()
-
     verilog_parser = Lark(
         verilog_netlist_grammar,
         parser="lalr",
         lexer="contextual",
-        transformer=transformer,
+        transformer=SystemVerilogTransformer(),
     )
     netlist = verilog_parser.parse(data)
     return netlist
+
+
+def parseVerilogToAST(data: str) -> Netlist:
+    import os
+
+    curr_dir = os.path.dirname(os.path.abspath(__file__))
+    grammar_file = os.path.join(curr_dir, GRAMMAR_FILE)
+    with open(grammar_file, "r") as f:
+        verilog_netlist_grammar = f.read()
+
+    parser = Lark(verilog_netlist_grammar, parser="earley", lexer="dynamic_complete")
+    parseTree = parser.parse(data)
+
+    # return the netlist
+    return parseTree
 
 
 # reference: https://codeberg.org/tok/py-verilog-parser/src/branch/master/verilog_parser/parser.py
@@ -76,58 +83,4 @@ def readVerilog(filename: str) -> Netlist:
         raise FileNotFoundError(f"file {filename} not found")
     with open(filename, "r") as f:
         data = f.read()
-    # exit(0)
     return transformVerilogToNetlist(data)
-
-
-def parseVerilogFromLines(lines: list[str], systemVerilog: bool = True) -> Netlist:
-    data = "\n".join(lines)
-    return transformVerilogToNetlist(data, systemVerilog)
-
-
-def parseVerilog(data: str, systemVerilog: bool = True) -> Netlist:
-    import os
-
-    grammer = None
-    curr_dir = os.path.dirname(os.path.abspath(__file__))
-    grammar_file = (
-        os.path.join(curr_dir, SV_GRAMMAR_FILE)
-        if systemVerilog
-        else os.path.join(curr_dir, VERILOG_GRAMMAR_FILE)
-    )
-    with open(grammar_file, "r") as f:
-        grammer = f.read()
-    parser = Lark(grammer, parser="earley", lexer="dynamic_complete")
-    parseTree = parser.parse(data)
-
-    # return the netlist
-    return parseTree
-
-
-def printVerilogAST(filename: str, textFile: str = None, systemVerilog: bool = True):
-    import os
-    from lark.tree import pydot__tree_to_png
-
-    grammer = None
-    curr_dir = os.path.dirname(os.path.abspath(__file__))
-    grammar_file = (
-        os.path.join(curr_dir, SV_GRAMMAR_FILE)
-        if systemVerilog
-        else os.path.join(curr_dir, VERILOG_GRAMMAR_FILE)
-    )
-    with open(grammar_file, "r") as f:
-        grammer = f.read()
-    parser = Lark(grammer, parser="lalr", lexer="contextual")
-    parseTree = parser.parse(open(filename).read())
-
-    transform = SystemVerilogTransformer() if systemVerilog else VerilogTransformer()
-    parseTree = transform.transform(parseTree)
-
-    astText = parseTree.pretty() if isinstance(parseTree, str) else str(parseTree)
-
-    if textFile is not None:
-        with open(textFile, "w") as f:
-            f.write(astText)
-    else:
-        print(astText)
-    # pydot__tree_to_png(parseTree, pngFile)

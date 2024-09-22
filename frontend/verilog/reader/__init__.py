@@ -8,6 +8,5 @@ Last Modified by: Hanyu Wang
 Last Modified time: 2024-06-25 23:16:24
 """
 
-from .verilogTransformer import *
-from .systemVerilogTransformer import *
+from .sv import *
 from .reader import *

@@ -16,31 +16,31 @@ def getPrioritized(op1: OPType, op2: OPType) -> str:
         # create a binary operation
         module.addPort(InputPort("n1_a"))
         module.addPort(InputPort("n1_b"))
-        a = VariableNode("n1_a")
-        b = VariableNode("n1_b")
-        n1 = BinaryOpNode(op1, a, b)
+        a = VarNode("n1_a")
+        b = VarNode("n1_b")
+        n1 = OPNode("*", op1, a, b)
 
     elif op1.numOperands == 1:
         # create a unary operation
         module.addPort(InputPort("n1"))
-        a = VariableNode("n1")
-        n1 = UnaryOpNode(op1, a)
+        a = VarNode("n1")
+        n1 = OPNode("*", op1, a)
 
     n2: DFGNode = None
     if op2.numOperands == 2:
         # create a binary operation
         module.addPort(InputPort("na_a"))
-        a = VariableNode("n2_a")
-        n2 = BinaryOpNode(op2, n1, a)
+        a = VarNode("n2_a")
+        n2 = OPNode("*", op2, n1, a)
 
     elif op2.numOperands == 1:
         # create a unary operation
-        a = VariableNode("n2")
-        n2 = UnaryOpNode(op2, n1)
+        a = VarNode("n2")
+        n2 = OPNode("*", op2, n1)
 
     # add the output port
     module.addPort(OutputPort("f"))
-    f = VariableNode("f")
+    f = VarNode("f")
     module.addAssignment(Assignment(f, n2))
 
     verilogStr = moduleToString(module)
@@ -60,16 +60,6 @@ def getPrioritized(op1: OPType, op2: OPType) -> str:
     return assign.operation
 
 
-# test 00
-# the precedence of all operators
-def test_00_precedence():
-    allOps = [op for op in BOPType] + [op for op in UOPType if op != UOPType.MACRO]
-    for op1 in allOps:
-        for op2 in allOps:
-            higherOp: OPType = getPrioritized(op1, op2)
-            print(f"{op1} {op2} -> {higherOp}")
-
-
 # test 01
 # corner cases are stored in the examples/verilogs/operators_precedence.v file
 def test_01_cornercases():
@@ -77,12 +67,8 @@ def test_01_cornercases():
     # mut1 = netlist.getModule("test1")
     # mut1.exportDOT()
     # mut1.writeDOT("test1.dot")
-    tree = parseVerilog(open("examples/verilogs/operators_precedence.v").read())
-    from lark.visitors import CollapseAmbiguities
-
-    for tree in CollapseAmbiguities().transform(tree):
-        # check the inv is operated first
-        print(tree.pretty())
+    tree = parseVerilogToAST(open("examples/verilogs/operators_precedence.v").read())
+    print(tree.pretty())
 
 
 if __name__ == "__main__":
