@@ -34,11 +34,11 @@ time_identifier: "s" -> s | "ms" -> ms | "us" -> us | "ns" -> ns | "ps" -> ps
 module: "module" module_definition ";" module_body* "endmodule"
 // TODO (fixed): this is a terrible way to define a module
 // This way we can check the meta data of the module to decide the port list and parameter list
-module_definition: CNAME parameter_list? port_list?
+module_definition: NAME parameter_list? port_list?
 
 // 1.3.1 Parameter List
 parameter_list: "#(" parameter_declaration ("," parameter_declaration)* ")"
-parameter_declaration: parameter_type? CNAME "=" parameter_value
+parameter_declaration: parameter_type? NAME "=" parameter_value
 parameter_type: "parameter" | "localparam"
 
 // 1.3.2 Port List
@@ -63,11 +63,11 @@ parameter_instance: "#" "(" parameter_instance_arguments ")"
 parameter_instance_arguments: parameter_instance_argument ("," parameter_instance_argument)*
 ?parameter_instance_argument: signal | extended_based_number
 
-module_instantiation: CNAME parameter_instance? CNAME "(" module_instance_arguments ")" ";"
+module_instantiation: NAME parameter_instance? NAME "(" module_instance_arguments ")" ";"
 module_instance_arguments: module_instance_argument ("," module_instance_argument)*
 ?module_instance_argument: standard_module_instance_argument | short_module_instance_argument
 
-standard_module_instance_argument: "." CNAME "(" (signal|extended_based_number)? ")"
+standard_module_instance_argument: "." NAME "(" (signal|extended_based_number)? ")"
 short_module_instance_argument: signal | extended_based_number
 
 
@@ -80,7 +80,7 @@ parameter_definition: module_parameter "=" expression
 
 // 2.1 Parameter Declarations
 // These are merged with module instantiations
-parameter_assignment: parameter_type port_range? CNAME "=" parameter_value ";"
+parameter_assignment: parameter_type port_range? NAME "=" parameter_value ";"
 parameter_value: expression
 
 // 2.2 Port Declarations
@@ -89,8 +89,8 @@ port_direction: "input" -> input | "output" -> output | "inout" -> inout
 // 2.3 Variable Declarations and Assignments
 // the block statement is a statement block or a single statement
 always_block: "always" "@" "(" event_expression ")" single_or_block_statement
-event_expression: "posedge" CNAME -> sequential_event
-                | "negedge" CNAME -> sequential_event
+event_expression: "posedge" NAME -> sequential_event
+                | "negedge" NAME -> sequential_event
                 | macro_usage
                 | variable_name
                 | "*" -> combinational_event
@@ -111,7 +111,7 @@ assignment_operator: "=" -> blocking_assignment | "<=" -> non_blocking_assignmen
 
 // TODO (fixed): this is a terrible way to define a port module_body
 // we need to avoid the ambiguity of the variable numbers
-// port_declaration: port_direction? signal_type? port_range? CNAME
+// port_declaration: port_direction? signal_type? port_range? NAME
 port_declaration: port_header? (extended_port | simple_port) // This is a workaround to avoid the ambiguity of the variable numbers
 
 // TODO: this might cause problem if we only have signal_type without port_direction
@@ -152,7 +152,7 @@ case_statement: "case" "(" expression ")" case_content "endcase"
 case_content: case_item+
 default_case: "default" ":" statement_block
 case_item: case_label ":" case_action
-case_label: CNAME
+case_label: NAME
             | regular_number 
             | extended_based_number // You may want to support other constants or expressions as labels
 ?case_action: statement_block | single_statement
@@ -173,8 +173,8 @@ function_call: dollar_indentifier function_parameters?
 // 6. Signals
 
 // 6.1 Signal Concatenation
-array_indexing: CNAME "[" expression "]" // Array indexing
-array_slicing: CNAME "[" expression ":" expression "]" // Array slicing
+array_indexing: NAME "[" expression "]" // Array indexing
+array_slicing: NAME "[" expression ":" expression "]" // Array slicing
 ?signal: signal_base | "!" signal_base
 
 ?signal_base: variable_name
@@ -182,77 +182,100 @@ array_slicing: CNAME "[" expression ":" expression "]" // Array slicing
             | array_slicing
             | concatenation
 
-// we need to avoid the ambiguity of the variable numbers, the variable name is CNAME, except for the keywords in variable_blacklist
-variable_name: CNAME | ESCAPED_STRING
+// we need to avoid the ambiguity of the variable numbers, the variable name is NAME, except for the keywords in variable_blacklist
+variable_name: NAME | ESCAPED_STRING
 
 variable_blacklist: signal_type | port_direction
 
 // 6.2 Module parameters
-module_parameter: CNAME "." CNAME
+module_parameter: NAME "." NAME
 
 // 7. Ranges
 port_range : "[" expression ":" expression "]"
 
 // 8. Expressions
 expression: macro_usage
+
+// 8.0 Constants, these are fine to be flattened
             | variable_name
             | string
             | regular_number
+            | based_number
             | extended_based_number // You may want to support other constants or expressions
-            | expression binary_operator expression // Binary operators are treated as expressions
-            | unary_operator expression // Unary operators are treated as expressions
-            | conditional_expression // Conditional expressions are treated as expressions
-            | "(" expression ")" // Parentheses are treated as expressions
+// 8.1 Operators
+// Operators are used to perform operations on variables and values.
+// note that we cannot separate the operators into different levels, as the operators are not strictly ordered
+// Reference: https://documentation-rp-test.readthedocs.io/en/latest/tutorfpga04.html
+//
+// TODO: double check the precedence of the reduction operators
+//
+// 8.1.8 Conditional Operator
+// This operator has the next highest precedence
+            | expression "?" expression ":" expression -> conditional_expression
+// 8.1.7 Logical Operators
+// These operators have the next highest precedence
+            | expression "&&" expression -> binary_and // Logical AND
+            | expression "||" expression -> binary_or // Logical OR
+// 8.1.6 Bitwise Operators
+// These operators have the next highest precedence 
+            | expression "&" expression -> binary_bitand // Bitwise AND
+            | expression "^" expression -> binary_xor // Bitwise XOR
+            | expression "^~" expression -> binary_xnor // Bitwise XNOR
+            | expression "~^" expression -> binary_xnor // Bitwise XNOR
+            | expression "|" expression -> binary_bitor // Bitwise OR
+// 8.1.5 Equivalence Operators
+// These operators have the next highest precedence
+            | expression "==" expression -> binary_eq // Equal
+            | expression "!=" expression -> binary_neq // Not equal
+            | expression "===" expression -> binary_eq_ext // Case equality
+            | expression "!==" expression -> binary_neq_ext // Case inequality
+// 8.1.4 Comparison Operators
+// These operators have the next highest precedence
+            | expression "<" expression -> binary_lt // Less than
+            | expression ">" expression -> binary_gt // Greater than
+            | expression "<=" expression -> binary_leq // Less than or equal
+            | expression ">=" expression -> binary_geq // Greater than or equal
+// 8.1.3 Shift Operators
+// These operators have the next highest precedence
+            | expression ">>" expression -> binary_rshift // Shift right
+            | expression ">>>" expression -> binary_rshift_ext // Shift right with sign extension
+            | expression "<<" expression -> binary_lshift // Shift left
+            | expression "<<<" expression -> binary_lshift_ext // Shift left with sign extension
+// 8.1.2 Binary Plus and Minus
+// These operators have the next highest precedence
+            | expression "+" expression -> binary_add // Addition
+            | expression "-" expression -> binary_sub // Subtraction
+// 8.1.1 Unary Operators
+// These operators has the second highest precedence
+            | "+" expression -> unary_pos // Unary plus
+            | "-" expression -> unary_neg // Unary minus
+            | "!" expression -> unary_not // Logical NOT
+            | "~" expression -> unary_inv // Bitwise NOT
+// 8.1.1.1 Unitary Reduction Operators
+// These operators have the highest precedence
+            | "&" expression -> unary_and // Bitwise AND reduction
+            | "|" expression -> unary_or // Bitwise OR reduction
+            | "^" expression -> unary_xor // Bitwise XOR reduction
+            | "~&" expression -> unary_nand // Bitwise NAND reduction
+            | "~|" expression -> unary_nor // Bitwise NOR reduction
+            | "~^" expression -> unary_xnor // Bitwise XNOR reduction
+// 8.1.0 Parentheses
+// Parentheses are used to group expressions
+// These operators have the highest precedence
+            | "(" expression ")"
+// 8.1.9 Concatenation and Repetition
+// These operators' precedence does not matter, because they will not be used in the same expression
             | concatenation // Concatenation is treated as an expression
             | repeated_concatenation // Repeated concatenation is treated as an expression
             | array_indexing // Array indexing is treated as an expression
             | array_slicing // Array slicing is treated as an expression
             | function_call // Function calls are treated as expressions
-            | based_number
 
-macro_usage: "`" CNAME
-
-// 8.1 Operators
-// Operators are used to perform operations on variables and values.
-unary_operator: "!"     -> unary_not
-                | "~"   -> unary_inv
-                | "^"   -> unary_xor // TODO: figure out what this is
-                | "+"   -> unary_pos // Unary plus (extend as needed)
-                | "-"   -> unary_neg // Unary minus (extend as needed)
-
-binary_operator: "+"    -> binary_add       // Addition or unary plus
-                | "-"   -> binary_sub       // Subtraction or unary negation
-                | "*"   -> binary_mul       // Multiplication
-                | "/"   -> binary_div       // Division
-                | "&&"  -> binary_and       // Logical AND
-                | "||"  -> binary_or        // Logical OR
-                | "&"   -> binary_bitand    // Bitwise AND
-                | "|"   -> binary_bitor     // Bitwise OR
-                | "^"   -> binary_xor       // Bitwise XOR
-                | ">>"  -> binary_rshift    // Shift right
-                | ">>>" -> binary_rshift_ext// Shift right with sign extension
-                | "<<"  -> binary_lshift    // Shift left
-                | "<<<" -> binary_lshift_ext// Shift left with sign extension
-                | "%"   -> binary_mod       // Modulus
-// 3.1.1 Comparison Expressions
-// Comparison expressions are used to compare two values. The result of the comparison is a boolean value (true or false).
-// The comparison operators are "==" (equal), "!=" (not equal), "<" (less than), ">" (greater than), "<=" (less than or equal to), and ">=" (greater than or equal to).
-                | "=="  -> binary_eq        // Equal
-                | "!="  -> binary_neq       // Not equal
-                | "<"   -> binary_lt        // Less than
-                | ">"   -> binary_gt        // Greater than
-                | "<="  -> binary_leq       // Less than or equal
-                | ">="  -> binary_geq       // Greater than or equal
-                | "===" -> binary_eq_ext    // Case equality
-                | "!==" -> binary_neq_ext   // Case inequality
-
+macro_usage: "`" NAME
 
 // 8.2 Concatenation and Repetition
 concatenation: "{" expression ("," expression)* "}"
 repeated_concatenation: "{" expression "{" expression "}" "}"
-
-// 8.3 Conditional Expressions
-conditional_expression: expression "?" expression ":" expression
 
 // special characters
 string: /"[^"]*"/  // Captures a sequence of characters within double quotes
@@ -263,7 +286,7 @@ extended_based_number: /([0-9]*)'[bdhoBDHO][0-9a-fA-F_xXzZ]+/
 regular_number: /(?<![\d'])\d+(?![\d'bhd])/
 
 // 10. General
-?identifier: CNAME
+?identifier: NAME
             | ESCAPED_IDENTIFIER
 
 // Lark
@@ -273,7 +296,7 @@ INLINE_COMMENT: "(*" /[^\n]*/ "*)"
 NEWLINE: "\n"
 MULTILINE_COMMENT: /\/\*(\*(?!\/)|[^*])*\*\//
 
-%import common.CNAME
+%import common.CNAME -> NAME
 %import common.NUMBER
 %import common.ESCAPED_STRING
 %import common.WS

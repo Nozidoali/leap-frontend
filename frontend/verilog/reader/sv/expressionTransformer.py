@@ -13,6 +13,13 @@ from ...modules import *
 
 
 class ExpressionTransformer(Transformer):
+    
+    def unary_expression(self, items):
+        return items
+    
+    def binary_expression(self, items):
+        return items
+    
     def extended_based_number(self, items):
         return ConstantNode(items[0])
 

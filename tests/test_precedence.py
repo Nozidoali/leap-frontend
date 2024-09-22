@@ -1,6 +1,10 @@
 # Reference: https://documentation-rp-test.readthedocs.io/en/latest/tutorfpga04.html#operators-precedence
 
 from frontend import *
+import os
+
+# change the working directory to the root directory of the project
+os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 
 def getPrioritized(op1: OPType, op2: OPType) -> str:
@@ -59,12 +63,27 @@ def getPrioritized(op1: OPType, op2: OPType) -> str:
 # test 00
 # the precedence of all operators
 def test_00_precedence():
-    allOps = [op for op in BOPType] + [op for op in UOPType]
+    allOps = [op for op in BOPType] + [op for op in UOPType if op != UOPType.MACRO]
     for op1 in allOps:
         for op2 in allOps:
             higherOp: OPType = getPrioritized(op1, op2)
             print(f"{op1} {op2} -> {higherOp}")
 
+# test 01
+# corner cases are stored in the examples/verilogs/operators_precedence.v file
+def test_01_cornercases():
+    # netlist = readVerilog("examples/verilogs/operators_precedence.v")
+    # mut1 = netlist.getModule("test1")
+    # mut1.exportDOT()
+    # mut1.writeDOT("test1.dot")
+    tree = parseVerilog(open("examples/verilogs/operators_precedence.v").read())
+    from lark.visitors import CollapseAmbiguities
+    
+    for tree in CollapseAmbiguities().transform(tree):
+        # check the inv is operated first
+        print(tree.pretty())
+
 
 if __name__ == "__main__":
-    test_00_precedence()
+    test_01_cornercases()
+    # test_00_precedence()
