@@ -144,6 +144,9 @@ class ExpressionTransformer(Transformer):
     def binary_mod(self, items):
         return OPNode("%", NodeType.BINARY_MOD, *items)
 
+    def binary_pow(self, items):
+        return OPNode("**", NodeType.BINARY_POW, *items)
+
     def unary_pos(self, items):
         return OPNode("+", NodeType.UNARY_POS, *items)
 

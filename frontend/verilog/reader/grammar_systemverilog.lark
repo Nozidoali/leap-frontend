@@ -219,7 +219,7 @@ expression: lhs_expression
 // Operators are used to perform operations on variables and values.
 // note that we cannot separate the operators into different levels, as the operators are not strictly ordered
 // Reference: https://documentation-rp-test.readthedocs.io/en/latest/tutorfpga04.html
-//
+// Reference: https://medium.com/verilog-novice-to-wizard/operators-in-verilog-f1290e85b7c2
 // TODO: double check the precedence of the reduction operators
 //
 // 8.1.8 Conditional Operator
@@ -263,6 +263,9 @@ expression: lhs_expression
             | expression "*" expression -> binary_mul // Multiplication
             | expression "/" expression -> binary_div // Division
             | expression "%" expression -> binary_mod // Modulus
+// 8.1.3 Power Operator
+// This operator has the next highest precedence
+            | expression "**" expression -> binary_pow // Power
 // 8.1.1 Unary Operators
 // These operators has the second highest precedence
             | "+" expression -> unary_pos // Unary plus
@@ -279,6 +282,7 @@ expression: lhs_expression
             | "~^" expression -> unary_xnor // Bitwise XNOR reduction
 // 8.1.9 Concatenation and Repetition
 // These operators' precedence does not matter, because they will not be used in the same expression
+// we put them else where
 
 // 8.0.3 Parentheses
 // Parentheses are used to group expressions

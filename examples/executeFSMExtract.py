@@ -12,7 +12,7 @@ if __name__ == "__main__":
         "extractREG": False,
     }
 
-    network: Netlist = readVerilog("examples/tmp.v")
+    network: Netlist = readVerilog("examples/verilogs/external/legup.v")
     module = network.getModule("toy")
     finishPort = "finish"
     outputsNames = [

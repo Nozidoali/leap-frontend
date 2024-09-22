@@ -107,6 +107,7 @@ class NodeType(Enum):
     BINARY_MUL = "binary_mul"
     BINARY_DIV = "binary_div"
     BINARY_MOD = "binary_mod"
+    BINARY_POW = "binary_pow"
     
     # Unary operations
     UNARY_POS = "unary_pos"
