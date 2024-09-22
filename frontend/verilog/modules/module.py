@@ -13,8 +13,6 @@ from .moduleInst import *
 from .ports import *
 from .parameters import *
 
-from enum import Enum
-
 
 class Module(Frame, ParameterHandler, ExtendedGraph):
     def __init__(

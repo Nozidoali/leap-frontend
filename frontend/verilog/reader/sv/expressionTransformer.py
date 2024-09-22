@@ -11,22 +11,19 @@ Last Modified time: 2024-06-28 12:45:25
 from lark import Transformer, v_args
 from ...modules import *
 
-
 class ExpressionTransformer(Transformer):
+    
+    def lhs_expression(self, items):
+        return items[0]
+
+    def expression(self, items):
+        return items[0]
+
+    def constant_node(self, items):
+        return ConstantNode(items[0])
 
     # constant nodes
-
-    def extended_based_number(self, items):
-        return ConstantNode(items[0])
-
-    def regular_number(self, items):
-        return ConstantNode(items[0])
-
-    def string(self, items):
-        return ConstantNode(items[0])
-
-    def based_number(self, items):
-        return ConstantNode(items[0])
+    extended_based_number = regular_number = string = based_number = constant_node
 
     def macro_usage(self, items):
         return OPNode("`", OPType.MACRO, ConstantNode(items[0]))
@@ -34,31 +31,63 @@ class ExpressionTransformer(Transformer):
     def variable(self, items):
         return VarNode(items[0])
 
-    # array nodes
-    def concatenation(self, items):
-        return OPNode("{{{}}}", OPType.ARRAY_CONCAT, items)
+    # Generalized operation helper (for all types of operations)
+    def op_node(self, symbol, op_type, items):
+        return OPNode(symbol, op_type, *items)
 
-    def repeated_concatenation(self, items):
-        # TODO: i think this is wrong
-        return OPNode("{n{}}", OPType.ARRAY_REPLICATE, items[0], items[1])
+    # Unified operations dictionary (binary, unary, array, and conditional)
+    operations = {
+        # Binary operations
+        OPType.BINARY_AND: "&&",
+        OPType.BINARY_OR: "||",
+        OPType.BINARY_BITAND: "&",
+        OPType.BINARY_XOR: "^",
+        OPType.BINARY_XNOR: "^~",
+        OPType.BINARY_BITOR: "|",
+        OPType.BINARY_EQ: "==",
+        OPType.BINARY_NEQ: "!=",
+        OPType.BINARY_EQ_EXT: "===",
+        OPType.BINARY_NEQ_EXT: "!==",
+        OPType.BINARY_LT: "<",
+        OPType.BINARY_GT: ">",
+        OPType.BINARY_LEQ: "<=",
+        OPType.BINARY_GEQ: ">=",
+        OPType.BINARY_RSHIFT: ">>",
+        OPType.BINARY_RSHIFT_EXT: ">>>",
+        OPType.BINARY_LSHIFT: "<<",
+        OPType.BINARY_LSHIFT_EXT: "<<<",
+        OPType.BINARY_ADD: "+",
+        OPType.BINARY_SUB: "-",
+        OPType.BINARY_MUL: "*",
+        OPType.BINARY_DIV: "/",
+        OPType.BINARY_MOD: "%",
+        OPType.BINARY_POW: "**",
 
-    def array_slicing(self, items):
-        return OPNode("[]", OPType.ARRAY_SLICE, items[0], items[1])
+        # Unary operations
+        OPType.UNARY_POS: "+",
+        OPType.UNARY_NEG: "-",
+        OPType.UNARY_NOT: "!",
+        OPType.UNARY_INV: "~",
+        OPType.UNARY_AND: "&",
+        OPType.UNARY_OR: "|",
+        OPType.UNARY_XOR: "^",
+        OPType.UNARY_NAND: "~&",
+        OPType.UNARY_NOR: "~|",
+        OPType.UNARY_XNOR: "~^",
 
-    def array_indexing(self, items):
-        return OPNode("[]", OPType.ARRAY_INDEX, items[0], items[1])
+        # Array operations
+        OPType.ARRAY_CONCAT: "{{{}}}",
+        OPType.ARRAY_REPLICATE: "{n{}}",
+        OPType.ARRAY_SLICE: "[]",
+        OPType.ARRAY_INDEX: "[]",
 
-    def array_concat(self, items):
-        return OPNode("{,}", OPType.ARRAY_CONCAT, *items)
+        # Conditional expression
+        OPType.CONDITIONAL_EXPRESSION: "?:"
+    }
 
-    def array_replicate(self, items):
-        return OPNode("{n{}}", OPType.ARRAY_REPLICATE, items[0], items[1])
-
-    def array_slice(self, items):
-        return OPNode("[]", OPType.ARRAY_SLICE, items[0], items[1])
-
-    def array_index(self, items):
-        return OPNode("[]", OPType.ARRAY_INDEX, items[0], items[1])
+    # Dynamically generate methods for all operations
+    for op_type, symbol in operations.items():
+        locals()[f'{op_type.name.lower()}'] = lambda self, items, s=symbol, t=op_type: self.op_node(s, t, items)
 
     def function_call(self, items):
         return OPNode("()", OPType.FUNCTION_CALL, VarNode(items[0]), *items[1])
@@ -66,117 +95,5 @@ class ExpressionTransformer(Transformer):
     def function_parameters(self, items):
         return items
 
-    def dollar_indentifier(self, items):
+    def dollar_identifier(self, items):
         return str(items[0])
-
-    # expression nodes
-    def expression(self, items):
-        return items[0]
-
-    def lhs_expression(self, items):
-        return items[0]
-
-    def binary_and(self, items):
-        return OPNode("&&", OPType.BINARY_AND, *items)
-
-    def binary_or(self, items):
-        return OPNode("||", OPType.BINARY_OR, *items)
-
-    def binary_bitand(self, items):
-        return OPNode("&", OPType.BINARY_BITAND, *items)
-
-    def binary_xor(self, items):
-        return OPNode("^", OPType.BINARY_XOR, *items)
-
-    def binary_xnor(self, items):
-        return OPNode("^~", OPType.BINARY_XNOR, *items)
-
-    def binary_bitor(self, items):
-        return OPNode("|", OPType.BINARY_BITOR, *items)
-
-    def binary_eq(self, items):
-        return OPNode("==", OPType.BINARY_EQ, *items)
-
-    def binary_neq(self, items):
-        return OPNode("!=", OPType.BINARY_NEQ, *items)
-
-    def binary_eq_ext(self, items):
-        return OPNode("===", OPType.BINARY_EQ_EXT, *items)
-
-    def binary_neq_ext(self, items):
-        return OPNode("!==", OPType.BINARY_NEQ_EXT, *items)
-
-    def binary_lt(self, items):
-        return OPNode("<", OPType.BINARY_LT, *items)
-
-    def binary_gt(self, items):
-        return OPNode(">", OPType.BINARY_GT, *items)
-
-    def binary_leq(self, items):
-        return OPNode("<=", OPType.BINARY_LEQ, *items)
-
-    def binary_geq(self, items):
-        return OPNode(">=", OPType.BINARY_GEQ, *items)
-
-    def binary_rshift(self, items):
-        return OPNode(">>", OPType.BINARY_RSHIFT, *items)
-
-    def binary_rshift_ext(self, items):
-        return OPNode(">>>", OPType.BINARY_RSHIFT_EXT, *items)
-
-    def binary_lshift(self, items):
-        return OPNode("<<", OPType.BINARY_LSHIFT, *items)
-
-    def binary_lshift_ext(self, items):
-        return OPNode("<<<", OPType.BINARY_LSHIFT_EXT, *items)
-
-    def binary_add(self, items):
-        return OPNode("+", OPType.BINARY_ADD, *items)
-
-    def binary_sub(self, items):
-        return OPNode("-", OPType.BINARY_SUB, *items)
-
-    def binary_mul(self, items):
-        return OPNode("*", OPType.BINARY_MUL, *items)
-
-    def binary_div(self, items):
-        return OPNode("/", OPType.BINARY_DIV, *items)
-
-    def binary_mod(self, items):
-        return OPNode("%", OPType.BINARY_MOD, *items)
-
-    def binary_pow(self, items):
-        return OPNode("**", OPType.BINARY_POW, *items)
-
-    def unary_pos(self, items):
-        return OPNode("+", OPType.UNARY_POS, *items)
-
-    def unary_neg(self, items):
-        return OPNode("-", OPType.UNARY_NEG, *items)
-
-    def unary_not(self, items):
-        return OPNode("!", OPType.UNARY_NOT, *items)
-
-    def unary_inv(self, items):
-        return OPNode("~", OPType.UNARY_INV, *items)
-
-    def unary_and(self, items):
-        return OPNode("&", OPType.UNARY_AND, *items)
-
-    def unary_or(self, items):
-        return OPNode("|", OPType.UNARY_OR, *items)
-
-    def unary_xor(self, items):
-        return OPNode("^", OPType.UNARY_XOR, *items)
-
-    def unary_nand(self, items):
-        return OPNode("~&", OPType.UNARY_NAND, *items)
-
-    def unary_nor(self, items):
-        return OPNode("~|", OPType.UNARY_NOR, *items)
-
-    def unary_xnor(self, items):
-        return OPNode("~^", OPType.UNARY_XNOR, *items)
-
-    def conditional_expression(self, items):
-        return OPNode("?:", OPType.CONDITIONAL_EXPRESSION, *items)
