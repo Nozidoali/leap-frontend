@@ -8,8 +8,8 @@ Last Modified by: Hanyu Wang
 Last Modified time: 2024-07-01 20:28:12
 """
 
-from .unit import *
 from enum import Enum
+from .node import *
 
 
 class AssignmentType(Enum):
@@ -63,7 +63,7 @@ class Assignment:
         if self.condition is None:
             self.condition = condition
         else:
-            self.condition = BinaryOpNode(BOPType.AND, self.condition, condition)
+            self.condition = OPNode("&&", NodeType.BINARY_AND, self.condition, condition)
 
     def replaceVariable(self, old: str, new: str):
         self.target.replaceVariable(old, new)

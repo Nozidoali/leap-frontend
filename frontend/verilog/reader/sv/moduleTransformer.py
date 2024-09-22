@@ -33,6 +33,7 @@ class ModuleTransformer(Transformer):
 
         return module
 
+    # module_definition: NAME parameter_list? (port_list | empty_port_list)?
     @v_args(inline=False)
     def module_definition(self, args):
         module_name = str(args[0])
@@ -41,7 +42,8 @@ class ModuleTransformer(Transformer):
         for item in args[1:]:
             if not isinstance(item, list):
                 continue
-
+            if len(item) == 0:
+                continue
             if len(item) > 0 and isinstance(item[0], Port):
                 port_list.extend(item)
             elif len(item) > 0 and isinstance(item[0], Parameter):
@@ -76,13 +78,7 @@ class ModuleTransformer(Transformer):
 
     @v_args(inline=True)
     def variable_assignment(self, signal, type, expression):
-        if isinstance(signal, DFGNode):
-            pass
-        elif isinstance(signal, str):
-            signal = VariableNode(signal)
-        else:
-            raise ValueError(f"signal = {signal}")
-
+        assert isinstance(signal, DFGNode), f"signal = {signal}"
         assert isinstance(expression, DFGNode), f"expression = {expression}"
         assignment = Assignment(signal, expression)
         assignmentType = type.data

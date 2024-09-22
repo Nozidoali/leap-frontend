@@ -34,7 +34,7 @@ time_identifier: "s" -> s | "ms" -> ms | "us" -> us | "ns" -> ns | "ps" -> ps
 module: "module" module_definition ";" module_body* "endmodule"
 // TODO (fixed): this is a terrible way to define a module
 // This way we can check the meta data of the module to decide the port list and parameter list
-module_definition: NAME parameter_list? port_list?
+module_definition: NAME parameter_list? (port_list | empty_port_list)?
 
 // 1.3.1 Parameter List
 parameter_list: "#(" parameter_declaration ("," parameter_declaration)* ")"
@@ -42,6 +42,7 @@ parameter_declaration: parameter_type? NAME "=" parameter_value
 parameter_type: "parameter" | "localparam"
 
 // 1.3.2 Port List
+empty_port_list: "(" ")"
 port_list: "(" port_declaration_head ("," port_declaration_head)* ")"
 port_declaration_head: port_header? (extended_port_head | simple_port_head) // This is a workaround to avoid the ambiguity of the variable numbers
 extended_port_head: port_range variable_name
@@ -57,6 +58,7 @@ simple_port_head: variable_name
             | dollar_indentifier ";" // Special cases like $finish
             | module_instantiation // This includes module instantiation
             | define_parameter // This includes defparam
+            | macro_definition // This includes `define
 
 // 1.5 Module Instantiation
 parameter_instance: "#" "(" parameter_instance_arguments ")"
@@ -91,7 +93,7 @@ port_direction: "input" -> input | "output" -> output | "inout" -> inout
 always_block: "always" "@" "(" event_expression ")" single_or_block_statement
 event_expression: "posedge" NAME -> sequential_event
                 | "negedge" NAME -> sequential_event
-                | macro_usage
+                | "`" NAME -> macro_event
                 | variable_name
                 | "*" -> combinational_event
                 | event_expression event_operator event_expression
@@ -103,7 +105,7 @@ initial_block: "initial" single_or_block_statement
 // 2.4 Variable Assignments
 // TODO: The challenge here is to differentiate between the non-blocking assignments and the comparison expressions
 // In Verilog, the assignment operator is "=". However, the "<=" operator is used for non-blocking assignments.
-variable_assignment: "assign"? signal assignment_operator expression
+variable_assignment: "assign"? expression assignment_operator expression
 
 assignment_operator: "=" -> blocking_assignment | "<=" -> non_blocking_assignment
 
@@ -168,7 +170,7 @@ dollar_indentifier: "$" /[a-zA-Z_][a-zA-Z0-9_]*/
 
 // 5.1 Function calls
 function_call: dollar_indentifier function_parameters?
-?function_parameters: "(" expression ")"
+?function_parameters: "(" expression ("," expression)* ")"
 
 // 6. Signals
 
@@ -194,14 +196,20 @@ module_parameter: NAME "." NAME
 port_range : "[" expression ":" expression "]"
 
 // 8. Expressions
-expression: macro_usage
-
-// 8.0 Constants, these are fine to be flattened
-            | variable_name
+expression: "`" NAME -> macro_usage
+// 8.0.0 Constants, these are fine to be flattened
+            | NAME -> variable_expression
+            | ESCAPED_STRING -> variable_expression
             | string
             | regular_number
             | based_number
             | extended_based_number // You may want to support other constants or expressions
+// 8.0.1 More signals
+            | "{" expression ("," expression)* "}" -> array_concat // Concatenation is treated as an expression
+            | "{" expression "{" expression "}" "}" -> array_replicate // Repeated concatenation is treated as an expression
+            | expression "[" expression "]" -> array_index // Array indexing is treated as an expression
+            | expression "[" expression ":" expression "]" -> array_slice // Array slicing is treated as an expression
+            | "$" NAME function_parameters -> function_call // Function calls are treated as expressions
 // 8.1 Operators
 // Operators are used to perform operations on variables and values.
 // note that we cannot separate the operators into different levels, as the operators are not strictly ordered
@@ -259,20 +267,13 @@ expression: macro_usage
             | "~&" expression -> unary_nand // Bitwise NAND reduction
             | "~|" expression -> unary_nor // Bitwise NOR reduction
             | "~^" expression -> unary_xnor // Bitwise XNOR reduction
-// 8.1.0 Parentheses
+// 8.1.9 Concatenation and Repetition
+// These operators' precedence does not matter, because they will not be used in the same expression
+
+// 8.0.3 Parentheses
 // Parentheses are used to group expressions
 // These operators have the highest precedence
             | "(" expression ")"
-// 8.1.9 Concatenation and Repetition
-// These operators' precedence does not matter, because they will not be used in the same expression
-            | concatenation // Concatenation is treated as an expression
-            | repeated_concatenation // Repeated concatenation is treated as an expression
-            | array_indexing // Array indexing is treated as an expression
-            | array_slicing // Array slicing is treated as an expression
-            | function_call // Function calls are treated as expressions
-
-macro_usage: "`" NAME
-
 // 8.2 Concatenation and Repetition
 concatenation: "{" expression ("," expression)* "}"
 repeated_concatenation: "{" expression "{" expression "}" "}"

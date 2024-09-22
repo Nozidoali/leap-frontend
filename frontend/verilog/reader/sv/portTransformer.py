@@ -108,6 +108,10 @@ class PortTransformer(Transformer):
         # concat the list of ports
         return items
 
+    # empty_port_list: "(" ")"
+    def empty_port_list(self, items):
+        return []
+
     # variable_list: CNAME ("," CNAME)*
     def variable_list(self, items):
         return [Port(name=item) for item in items]
