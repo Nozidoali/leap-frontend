@@ -100,8 +100,15 @@ class NodeType(Enum):
     BINARY_RSHIFT_EXT = "binary_rshift_ext"
     BINARY_LSHIFT = "binary_lshift"
     BINARY_LSHIFT_EXT = "binary_lshift_ext"
+    
+    # Arithmetic operations
     BINARY_ADD = "binary_add"
     BINARY_SUB = "binary_sub"
+    BINARY_MUL = "binary_mul"
+    BINARY_DIV = "binary_div"
+    BINARY_MOD = "binary_mod"
+    
+    # Unary operations
     UNARY_POS = "unary_pos"
     UNARY_NEG = "unary_neg"
     UNARY_NOT = "unary_not"

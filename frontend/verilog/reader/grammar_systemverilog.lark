@@ -86,7 +86,9 @@ parameter_assignment: parameter_type port_range? NAME "=" parameter_value ";"
 parameter_value: expression
 
 // 2.2 Port Declarations
-port_direction: "input" -> input | "output" -> output | "inout" -> inout
+port_direction: "input" -> input 
+                | "output" -> output 
+                | "inout" -> inout
 
 // 2.3 Variable Declarations and Assignments
 // the block statement is a statement block or a single statement
@@ -105,9 +107,10 @@ initial_block: "initial" single_or_block_statement
 // 2.4 Variable Assignments
 // TODO: The challenge here is to differentiate between the non-blocking assignments and the comparison expressions
 // In Verilog, the assignment operator is "=". However, the "<=" operator is used for non-blocking assignments.
-variable_assignment: "assign"? expression assignment_operator expression
+variable_assignment: "assign"? lhs_expression assignment_operator expression
 
-assignment_operator: "=" -> blocking_assignment | "<=" -> non_blocking_assignment
+assignment_operator: "=" -> blocking_assignment 
+                    | "<=" -> non_blocking_assignment
 
 // 2.5 Variable Declarations
 
@@ -196,19 +199,21 @@ module_parameter: NAME "." NAME
 port_range : "[" expression ":" expression "]"
 
 // 8. Expressions
-expression: "`" NAME -> macro_usage
+lhs_expression: NAME -> variable_expression
+                | ESCAPED_STRING -> variable_expression
+                | "{" expression ("," expression)* "}" -> array_concat // Concatenation is treated as an expression
+                | "{" expression "{" expression "}" "}" -> array_replicate // Repeated concatenation is treated as an expression
+                | expression "[" expression "]" -> array_index // Array indexing is treated as an expression
+                | expression "[" expression ":" expression "]" -> array_slice // Array slicing is treated as an expression
+
+expression: lhs_expression
 // 8.0.0 Constants, these are fine to be flattened
-            | NAME -> variable_expression
-            | ESCAPED_STRING -> variable_expression
+            | "`" NAME -> macro_usage
             | string
             | regular_number
             | based_number
             | extended_based_number // You may want to support other constants or expressions
-// 8.0.1 More signals
-            | "{" expression ("," expression)* "}" -> array_concat // Concatenation is treated as an expression
-            | "{" expression "{" expression "}" "}" -> array_replicate // Repeated concatenation is treated as an expression
-            | expression "[" expression "]" -> array_index // Array indexing is treated as an expression
-            | expression "[" expression ":" expression "]" -> array_slice // Array slicing is treated as an expression
+// 8.0.1 Function calls
             | "$" NAME function_parameters -> function_call // Function calls are treated as expressions
 // 8.1 Operators
 // Operators are used to perform operations on variables and values.
@@ -253,6 +258,11 @@ expression: "`" NAME -> macro_usage
 // These operators have the next highest precedence
             | expression "+" expression -> binary_add // Addition
             | expression "-" expression -> binary_sub // Subtraction
+// 8.1.2 Arithmetic Operators (Continued)
+// These operators have the next highest precedence
+            | expression "*" expression -> binary_mul // Multiplication
+            | expression "/" expression -> binary_div // Division
+            | expression "%" expression -> binary_mod // Modulus
 // 8.1.1 Unary Operators
 // These operators has the second highest precedence
             | "+" expression -> unary_pos // Unary plus

@@ -34,7 +34,7 @@ class FSMTransformer(Transformer):
                 continue
 
             # Add the state condition to the assignments
-            additional_condition = BinaryOpNode(BOPType.EQUAL, expression, stateNode)
+            additional_condition = OPNode(NodeType.BINARY_EQ, expression, stateNode)
             for assignment_statement in assignment_statements:
                 statementType, assignment = assignment_statement
                 assignment.addCondition(additional_condition)
@@ -52,7 +52,7 @@ class FSMTransformer(Transformer):
         if state == "default":
             stateNode = None
         else:
-            stateNode = VariableNode(state)
+            stateNode = VarNode(state)
 
         assignment_statements = items[1]
         return stateNode, assignment_statements

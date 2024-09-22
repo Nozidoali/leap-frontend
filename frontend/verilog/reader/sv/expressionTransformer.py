@@ -71,6 +71,9 @@ class ExpressionTransformer(Transformer):
     # expression nodes
     def expression(self, items):
         return items[0]
+    
+    def lhs_expression(self, items):
+        return items[0]
 
     def binary_and(self, items):
         return OPNode("&&", NodeType.BINARY_AND, *items)
@@ -131,6 +134,15 @@ class ExpressionTransformer(Transformer):
 
     def binary_sub(self, items):
         return OPNode("-", NodeType.BINARY_SUB, *items)
+    
+    def binary_mul(self, items):
+        return OPNode("*", NodeType.BINARY_MUL, *items)
+
+    def binary_div(self, items):
+        return OPNode("/", NodeType.BINARY_DIV, *items)
+    
+    def binary_mod(self, items):
+        return OPNode("%", NodeType.BINARY_MOD, *items)
 
     def unary_pos(self, items):
         return OPNode("+", NodeType.UNARY_POS, *items)

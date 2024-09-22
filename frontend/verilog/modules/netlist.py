@@ -35,3 +35,6 @@ class Netlist:
 
     def getDefinitions(self) -> dict:
         return self.definitions
+
+    def getModuleAt(self, index: int) -> Module:
+        return self.modules[index]
