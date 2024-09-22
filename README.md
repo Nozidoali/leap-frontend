@@ -4,8 +4,10 @@
 [![PyTest](https://github.com/Nozidoali/leap-frontend/actions/workflows/ci.yml/badge.svg)](https://github.com/Nozidoali/leap-frontend/actions/workflows/ci.yml)
 [![Documentation Status](https://readthedocs.org/projects/leap-frontend/badge/?version=latest)](https://leap-frontend.readthedocs.io/en/latest/?badge=latest)
 
-<img src="./static/leap-logo.svg" width="48" height="48" align="left" style="margin-right: 24pt;margin-left: 12pt" />
+<img src="./static/leap-logo.svg" width="64" height="64" align="left" style="margin-right: 24pt;margin-left: 12pt" />
 LEAP (Logic nEtwork-Aware Pipelining) is a framework for exploiting logic synthesis and technology mapping to improve the performance of high-level synthesis (HLS) tools. LEAP is implemented in Python and is open-source under the MIT license. 
+
+[Read the full documentation.](https://leap-frontend.readthedocs.io/en/latest/?badge=latest)
 
 ## Why LEAP?
 **For better a HLS performance**. Conventional synthesis flows apply high-level synthesis (HLS) before logic synthesis and technology mapping, where the majority of circuit's structural and functional information are determined. Lacking these informtion, HLS algorithms such as pipelining often make suboptimal decisions that are not revertable by subsequent synthesis stages. LEAP addresses this issue by integrating logic synthesis and technology mapping into HLS, enabling HLS algorithms to make better decisions based on the circuit's structural and functional information.

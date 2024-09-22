@@ -7,7 +7,7 @@ Welcome
 =======
 
 .. toctree::
-   :maxdepth: 1
+   :maxdepth: 2
    :caption: Leap frontend's documentation:
 
    usage/installation
