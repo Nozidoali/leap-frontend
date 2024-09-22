@@ -1,5 +1,5 @@
 Verilog I/O
 ===========
 
-.. autofunction:: verilog.readVerilog
-.. autofunction:: verilog.writeVerilog
+.. autofunction:: frontend.verilog.reader.reader.readVerilog
+.. autofunction:: frontend.verilog.writer.writer.writeVerilog
