@@ -11,4 +11,5 @@ Welcome
    :caption: Leap frontend's documentation:
 
    usage/installation
+   usage/faq
    modules/io

@@ -25,7 +25,7 @@ To install the package using `pip`, run the following command:
 
 .. code-block:: bash
 
-   pip install leap-frontend
+   pip install leap_frontend
 
 This will install the latest version of the package from the Python Package Index (PyPI).
 
