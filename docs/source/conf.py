@@ -9,7 +9,11 @@
 import os
 import sys
 
-sys.path.insert(0, os.path.abspath("../../frontend"))
+# get current directory
+current_dir = os.path.dirname(__file__)
+# get package directory
+package_dir = os.path.abspath(os.path.join(current_dir, "../../frontend"))
+sys.path.insert(0, package_dir)
 
 project = "leap-frontend"
 copyright = "2024, Hanyu Wang"
