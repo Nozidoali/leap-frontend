@@ -82,11 +82,11 @@ class PortDeclaration(Statement):
 class MacroDefinition(Statement):
     def __init__(self, name: str, value: DFGNode) -> None:
         super().__init__()
-        self.name = name
-        self.value = value
+        self.name: DFGNode = name
+        self.value: DFGNode = value
 
     def __repr__(self) -> str:
-        return f"MacroDefinition({self.name} = {self.value})"
+        return f"MacroDefinition({self.name} = {self.value.toString()})"
 
     def __call__(self, module: Module) -> Any:
         module.addMacro(self.name, self.value)

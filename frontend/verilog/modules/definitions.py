@@ -66,20 +66,26 @@ class ParameterHandler:
 
     def __eq__(self, value: object) -> bool:
         if not isinstance(value, ParameterHandler):
+            print(f"Value {value} is not ParameterHandler")
             return False
         for key, param in self.param_list.items():
             if key not in value.getParameters():
+                print(f"Parameter {key} not found in {value.getParameters()}")
                 return False
             if value.getParameter(key) != param:
+                print(f"Parameter {key} not equal to {value.getParameter(key)}")
                 return False
         return True
+    
+    def __ne__(self, value: object) -> bool:
+        return not self.__eq__(value)
 
 
 class Macros(dict):
     def __init__(self):
         super().__init__()
 
-    def addMacro(self, name: str, value: str):
+    def addMacro(self, name: str, value: DFGNode):
         self[name] = value
 
     def getMacros(self):
@@ -87,17 +93,23 @@ class Macros(dict):
 
     def getMacroString(self):
         retString = ""
+        
+        key: str
+        value: DFGNode
         for key, value in self.items():
-            retString += f"`define {key} {value}\n"
+            retString += f"`define {key} {value.toString()}\n"
         return retString
 
     def __eq__(self, value: object) -> bool:
         if not isinstance(value, Macros):
+            print(f"Value {value} is not Macros")
             return False
         for key, macro in self.items():
             if key not in value.getMacros():
+                print(f"Macro {key} not found in {value.getMacros()}")
                 return False
             if value.getMacros()[key] != macro:
+                print(f"Macro {key} not equal to {value.getMacros()[key]}")
                 return False
         return True
 

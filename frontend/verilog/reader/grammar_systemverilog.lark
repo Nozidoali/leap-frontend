@@ -19,7 +19,7 @@
 start: (macro_definition | timescale_definition | module)+
 
 // 1.1 Macros
-macro_definition: "`define" ( NAME | ESCAPED_IDENTIFIER ) /.+/
+macro_definition: "`define" ( NAME | ESCAPED_IDENTIFIER ) " " expression
 
 // 1.2 Timescale Directive
 timescale_definition: "`timescale" NUMBER time_identifier "/" NUMBER time_identifier
@@ -221,6 +221,7 @@ COMMENT: "//" /[^\n]*/ NEWLINE
 INLINE_COMMENT: "(*" /[^\n]*/ "*)"
 NEWLINE: "\n"
 MULTILINE_COMMENT: /\/\*(\*(?!\/)|[^*])*\*\//
+STRING_NO_SPACE: /[^\s]+/
 
 %import common.CNAME -> NAME
 %import common.NUMBER

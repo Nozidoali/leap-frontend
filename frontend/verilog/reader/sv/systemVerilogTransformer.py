@@ -45,6 +45,6 @@ class SystemVerilogTransformer(
     # macro_definition: "`define" identifier macro_body
     # macro_body: /.+/
     def macro_definition(self, items):
-        name = str(items[0])
-        value = str(items[1])
+        name: str = str(items[0])
+        value: DFGNode = items[1]
         return MacroDefinition(name, value)
