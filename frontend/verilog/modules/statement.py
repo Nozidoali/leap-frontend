@@ -99,6 +99,19 @@ class Assignment(Statement):
     def __call__(self, module: Module) -> Any:
         return module.addAssignment(self)
 
+    def __eq__(self, value: object) -> bool:
+        if not isinstance(value, Assignment):
+            return False
+        if self.target != value.target:
+            return False
+        if self.expression != value.expression:
+            return False
+        if self.condition is None and value.condition is not None:
+            return False
+        if self.condition != value.condition:
+            return False
+        return True
+        
 
 class BlockingAssignment(Assignment):
     def __init__(

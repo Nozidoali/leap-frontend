@@ -4,6 +4,7 @@ from frontend import *
 def write_after_read(data: str):
     netlist: Netlist = transformVerilogToNetlist(data)
     newData = netlistToString(netlist)
+    print(newData)
     newNetlist: Netlist = transformVerilogToNetlist(newData)
     return netlistsAreEqual(netlist, newNetlist)
 
@@ -68,5 +69,59 @@ endmodule
     assert write_after_read(verilogString)
 
 
+# Test 03
+# Basic assignment
+def test_03_write_assignment():
+    verilogString = """
+module top (
+    input wire [3:0] a,
+    output f
+);
+    assign f = &a;
+endmodule
+"""
+    assert write_after_read(verilogString)
+
+# Test 04
+# Basic assignment with expression
+def test_04_write_assignment():
+    verilogString = """
+module top (
+    input wire [3:0] a,
+    output f
+);
+    assign f = &a ^ 1;
+endmodule
+"""
+    assert write_after_read(verilogString)
+
+# Test 05
+# Basic assignment with Macro
+def test_05_write_assignment():
+    verilogString = """
+module top (
+    input wire [3:0] a,
+    output f
+);
+    assign f = &a ^ `ONE;
+endmodule
+"""
+    assert write_after_read(verilogString)
+
+
+# Test 06
+# Range with Macro
+def test_06_write_assignment():
+    verilogString = """
+module top (
+    input wire [`FOUR-1:0] a,
+    output f
+);
+    assign f = &a ^ `ONE;
+endmodule
+"""
+    assert write_after_read(verilogString)
+
+
 if __name__ == "__main__":
-    test_01_write_assignment()
+    test_06_write_assignment()

@@ -71,9 +71,8 @@ class BNGraph:
     def getAssignmentsOf(self, variableName: str):
         if variableName not in self.var2assigns:
             return []
-        for idx in self.var2assigns[variableName]:
-            yield self.assignments[idx]
-
+        return [self.assignments[idx] for idx in self.var2assigns[variableName]]
+    
     def getAssignNode(self, variableName: str):
         # get the node corresponding to the variable
         for assignment in self.getAssignmentsOf(variableName):
@@ -124,3 +123,7 @@ class BNGraph:
             children.append(childNode)
         newNode.children = children
         return newNode
+
+    def getVariableNames(self):
+        return list(self.var2assigns.keys())
+    

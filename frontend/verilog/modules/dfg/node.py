@@ -62,11 +62,7 @@ class DFGNode:
         self.range = range
 
     def toString(self) -> str:
-        return (
-            self.variable_name
-            if self.range is None
-            else f"{self.variable_name}{rangeToString(self.range)}"
-        )
+        raise NotImplementedError
 
     def __eq__(self, value: object) -> bool:
         if not isinstance(value, DFGNode):
@@ -179,33 +175,78 @@ class OPNode(DFGNode):
         super().__init__(op)
         self.operation = operation
         self.children = children
-
+        
+    def toString(self) -> str:
+        opName = self.operation.value
+        if opName.startswith("binary_"):
+            return f"({self.children[0].toString()} {self.variable_name} {self.children[1].toString()})"
+        if opName.startswith("unary_"):
+            return f"({self.variable_name} {self.children[0].toString()})"
+        match self.operation:
+            case OPType.CONDITIONAL_EXPRESSION:
+                return f"({self.children[0].toString()} ? {self.children[1].toString()} : {self.children[2].toString()})"
+            case OPType.ARRAY_CONCAT:
+                return f"{{{', '.join([child.toString() for child in self.children])}}}"
+            case OPType.ARRAY_REPLICATE:
+                return f"{{{self.children[0].toString()}{{self.children[1].toString()}}}}"
+            case OPType.ARRAY_SLICE:
+                return f"{self.children[0].toString()}[{self.children[1].toString()}:{self.children[2].toString()}]"
+            case OPType.ARRAY_INDEX:
+                return f"{self.children[0].toString()}[{self.children[1].toString()}]"
+            case OPType.FUNCTION_CALL:
+                return f"{self.variable_name}({', '.join([child.toString() for child in self.children])})"
+            case OPType.EVENT_AND:
+                return f"({self.children[0].toString()} and {self.children[1].toString()})"
+            case OPType.EVENT_OR:
+                return f"({self.children[0].toString()} or {self.children[1].toString()})"
+            case OPType.EVENT_POSEDGE:
+                return f"posedge {self.children[0].toString()}"
+            case OPType.EVENT_NEGEDGE:
+                return f"negedge {self.children[0].toString()}"
+            case OPType.MACRO:
+                return f"`{self.children[0].toString()}"
+            case OPType.UNKNOWN:
+                return self.variable_name
+            case _:
+                raise Exception(f"Unsupported operation {self.operation}")
 
 class VarNode(DFGNode):
     def __init__(self, name: str) -> None:
         super().__init__(name)
         self.operation = OPType.VARIABLE
 
+    def toString(self) -> str:
+        return (
+            self.variable_name
+            if self.range is None
+            else f"{self.variable_name}{rangeToString(self.range)}"
+        )
 
 class ConstantNode(DFGNode):
     def __init__(self, value: Any) -> None:
         super().__init__(str(value))
         self.operation = OPType.CONSTANT
 
+    def toString(self) -> str:
+        return self.variable_name
 
 class EmptyEvent(DFGNode):
     def __init__(self) -> None:
         super().__init__("*")
         self.operation = OPType.EVENT_COMB
 
+    def toString(self) -> str:
+        return self.variable_name
 
 class InitEvent(DFGNode):
     def __init__(self) -> None:
         super().__init__("*")
         self.operation = OPType.EVENT_INIT
 
-
 class UndefinedNode(DFGNode):
     def __init__(self) -> None:
         super().__init__("*")
         self.operation = OPType.UNKNOWN
+        
+    def toString(self) -> str:
+        raise Exception("Undefined node cannot be converted to string")

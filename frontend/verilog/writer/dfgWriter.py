@@ -12,12 +12,13 @@ from ..modules import *
 
 
 def assignmentToString(assignment: Assignment):
-    target = assignment.target
-    expression = assignment.expression
+    target = assignment.target.toString()
+    expression = assignment.expression.toString()
     condition = assignment.condition
 
     # TODO: consider wire/latch/reg
     if condition is not None:
+        condition = condition.toString()
         return f"{target} = {expression} ({condition})"
     return f"{target} = {expression}"
 

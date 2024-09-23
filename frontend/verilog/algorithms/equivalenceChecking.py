@@ -41,4 +41,22 @@ def modulesAreEqual(module1: Module, module2: Module, verbose: bool = True) -> b
                 f"Port {port} in module {module1.getName()} is not equal to port {port} in module {module2.getName()}"
             )
             return False
+    # compare assignments
+    for var in module1.getVariableNames():
+        if var not in module2.getVariableNames():
+            print(f"Variable {var} not found in module {module2.getName()}")
+            print(f"Variables in module {module1.getName()}: {module1.getVariableNames()}")
+            return False
+        assignments1 = module1.getAssignmentsOf(var)
+        assignments2 = module2.getAssignmentsOf(var)
+        assert len(assignments1) == len(assignments2)
+        for i in range(len(assignments1)):
+            print(assignments1[i])
+            print(assignments2[i])
+            if assignments1[i] != assignments2[i]:
+                print(
+                    f"Assignment {assignments1[i]} in module {module1.getName()} is not equal to assignment {assignments2[i]} in module {module2.getName()}"
+                )
+                return False
+    
     return True
