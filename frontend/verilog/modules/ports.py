@@ -76,7 +76,7 @@ class Port:
         self.direction: PortDirection = None
         self.type: PortType = None
 
-    def setRange(self, range: tuple):
+    def setRange(self, range: Range):
         if self.range is None and range is not None:
             self.range = range
             return True
@@ -100,10 +100,10 @@ class Port:
             return True
         return False
 
-    def setAll(self, direction: PortDirection, type: str, range: tuple):
-        return (
-            self.setDirection(direction) and self.setType(type) and self.setRange(range)
-        )
+    def setAll(self, direction: PortDirection, type: str, range: Range):
+        self.setDirection(direction)
+        self.setType(type)
+        self.setRange(range)
 
     def getType(self):
         return self.type
@@ -121,8 +121,8 @@ class Port:
         direction_str = (
             "(" + self.direction.value + ")" if self.direction is not None else ""
         )
-        return f"Port({self.name} {direction_str})"
-    
+        return f"Port({self.name}, {direction_str}, {self.type}, {self.range})"
+
     def __eq__(self, value: object) -> bool:
         if not isinstance(value, Port):
             return False
@@ -135,7 +135,7 @@ class Port:
         if self.range != value.range:
             return False
         return True
-    
+
     @property
     def name(self):
         return self.variable.name
@@ -145,7 +145,9 @@ def portToString(port: Port):
     portDirString = ""
     if port.direction is not None:
         portDirString = PortDirection.toString(port.direction) + " "
-    typeString = port.type + " " if port.type is not None else ""
+    typeString = (
+        PortType.toString(port.type) + " " if port.type is not None else "wire "
+    )
 
     # range is optional, the space is to be consistent with the space in the middle
     rangeString = f"{rangeToString(port.range)} " if port.range is not None else " "

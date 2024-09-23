@@ -30,6 +30,7 @@ def writeVerilogAST(module: Module, filename: str):
     assert isinstance(module, Module), "module should be an instance of Module"
     module.dfg.toGraph(filename)
 
+
 def netlistToString(netlist: Netlist) -> str:
     verilogStr = ""
     definitions = netlist.getDefinitions()
@@ -46,6 +47,7 @@ def netlistToString(netlist: Netlist) -> str:
         verilogStr += moduleToString(module) + "\n"
 
     return verilogStr
+
 
 def writeVerilog(netlist: Netlist | Module, filename: str):
     """

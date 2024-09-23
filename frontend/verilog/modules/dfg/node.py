@@ -25,12 +25,18 @@ class Range:
             return False
         return self.start == value.start and self.end == value.end
 
+    def __repr__(self) -> str:
+        return f"Range({self.start}, {self.end})"
+
+
 def rangeToString(range: Range) -> str:
     if range is None:
         return ""
     assert isinstance(range, Range), f"Expected Range, got {type(range)}"
     return (
-        f"[{range.start}:{range.end}]" if range.end is not None else f"[{range.start}]"
+        f"[{range.start.toString()}:{range.end.toString()}]"
+        if range.end is not None
+        else f"[{range.start}]"
     )
 
 
@@ -38,18 +44,18 @@ class DFGNode:
     # Expressions are hard to handle because of the recursive nature
 
     def __init__(self, name: str = None) -> None:
-        self.variable_name = name
-        self.operation = None
-        self.range = None
-        self.children = []
+        self.variable_name: str = str(name)  # could be a Tree object
+        self.operation: OPType = None
+        self.range: Range = None
+        self.children: list = []
 
     def __repr__(self) -> str:
         return f"Node({self.variable_name})"
 
-    def isVariable(self):
+    def isVariable(self) -> bool:
         return self.operation == OPType.VARIABLE
 
-    def isConstant(self):
+    def isConstant(self) -> bool:
         return self.operation == OPType.CONSTANT
 
     def setRange(self, range: Range):
@@ -61,7 +67,7 @@ class DFGNode:
             if self.range is None
             else f"{self.variable_name}{rangeToString(self.range)}"
         )
-        
+
     def __eq__(self, value: object) -> bool:
         if not isinstance(value, DFGNode):
             return False
@@ -79,11 +85,11 @@ class DFGNode:
         return True
 
     @property
-    def name(self):
+    def name(self) -> str:
         return self.variable_name
 
     @property
-    def needsParentheses(self):
+    def needsParentheses(self) -> bool:
         return True
 
     def replaceVariable(self, old: str, new: str):
