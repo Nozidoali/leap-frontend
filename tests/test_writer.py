@@ -488,6 +488,29 @@ endmodule
     assert write_after_read(verilogString)
 
 
+# Test 25
+# Parameters inside modules
+def test_25_parameters():
+    verilogString = """
+module top (
+    input wire a,
+    input wire b,
+    output wire f
+);
+
+`define WIDTH 4
+
+wire [`WIDTH -1:0] a;
+wire [`WIDTH -1:0] b;
+wire [`WIDTH -1:0] f;
+
+assign f = a + b;
+endmodule
+"""
+    assert write_after_read(verilogString)
+
+
+
 if __name__ == "__main__":
     # test_00_write_assignment()
     # test_01_write_assignment()
@@ -513,4 +536,5 @@ if __name__ == "__main__":
     # test_21_star_event()
     # test_22_and_or_event()
     # test_23_parameters()
-    test_24_parameters()
+    # test_24_parameters()
+    test_25_parameters()

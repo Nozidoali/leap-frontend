@@ -94,6 +94,7 @@ def writeModuleInst(f, moduleInst: ModuleInst):
 def moduleToString(module: Module):
     moduleString = ""
     moduleString += moduleHeaderToString(module)
+    moduleString += module.getMacroString()
     moduleString += parametersToString(module.getParameters())
     moduleString += portDefsToString(module.getPorts())
     moduleString += "\n"

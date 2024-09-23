@@ -12,20 +12,6 @@ from ..modules import *
 from .headerWriter import *
 from .moduleWriter import *
 
-
-def writeDefinitions(f, netlist: Netlist):
-    definitions = netlist.getDefinitions()
-    for key, value in definitions.items():
-        if key in ["time_unit", "time_precision"]:
-            continue
-        f.write(f"`define {key} {value}\n")
-
-    if "time_unit" in definitions:
-        f.write(
-            f"`timescale {definitions['time_unit']} / {definitions['time_precision']}\n\n"
-        )
-
-
 def writeVerilogAST(module: Module, filename: str):
     assert isinstance(module, Module), "module should be an instance of Module"
     module.dfg.toGraph(filename)
@@ -65,13 +51,9 @@ def writeVerilog(netlist: Netlist | Module, filename: str):
 
         Related functions: :func:`readVerilog`
     """
-    if isinstance(netlist, Module):
-        writeModule(netlist)
-        return
-
+    assert isinstance(netlist, Netlist) or isinstance(netlist, Module), "netlist should be an instance of Netlist or Module"
     with open(filename, "w") as f:
-        writeHeader(f)
-        writeDefinitions(f, netlist)
-        for moduleName in netlist.getModules():
-            module = netlist.getModule(moduleName)
-            writeModule(module)
+        if isinstance(netlist, Module):
+            f.write(moduleToString(netlist))
+        else:
+            f.write(netlistToString(netlist))
