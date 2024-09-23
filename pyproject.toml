@@ -3,7 +3,7 @@ requires = ["setuptools>=61", "wheel", "setuptools_scm", "pytest"]
 build-backend = "setuptools.build_meta"
 
 [project]
-name="leap-fronted"
+name="leap-frontend"
 
 # read it from the file
 version = "0.1.0"
