@@ -11,5 +11,17 @@ Welcome
    :caption: Leap frontend's documentation:
 
    usage/installation
+   changelog
    usage/faq
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Verilog I/O:
+
    modules/io
+
+.. toctree::
+   :maxdepth: 2
+   :caption: Graph Representation:
+
+   modules/netlist

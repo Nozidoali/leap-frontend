@@ -2,7 +2,7 @@ Change log
 ==========
 
 v0.1.2 (not yet released)
------------------------
+-------------------------
 
 * Graph Representation
     - Change `modules` in Netlist to a dictionary
@@ -14,7 +14,7 @@ v0.1.2 (not yet released)
     - Add `netlistsAreEqual` function to compare two netlists
 
 v0.1.0 (September 22, 2024)
--------------------------
+---------------------------
 
 * Graph Representation
     - Add `DFGNode` class to represent nodes in a dataflow graph

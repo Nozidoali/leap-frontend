@@ -12,6 +12,14 @@ from .module import Module
 
 
 class Netlist:
+    """ 
+    A netlist is a collection of modules
+    
+    :param modules: a list of modules
+    :type modules: list
+    :param definitions: a dictionary of definitions
+    :type definitions: dict
+    """
     def __init__(self, modules: list, definitions: dict = {}):
         self.modules = {m.getName(): m for m in modules}
 
