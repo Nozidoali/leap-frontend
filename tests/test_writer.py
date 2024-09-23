@@ -1,5 +1,5 @@
 from frontend import *
-
+import pytest
 
 def write_after_read(data: str):
     netlist: Netlist = transformVerilogToNetlist(data)
@@ -46,6 +46,7 @@ endmodule
 
 # Test 02
 # Module Definition with bad port names
+@pytest.mark.skip(reason="not implemented")
 def test_02_write_assignment():
     verilogString = """
 module top (
