@@ -6,12 +6,13 @@ v0.1.2 (not yet released)
 
 * Graph Representation
     - Change `modules` in Netlist to a dictionary
+    - Change macros and timescale definitions into statements
 
 * Verilog I/O:
     - Update writter for `port`
 
 * Algorithms:
-    - Add `netlistsAreEqual` function to compare two netlists
+    - Add `__eq__` function to compare two netlists
 
 v0.1.0 (September 22, 2024)
 ---------------------------

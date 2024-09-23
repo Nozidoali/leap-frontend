@@ -12,6 +12,7 @@ from ..modules import *
 from .headerWriter import *
 from .moduleWriter import *
 
+
 def writeVerilogAST(module: Module, filename: str):
     assert isinstance(module, Module), "module should be an instance of Module"
     module.dfg.toGraph(filename)
@@ -51,7 +52,9 @@ def writeVerilog(netlist: Netlist | Module, filename: str):
 
         Related functions: :func:`readVerilog`
     """
-    assert isinstance(netlist, Netlist) or isinstance(netlist, Module), "netlist should be an instance of Netlist or Module"
+    assert isinstance(netlist, Netlist) or isinstance(
+        netlist, Module
+    ), "netlist should be an instance of Netlist or Module"
     with open(filename, "w") as f:
         if isinstance(netlist, Module):
             f.write(moduleToString(netlist))
