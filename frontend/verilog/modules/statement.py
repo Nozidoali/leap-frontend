@@ -7,9 +7,10 @@ from .moduleInst import *
 
 class Statement:
     """
-    Statement is the base class for all statements in the module. 
+    Statement is the base class for all statements in the module.
     It is a callable object that can be called with a module object to add the statement to the module.
     """
+
     def __init__(self) -> None:
         self.condition: DFGNode = None
         self.event: DFGNode = None

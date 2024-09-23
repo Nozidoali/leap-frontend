@@ -38,7 +38,9 @@ class BNGraph:
 
     def addAssignment(self, assignment):
         self.assignments.append(assignment)
-        assert isinstance(assignment.target, DFGNode), f"Expected DFGNode, got {assignment.target}, {type(assignment.target)}"
+        assert isinstance(
+            assignment.target, DFGNode
+        ), f"Expected DFGNode, got {assignment.target}, {type(assignment.target)}"
         variableName = assignment.target.name
         if variableName not in self.var2assigns:
             self.var2assigns[variableName] = []

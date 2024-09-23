@@ -11,8 +11,9 @@ Last Modified time: 2024-06-28 12:45:25
 from lark import Transformer, v_args
 from ...modules import *
 
+
 class ExpressionTransformer(Transformer):
-    
+
     def lhs_expression(self, items):
         return items[0]
 
@@ -62,7 +63,6 @@ class ExpressionTransformer(Transformer):
         OPType.BINARY_DIV: "/",
         OPType.BINARY_MOD: "%",
         OPType.BINARY_POW: "**",
-
         # Unary operations
         OPType.UNARY_POS: "+",
         OPType.UNARY_NEG: "-",
@@ -74,20 +74,20 @@ class ExpressionTransformer(Transformer):
         OPType.UNARY_NAND: "~&",
         OPType.UNARY_NOR: "~|",
         OPType.UNARY_XNOR: "~^",
-
         # Array operations
         OPType.ARRAY_CONCAT: "{{{}}}",
         OPType.ARRAY_REPLICATE: "{n{}}",
         OPType.ARRAY_SLICE: "[]",
         OPType.ARRAY_INDEX: "[]",
-
         # Conditional expression
-        OPType.CONDITIONAL_EXPRESSION: "?:"
+        OPType.CONDITIONAL_EXPRESSION: "?:",
     }
 
     # Dynamically generate methods for all operations
     for op_type, symbol in operations.items():
-        locals()[f'{op_type.name.lower()}'] = lambda self, items, s=symbol, t=op_type: self.op_node(s, t, items)
+        locals()[f"{op_type.name.lower()}"] = (
+            lambda self, items, s=symbol, t=op_type: self.op_node(s, t, items)
+        )
 
     def function_call(self, items):
         return OPNode("()", OPType.FUNCTION_CALL, VarNode(items[0]), *items[1])

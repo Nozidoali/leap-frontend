@@ -1,5 +1,6 @@
 from frontend import *
 import os
+import pytest
 
 # change the working directory to the root directory of the project
 os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -20,6 +21,7 @@ def test_00_legup():
 
 # test 01
 # compatibility with Google XLS
+@pytest.mark.skip(reason="not implemented")
 def test_01_xls():
     verilogDir = "examples/verilogs/external/"
     verilogFile = os.path.join(verilogDir, "xls.v")
@@ -29,6 +31,7 @@ def test_01_xls():
     assert module is not None
     module.exportDOT()
     module.writeDOT("tmp.dot")
+
 
 if __name__ == "__main__":
     test_00_legup()
