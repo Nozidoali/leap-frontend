@@ -104,7 +104,7 @@ def moduleToString(module: Module):
     for var in module.var2assigns:
         for assign in module.getAssignmentsOf(var):
             # TODO: consider the wire/latch/reg
-            moduleString += "assign " + assignmentToString(assign) + ";\n"
+            moduleString += assignmentToString(assign)
     moduleString += "endmodule\n"
     return moduleString
 

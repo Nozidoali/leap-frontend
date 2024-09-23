@@ -72,7 +72,7 @@ class BNGraph:
         if variableName not in self.var2assigns:
             return []
         return [self.assignments[idx] for idx in self.var2assigns[variableName]]
-    
+
     def getAssignNode(self, variableName: str):
         # get the node corresponding to the variable
         for assignment in self.getAssignmentsOf(variableName):
@@ -126,4 +126,3 @@ class BNGraph:
 
     def getVariableNames(self):
         return list(self.var2assigns.keys())
-    

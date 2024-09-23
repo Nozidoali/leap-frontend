@@ -14,11 +14,10 @@ from ...modules import *
 
 class ExpressionTransformer(Transformer):
 
-    def lhs_expression(self, items):
+    def placeholder(self, items):
         return items[0]
 
-    def expression(self, items):
-        return items[0]
+    lhs_expression = expression = event_expression = event_parenthesis = placeholder
 
     def constant_node(self, items):
         return ConstantNode(items[0])
@@ -81,6 +80,11 @@ class ExpressionTransformer(Transformer):
         OPType.ARRAY_INDEX: "[]",
         # Conditional expression
         OPType.CONDITIONAL_EXPRESSION: "?:",
+        # Event expressions
+        OPType.UNARY_POSEDGE: "posedge",
+        OPType.UNARY_NEGEDGE: "negedge",
+        OPType.BINARY_EVENT_OR: "or",
+        OPType.BINARY_EVENT_AND: "and",
     }
 
     # Dynamically generate methods for all operations
@@ -97,3 +101,19 @@ class ExpressionTransformer(Transformer):
 
     def dollar_identifier(self, items):
         return str(items[0])
+
+    def event_variable(self, items):
+        return VarNode(items[0])
+
+    def always_block(self, items):
+        event_condition: DFGNode = OPNode("always", OPType.EVENT_ALWAYS, items[0])
+        assert isinstance(event_condition, DFGNode)
+        return [x.setEvent(event_condition) for x in items[1]]
+
+    def initial_block(self, items):
+        event_condition: DFGNode = InitEvent()
+        assert isinstance(event_condition, DFGNode)
+        return [x.setEvent(event_condition) for x in items[0]]
+
+    def combinational_event_expression(self, _):
+        return EmptyEvent()

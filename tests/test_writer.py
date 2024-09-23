@@ -1,10 +1,11 @@
 from frontend import *
 import pytest
 
+
 def write_after_read(data: str):
     netlist: Netlist = transformVerilogToNetlist(data)
     newData = netlistToString(netlist)
-    # print(newData)
+    print(newData)
     newNetlist: Netlist = transformVerilogToNetlist(newData)
     return netlistsAreEqual(netlist, newNetlist)
 
@@ -229,13 +230,236 @@ endmodule
     assert write_after_read(verilogString)
 
 
+# Test 14
+# With if conditions
+def test_14_conditions():
+    verilogString = """
+module top (
+    input wire [3:0] a,
+    input wire [3:0] b,
+    output wire f
+);
+    if (a > b) begin
+        assign f = 1;
+    end else begin
+        assign f = 0;
+    end
+
+endmodule
+"""
+    assert write_after_read(verilogString)
+
+
+# Test 15
+# Blocking and Non-Blocking Assignments
+def test_15_conditions():
+    verilogString = """
+module top (
+    input wire [3:0] a,
+    input wire [3:0] b,
+    output wire f,
+    output reg g
+);
+    if (a > b) begin
+        assign f = 1;
+    end else begin
+        assign f = 0;
+    end
+    
+    if (a > b) begin
+        g <= a;
+    end else begin
+        g <= b;
+    end
+
+endmodule
+"""
+    assert write_after_read(verilogString)
+
+
+# Test 16
+# Always event
+def test_16_conditions():
+    verilogString = """
+module top (
+    input wire clk,
+    input wire [3:0] a,
+    input wire [3:0] b,
+    output wire f,
+    output reg g
+);
+
+always @(posedge clk) begin
+    if (a > b) begin
+        assign f = 1;
+    end else begin
+        assign f = 0;
+    end
+    
+    if (a > b) begin
+        g <= a;
+    end else begin
+        g <= b;
+    end
+end
+endmodule
+"""
+    assert write_after_read(verilogString)
+
+
+# Test 17
+# Always event
+def test_17_conditions():
+    verilogString = """
+module top (
+    input clk,
+    input wire [3:0] a,
+    input wire [3:0] b,
+    output wire f,
+    output reg g
+);
+
+always @(negedge clk) begin
+    if (a > b) begin
+        assign f = 1;
+    end else begin
+        assign f = 0;
+    end
+    
+    if (a > b) begin
+        g <= a;
+    end else begin
+        g <= b;
+    end
+end
+endmodule
+"""
+    assert write_after_read(verilogString)
+
+
+# Test 18
+# Reset and positive edge clock event
+def test_18_reset_event():
+    verilogString = """
+module top (
+    input clk,
+    input reset,
+    input wire [3:0] a,
+    input wire [3:0] b,
+    output reg f
+);
+
+always @(posedge clk or posedge reset) begin
+    if (reset) begin
+        f <= 0;
+    end else begin
+        f <= a + b;
+    end
+end
+endmodule
+"""
+    assert write_after_read(verilogString)
+
+
+# Test 19
+# Initial block with event-driven assignment
+def test_19_initial_event():
+    verilogString = """
+module top (
+    input wire [3:0] a,
+    input wire [3:0] b,
+    output reg f
+);
+
+initial begin
+    f = 0;
+end
+
+always @(a or b) begin
+    f <= a + b;
+end
+endmodule
+"""
+    assert write_after_read(verilogString)
+
+
+# Test 20
+# Always block with multiple conditions and mixed operators (and, or)
+def test_20_mixed_event_conditions():
+    verilogString = """
+module top (
+    input clk,
+    input reset,
+    input wire [3:0] a,
+    input wire [3:0] b,
+    output reg f
+);
+
+always @(posedge clk or negedge reset or a or b) begin
+    if (!reset) begin
+        f <= 0;
+    end else if (a && b) begin
+        f <= 1;
+    end else if (a || b) begin
+        f <= a + b;
+    end else begin
+        f <= 0;
+    end
+end
+endmodule
+"""
+    assert write_after_read(verilogString)
+
+
+# Test 21
+# Mixed event-driven assignments with priority for * (wildcard)
+def test_21_star_event():
+    verilogString = """
+module top (
+    input wire [3:0] a,
+    input wire [3:0] b,
+    output reg f
+);
+
+always @(*) begin
+    if (a == b) begin
+        f <= 1;
+    end else begin
+        f <= 0;
+    end
+end
+endmodule
+"""
+    assert write_after_read(verilogString)
+
+
+# Test 22
+# Multiple events combining and and or
+@pytest.mark.skip(reason="not implemented")
+def test_22_and_or_event():
+    verilogString = """
+module top (
+    input clk,
+    input wire [3:0] a,
+    input wire [3:0] b,
+    output reg f
+);
+
+always @(posedge clk or (a && b)) begin
+    f <= (a && b) ? 1 : 0;
+end
+endmodule
+"""
+    assert write_after_read(verilogString)
+
+
 if __name__ == "__main__":
     # test_00_write_assignment()
     # test_01_write_assignment()
     # test_02_write_assignment()
     # test_03_write_assignment()
     # test_04_write_assignment()
-    test_05_write_assignment()
+    # test_05_write_assignment()
     # test_06_write_assignment()
     # test_07_write_expression()
     # test_08_binary_operations()
@@ -244,3 +468,12 @@ if __name__ == "__main__":
     # test_11_array_concat()
     # test_12_conditional_expression()
     # test_13_multiple_operations()
+    # test_14_conditions()
+    # test_15_conditions()
+    # test_16_conditions()
+    # test_17_conditions()
+    # test_18_reset_event()
+    test_19_initial_event()
+    # test_20_mixed_event_conditions()
+    # test_21_star_event()
+    # test_22_and_or_event()

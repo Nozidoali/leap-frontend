@@ -34,6 +34,24 @@ class Statement:
     def __call__(self, module: Module) -> Any:
         raise NotImplementedError
 
+    def __eq__(self, value: object) -> bool:
+        if not isinstance(value, Statement):
+            print(f"Type mismatch: {type(value)}")
+            return False
+        if self.condition is None and value.condition is not None:
+            print(f"Condition mismatch: {self.condition} != {value.condition}")
+            return False
+        if self.condition != value.condition:
+            print(f"Condition mismatch: {self.condition} != {value.condition}")
+            return False
+        if self.event is None and value.event is not None:
+            print(f"Event mismatch: {self.event} != {value.event}")
+            return False
+        if self.event != value.event:
+            print(f"Event mismatch: {self.event} != {value.event}")
+            return False
+        return True
+
 
 class ModuleInstantiation(Statement):
     def __init__(self, inst: ModuleInst) -> None:
@@ -76,11 +94,11 @@ class Assignment(Statement):
     def __init__(
         self, target: DFGNode, expression: DFGNode, condition: DFGNode = None
     ) -> None:
+        super().__init__()
         self.target: DFGNode = target
         self.expression: DFGNode = expression
-        self.condition: DFGNode = condition
         self.type = None
-        self.isBlocking = False
+        self.isBlocking = True
 
     def __repr__(self) -> str:
         retString = ""
@@ -101,17 +119,19 @@ class Assignment(Statement):
 
     def __eq__(self, value: object) -> bool:
         if not isinstance(value, Assignment):
+            print(f"Type mismatch: {type(value)}")
             return False
         if self.target != value.target:
+            print(f"Target mismatch: {self.target} != {value.target}")
             return False
         if self.expression != value.expression:
+            print(f"Expression mismatch: {self.expression} != {value.expression}")
             return False
-        if self.condition is None and value.condition is not None:
+        if self.isBlocking != value.isBlocking:
+            print(f"Blocking mismatch: {self.isBlocking} != {value.isBlocking}")
             return False
-        if self.condition != value.condition:
-            return False
-        return True
-        
+        return super().__eq__(value)
+
 
 class BlockingAssignment(Assignment):
     def __init__(

@@ -70,14 +70,15 @@ variable_list: lhs_expression ("," lhs_expression)*
 
 // 2.3 Variable Declarations and Assignments
 // the block statement is a statement block or a single statement
+// TODO: logical operators and many are not supported
 always_block: "always" "@" "(" event_expression ")" statement
-event_expression: "posedge" lhs_expression -> posedge_event_expression
-                | "negedge" lhs_expression -> negedge_event_expression
-                | "`" NAME -> macro_event
-                | lhs_expression
+event_expression: NAME -> event_variable
+                | "posedge" event_expression -> unary_posedge
+                | "negedge" event_expression -> unary_negedge
                 | "*" -> combinational_event_expression
-                | event_expression "or" event_expression -> event_or
-                | event_expression "and" event_expression -> event_and
+                | event_expression "or" event_expression -> binary_event_or
+                | event_expression "and" event_expression -> binary_event_and
+                | "(" event_expression ")" -> event_parenthesis
 
 // initial block is used to execute a block of code once at the beginning of the simulation
 initial_block: "initial" statement

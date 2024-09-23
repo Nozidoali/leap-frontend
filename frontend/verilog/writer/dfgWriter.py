@@ -12,30 +12,34 @@ from ..modules import *
 
 
 def assignmentToString(assignment: Assignment):
+    retString = ""
+
     target = assignment.target.toString()
     expression = assignment.expression.toString()
+    assignOp = "=" if assignment.isBlocking else "<="
     condition = assignment.condition
+
+    if assignment.event is not None:
+        retString += f"{assignment.event.toString()} begin\n"
 
     # TODO: consider wire/latch/reg
     if condition is not None:
         condition = condition.toString()
-        return f"{target} = {expression} ({condition})"
-    return f"{target} = {expression}"
+        retString += (
+            f"if ({condition}) begin\n\t{target} {assignOp} {expression};\nend\n"
+        )
+    else:
+        retString += f"\t{target} {assignOp} {expression};\n"
+
+    if assignment.event is not None:
+        retString += "end\n"
+
+    return retString
 
 
 def writeAssignment(f, assignment: Assignment):
-    target = assignment.target
-    expression = assignment.expression
-    condition = assignment.condition
-
-    # TODO: consider wire/latch/reg
-    f.write("always @(*) begin\n")
-    if condition is not None:
-        f.write(f"if ({condition}) begin\n")
-    f.write(f"\t{target} = {expression};\n")
-    if condition is not None:
-        f.write("end\n")
-    f.write("end\n\n")
+    assignmentString = assignmentToString(assignment)
+    f.write(assignmentString + ";\n")
 
 
 def writeAssignments(f, module: Module):
@@ -56,7 +60,7 @@ def writeModuleDFG(f, module: Module):
         nodeType = module.getVariableType(node.label)
 
         # TODO: this could be done more elegantly
-        lhs = VariableNode(variableName)
+        lhs = VarNode(variableName)
         if node.range is not None:
             lhs.setRange(node.range)
 

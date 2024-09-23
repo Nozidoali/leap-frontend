@@ -16,7 +16,6 @@ from ...modules import *
 from .expressionTransformer import *
 from .conditionTransformer import *
 from .portTransformer import *
-from .eventTransformer import *
 from .moduleTransformer import *
 
 
@@ -25,7 +24,6 @@ class SystemVerilogTransformer(
     ConditionTransformer,
     PortTransformer,
     ExpressionTransformer,
-    EventTransformer,
 ):
     # description: (macro_definition | timescale_directive | module)+
     def start(self, items):
