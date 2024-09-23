@@ -36,19 +36,12 @@ def transformVerilogToNetlist(data: str) -> Netlist:
     """
     import os
 
-    curr_dir = os.path.dirname(os.path.abspath(__file__))
-    grammar_file = os.path.join(curr_dir, GRAMMAR_FILE)
-    with open(grammar_file, "r") as f:
-        verilog_netlist_grammar = f.read()
-
+    ast = parseVerilogToAST(data)
+    
     # select the transformer
-    verilog_parser = Lark(
-        verilog_netlist_grammar,
-        parser="lalr",
-        lexer="contextual",
-        transformer=SystemVerilogTransformer(),
-    )
-    netlist = verilog_parser.parse(data)
+    transformer = SystemVerilogTransformer()
+    netlist = transformer.transform(ast)
+    
     return netlist
 
 

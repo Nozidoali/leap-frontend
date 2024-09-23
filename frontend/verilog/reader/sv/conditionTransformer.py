@@ -42,7 +42,7 @@ class ConditionTransformer(Transformer):
     def if_statement(self, items):
         return [x.addCondition(items[0]) for x in items[1]]
 
-    def else_if_statements(self, items):
+    def else_if_statement(self, items):
         return [x.addCondition(items[0]) for x in items[1]]
 
     def else_statement(self, items):
