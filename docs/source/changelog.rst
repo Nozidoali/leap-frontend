@@ -1,8 +1,8 @@
 Change log
 ==========
 
-v0.1.2 (not yet released)
--------------------------
+v0.1.2 (September 22, 2024)
+---------------------------
 
 * Graph Representation
     - Change `modules` in Netlist to a dictionary

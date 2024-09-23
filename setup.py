@@ -12,7 +12,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="leap-frontend",
-    version="0.1.0",
+    version="0.1.2",
     author="Hanyu Wang",
     description="Yet another extensible compiler.",
     classifiers=[
