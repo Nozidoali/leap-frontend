@@ -1,4 +1,4 @@
-module toy_fsm
+module top
 (
     clk,
     reset,

@@ -12,10 +12,18 @@ from typing import Any
 
 
 class Range:
-    def __init__(self, start: int, end: int = None):
+    def __init__(self, start: Any, end: Any = None):
         self.start = start
         self.end = end
 
+    def __eq__(self, value: object) -> bool:
+        if not isinstance(value, Range):
+            return False
+        if self.end is None and value.end is not None:
+            return
+        if self.start is None and value.start is not None:
+            return False
+        return self.start == value.start and self.end == value.end
 
 def rangeToString(range: Range) -> str:
     if range is None:
@@ -53,6 +61,22 @@ class DFGNode:
             if self.range is None
             else f"{self.variable_name}{rangeToString(self.range)}"
         )
+        
+    def __eq__(self, value: object) -> bool:
+        if not isinstance(value, DFGNode):
+            return False
+        if self.operation != value.operation:
+            return False
+        if self.variable_name != value.variable_name:
+            return False
+        if self.range != value.range:
+            return False
+        if len(self.children) != len(value.children):
+            return False
+        for i in range(len(self.children)):
+            if self.children[i] != value.children[i]:
+                return False
+        return True
 
     @property
     def name(self):

@@ -15,7 +15,7 @@ from .dfgWriter import *
 
 def moduleHeaderToString(module: Module):
     name = module.getName()
-    portString = [f"{port}" for port in module.getIOs()]
+    portString = [f"\t{port}" for port in module.getIOs()]
     return f"module {name}(\n" + ",\n".join(portString) + "\n);\n\n"
 
 

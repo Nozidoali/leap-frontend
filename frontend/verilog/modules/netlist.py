@@ -13,7 +13,7 @@ from .module import Module
 
 class Netlist:
     def __init__(self, modules: list, definitions: dict = {}):
-        self.modules = modules[:]
+        self.modules = {m.getName(): m for m in modules}
 
         assert isinstance(definitions, dict), "definitions should be a dict"
         self.definitions = definitions.copy()
@@ -22,19 +22,14 @@ class Netlist:
         return "Netlist({})".format(self.modules)
 
     def getModule(self, name: str) -> Module:
-        for module in self.modules:
-            if module.module_name == name:
-                return module
-        return None
+        return self.modules.get(name, None)
 
     def getModules(self) -> list:
-        moduleNames = []
-        for module in self.modules:
-            moduleNames.append(module.module_name)
-        return moduleNames
+        return list(self.modules.keys())
 
     def getDefinitions(self) -> dict:
         return self.definitions
 
     def getModuleAt(self, index: int) -> Module:
-        return self.modules[index]
+        # Especially useful for netlist with only one module
+        return self.getModule(self.getModules()[index])

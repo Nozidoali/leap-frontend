@@ -30,6 +30,22 @@ def writeVerilogAST(module: Module, filename: str):
     assert isinstance(module, Module), "module should be an instance of Module"
     module.dfg.toGraph(filename)
 
+def netlistToString(netlist: Netlist) -> str:
+    verilogStr = ""
+    definitions = netlist.getDefinitions()
+    for key, value in definitions.items():
+        if key in ["time_unit", "time_precision"]:
+            continue
+        verilogStr += f"`define {key} {value}\n"
+
+    if "time_unit" in definitions:
+        verilogStr += f"`timescale {definitions['time_unit']} / {definitions['time_precision']}\n\n"
+
+    for moduleName in netlist.getModules():
+        module = netlist.getModule(moduleName)
+        verilogStr += moduleToString(module) + "\n"
+
+    return verilogStr
 
 def writeVerilog(netlist: Netlist | Module, filename: str):
     """

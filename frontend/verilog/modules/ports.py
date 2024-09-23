@@ -8,7 +8,7 @@ Last Modified by: Hanyu Wang
 Last Modified time: 2024-06-25 23:58:04
 """
 
-from enum import Enum, auto
+from enum import Enum
 from .dfg import *
 
 
@@ -69,12 +69,12 @@ class PortType(Enum):
 class Port:
     def __init__(
         self,
-        name: str,
+        variable: DFGNode,
     ):
-        self.name = name
-        self.range = None
-        self.direction = None
-        self.type = None
+        self.variable: DFGNode = variable
+        self.range: Range = None
+        self.direction: PortDirection = None
+        self.type: PortType = None
 
     def setRange(self, range: tuple):
         if self.range is None and range is not None:
@@ -109,7 +109,7 @@ class Port:
         return self.type
 
     def getPortName(self):
-        return self.name
+        return self.variable.name
 
     def getRange(self):
         return self.range
@@ -122,6 +122,23 @@ class Port:
             "(" + self.direction.value + ")" if self.direction is not None else ""
         )
         return f"Port({self.name} {direction_str})"
+    
+    def __eq__(self, value: object) -> bool:
+        if not isinstance(value, Port):
+            return False
+        if self.variable != value.variable:
+            return False
+        if self.direction != value.direction:
+            return False
+        if self.type != value.type:
+            return False
+        if self.range != value.range:
+            return False
+        return True
+    
+    @property
+    def name(self):
+        return self.variable.name
 
 
 def portToString(port: Port):
