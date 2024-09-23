@@ -4,7 +4,7 @@ from frontend import *
 def write_after_read(data: str):
     netlist: Netlist = transformVerilogToNetlist(data)
     newData = netlistToString(netlist)
-    print(newData)
+    # print(newData)
     newNetlist: Netlist = transformVerilogToNetlist(newData)
     return netlistsAreEqual(netlist, newNetlist)
 
@@ -82,6 +82,7 @@ endmodule
 """
     assert write_after_read(verilogString)
 
+
 # Test 04
 # Basic assignment with expression
 def test_04_write_assignment():
@@ -94,6 +95,7 @@ module top (
 endmodule
 """
     assert write_after_read(verilogString)
+
 
 # Test 05
 # Basic assignment with Macro
@@ -123,5 +125,121 @@ endmodule
     assert write_after_read(verilogString)
 
 
+# Test 07
+# Expression Test Case 1
+def test_07_write_expression():
+    verilogString = """
+module top (
+    input wire [3:0] a,
+    input wire [3:0] b,
+    output f
+);
+    assign f = (&a) ^ b;
+endmodule
+"""
+    assert write_after_read(verilogString)
+
+
+# Test 08
+# Binary Operator Test - AND, OR, XOR
+def test_08_binary_operations():
+    verilogString = """
+module top (
+    input wire [3:0] a,
+    input wire [3:0] b,
+    output wire f
+);
+    assign f = (a && b) || (a ^ b);
+endmodule
+"""
+    assert write_after_read(verilogString)
+
+
+# Test 09
+# Unary Operator Test - NOT, INV
+def test_09_unary_operations():
+    verilogString = """
+module top (
+    input wire [3:0] a,
+    output wire f
+);
+    assign f = !a | ~a;
+endmodule
+"""
+    assert write_after_read(verilogString)
+
+
+# Test 10
+# Shift Operators - Left and Right Shift
+def test_10_shift_operations():
+    verilogString = """
+module top (
+    input wire [3:0] a,
+    output wire f
+);
+    assign f = a << 2;
+endmodule
+"""
+    assert write_after_read(verilogString)
+
+
+# Test 11
+# Array Concatenation
+def test_11_array_concat():
+    verilogString = """
+module top (
+    input wire [3:0] a,
+    input wire [3:0] b,
+    output wire [7:0] f
+);
+    assign f = {a, b};
+endmodule
+"""
+    assert write_after_read(verilogString)
+
+
+# Test 12
+# Conditional Expression
+def test_12_conditional_expression():
+    verilogString = """
+module top (
+    input wire [3:0] a,
+    input wire [3:0] b,
+    output wire f
+);
+    assign f = (a > b) ? 1 : 0;
+endmodule
+"""
+    assert write_after_read(verilogString)
+
+
+# Test 13
+# Multiple Binary Operations in a Single Expression
+def test_13_multiple_operations():
+    verilogString = """
+module top (
+    input wire [3:0] a,
+    input wire [3:0] b,
+    output wire f
+);
+    assign f = (a + b) - (a * b);
+endmodule
+"""
+    assert write_after_read(verilogString)
+
+
 if __name__ == "__main__":
-    test_06_write_assignment()
+    # test_00_write_assignment()
+    # test_01_write_assignment()
+    # test_02_write_assignment()
+    # test_03_write_assignment()
+    # test_04_write_assignment()
+    test_05_write_assignment()
+    # test_06_write_assignment()
+    # test_07_write_expression()
+    # test_08_binary_operations()
+    # test_09_unary_operations()
+    # test_10_shift_operations()
+    # test_11_array_concat()
+    # test_12_conditional_expression()
+    # test_13_multiple_operations()

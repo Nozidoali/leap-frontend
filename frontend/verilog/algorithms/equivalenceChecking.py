@@ -51,8 +51,6 @@ def modulesAreEqual(module1: Module, module2: Module, verbose: bool = True) -> b
         assignments2 = module2.getAssignmentsOf(var)
         assert len(assignments1) == len(assignments2)
         for i in range(len(assignments1)):
-            print(assignments1[i])
-            print(assignments2[i])
             if assignments1[i] != assignments2[i]:
                 print(
                     f"Assignment {assignments1[i]} in module {module1.getName()} is not equal to assignment {assignments2[i]} in module {module2.getName()}"
