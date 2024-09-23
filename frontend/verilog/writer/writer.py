@@ -33,14 +33,7 @@ def writeVerilogAST(module: Module, filename: str):
 
 def netlistToString(netlist: Netlist) -> str:
     verilogStr = ""
-    definitions = netlist.getDefinitions()
-    for key, value in definitions.items():
-        if key in ["time_unit", "time_precision"]:
-            continue
-        verilogStr += f"`define {key} {value}\n"
-
-    if "time_unit" in definitions:
-        verilogStr += f"`timescale {definitions['time_unit']} / {definitions['time_precision']}\n\n"
+    verilogStr += netlist.getMacroString() + netlist.getTimescaleString() + "\n"
 
     for moduleName in netlist.getModules():
         module = netlist.getModule(moduleName)

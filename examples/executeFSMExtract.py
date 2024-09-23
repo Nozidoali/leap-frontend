@@ -5,7 +5,7 @@
 if __name__ == "__main__":
     from frontend import *
 
-    parameters = {
+    definitions = {
         "extractFSM": False,
         "extractCIP": False,
         "extractARG": False,

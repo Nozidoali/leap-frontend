@@ -11,10 +11,10 @@ Last Modified time: 2024-06-25 23:55:15
 from .dfg import *
 from .moduleInst import *
 from .ports import *
-from .parameters import *
+from .definitions import *
 
 
-class Module(Frame, ParameterHandler, ExtendedGraph):
+class Module(Frame, Macros, ParameterHandler, ExtendedGraph):
     def __init__(
         self,
     ):
@@ -24,9 +24,6 @@ class Module(Frame, ParameterHandler, ExtendedGraph):
         self.setName("top")
         self.submodules = {}
         self.macros = {}
-
-    def addMacro(self, name: str, macro: Any):
-        self.macros[name] = macro
 
     def addInstance(self, inst: ModuleInst):
         self.submodules[inst.getName()] = inst
@@ -63,3 +60,19 @@ class Module(Frame, ParameterHandler, ExtendedGraph):
 
         for node in DFG.nodes():
             self._highlightNode(node, "CYAN")
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Module):
+            return False
+        if self.getName() != other.getName():
+            print(f"Module names are not equal: {self.getName()} != {other.getName()}")
+            return False
+        return (
+            Frame.__eq__(self, other)
+            and ParameterHandler.__eq__(self, other)
+            and ExtendedGraph.__eq__(self, other)
+            and Macros.__eq__(self, other)
+        )
+
+    def __ne__(self, value: object) -> bool:
+        return not self.__eq__(value)

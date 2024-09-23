@@ -3,6 +3,8 @@ from frontend.verilog.modules.module import Any, Module
 from .dfg import *
 from .module import *
 from .moduleInst import *
+from .netlist import *
+from .definitions import *
 
 
 class Statement:
@@ -88,6 +90,19 @@ class MacroDefinition(Statement):
 
     def __call__(self, module: Module) -> Any:
         module.addMacro(self.name, self.value)
+
+
+class TimeScaleDefinition(Statement):
+    def __init__(self, val1: TimeValue, val2: TimeValue) -> None:
+        super().__init__()
+        self.val1 = val1
+        self.val2 = val2
+
+    def __repr__(self) -> str:
+        return f"TimeScaleDefinition({self.val1} {self.val2})"
+
+    def __call__(self, netlist: Netlist) -> Any:
+        netlist.setTimescale(self.val1, self.val2)
 
 
 class Assignment(Statement):

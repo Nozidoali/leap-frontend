@@ -126,3 +126,27 @@ class BNGraph:
 
     def getVariableNames(self):
         return list(self.var2assigns.keys())
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, BNGraph):
+            return False
+        # compare assignments
+        for var in self.getVariableNames():
+            if var not in other.getVariableNames():
+                print(f"Variable {var} not found in other")
+                return False
+            assignments1 = self.getAssignmentsOf(var)
+            assignments2 = other.getAssignmentsOf(var)
+            assert len(assignments1) == len(
+                assignments2
+            ), f"Assignment lengths are not equal: {len(assignments1)} != {len(assignments2)}"
+            for i in range(len(assignments1)):
+                if assignments1[i] != assignments2[i]:
+                    print(
+                        f"Assignment {i} is not equal, {assignments1[i]} != {assignments2[i]}"
+                    )
+                    return False
+        return True
+
+    def __ne__(self, value: object) -> bool:
+        return not self.__eq__(value)

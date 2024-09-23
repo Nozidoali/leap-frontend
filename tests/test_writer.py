@@ -7,7 +7,7 @@ def write_after_read(data: str):
     newData = netlistToString(netlist)
     print(newData)
     newNetlist: Netlist = transformVerilogToNetlist(newData)
-    return netlistsAreEqual(netlist, newNetlist)
+    return netlist == newNetlist
 
 
 # Test 00
@@ -453,6 +453,41 @@ endmodule
     assert write_after_read(verilogString)
 
 
+# Test 23
+# Parameters
+def test_23_parameters():
+    verilogString = """
+`define WIDTH 4
+module top (
+    input wire [`WIDTH -1:0] a,
+    input wire [`WIDTH -1:0] b,
+    output wire [`WIDTH -1:0] f
+);
+
+assign f = a + b;
+endmodule
+"""
+    assert write_after_read(verilogString)
+
+
+# Test 24
+# Timescale
+def test_24_parameters():
+    verilogString = """
+`define WIDTH 4
+`timescale 1ns / 1ps
+module top (
+    input wire [`WIDTH -1:0] a,
+    input wire [`WIDTH -1:0] b,
+    output wire [`WIDTH -1:0] f
+);
+
+assign f = a + b;
+endmodule
+"""
+    assert write_after_read(verilogString)
+
+
 if __name__ == "__main__":
     # test_00_write_assignment()
     # test_01_write_assignment()
@@ -473,7 +508,9 @@ if __name__ == "__main__":
     # test_16_conditions()
     # test_17_conditions()
     # test_18_reset_event()
-    test_19_initial_event()
+    # test_19_initial_event()
     # test_20_mixed_event_conditions()
     # test_21_star_event()
     # test_22_and_or_event()
+    # test_23_parameters()
+    test_24_parameters()

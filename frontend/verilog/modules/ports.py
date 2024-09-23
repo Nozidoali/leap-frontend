@@ -239,3 +239,16 @@ class Frame:
     @property
     def numInouts(self) -> int:
         return len(self.getPortsByType(PortDirection.INOUT))
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Frame):
+            return False
+        # compare ports
+        for port in self.getPortNames():
+            if port not in other.getPortNames():
+                print(f"Port {port} not found in other")
+                return False
+            if self.getPort(port) != other.getPort(port):
+                print(f"Port {port} in self is not equal to port {port} in other")
+                return False
+        return True

@@ -16,16 +16,13 @@
 // Following https://www.verilog.com/VerilogBNF.html
 
 // 1. Source Text
-start: (macro_definition | timescale_directive | module)+
+start: (macro_definition | timescale_definition | module)+
 
 // 1.1 Macros
-macro_definition: "`define" identifier macro_body
-macro_body: /.+/
+macro_definition: "`define" ( NAME | ESCAPED_IDENTIFIER ) /.+/
 
 // 1.2 Timescale Directive
-timescale_directive: "`timescale" time_unit "/" time_precision
-time_unit: NUMBER time_identifier
-time_precision: NUMBER time_identifier
+timescale_definition: "`timescale" NUMBER time_identifier "/" NUMBER time_identifier
 time_identifier: "s" -> s | "ms" -> ms | "us" -> us | "ns" -> ns | "ps" -> ps
 
 // 1.3 Module Declaration
@@ -217,9 +214,6 @@ based_number: /'[bdh][0-9a-fA-F_]+/
 extended_based_number: /([0-9]*)'[bdhoBDHO][0-9a-fA-F_xXzZ]+/
 regular_number: /(?<![\d'])\d+(?![\d'bhd])/
 
-// 10. General
-?identifier: NAME
-            | ESCAPED_IDENTIFIER
 
 // Lark
 ESCAPED_IDENTIFIER: /\\([^\s]+)/
