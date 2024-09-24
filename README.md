@@ -18,5 +18,3 @@ LEAP frontend:
 - Transforms the behavioral description into a graph
 - Apply customized **lossless** algorithms on the graph
 - Write the graph into different formats for further processing in the backend
-
-![LEAP Frontend](./static/leap.png)
