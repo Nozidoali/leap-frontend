@@ -1,6 +1,16 @@
 Change log
 ==========
 
+v0.1.4 (Not yet released)
+-------------------------
+
+* Graph Representation
+    - Remove `DOTGraph` class and `ExtendedGraph` class
+    - Add `exportDOT` as a separate function (not a method of `BNGraph`)
+
+* Verilog I/O:
+    - Add support for module instantiation in SystemVerilog
+
 v0.1.2 (September 22, 2024)
 ---------------------------
 
