@@ -4,6 +4,7 @@
 
 if __name__ == "__main__":
     from frontend import *
+    import pygraphviz as pgv
 
     definitions = {
         "extractFSM": False,
@@ -12,17 +13,14 @@ if __name__ == "__main__":
         "extractREG": False,
     }
 
-    network: Netlist = readVerilog("examples/verilogs/external/legup.v")
-    module = network.getModule("toy")
-    finishPort = "finish"
+    network: Netlist = readVerilog("examples/verilogs/external/legup2.v")
+    module = network.getModuleAt(0)
+
+    graph: pgv.AGraph = exportDOT(module)
+
     outputsNames = [
-        port
-        for port in module.getPortsByType(PortDirection.OUTPUT)
-        if port != finishPort
+        port for port in module.getPortsByType(PortDirection.OUTPUT) if port != "finish"
     ]
-    CDFG = module.getGraph()
-    DFG, CFG = extractDataFlowControlFlow(CDFG, outputsNames)
-    module.separateCDFG(DFG, CFG)
-    # module.exportDOT(params=parameters)
-    # module.exportDOT()
-    module.writeDOT("toy.dot")
+
+    extractDataFlowControlFlow(graph, outputsNames)
+    graph.write("tmp.dot")

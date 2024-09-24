@@ -2,7 +2,7 @@ from ..modules import *
 import re
 
 
-def extractGraph(graph: DotGraph, inputs: list, outputs: list, params: dict = {}):
+def extractGraph(graph: BNGraph, inputs: list, outputs: list, params: dict = {}):
     excludeFSM = params.get("excludeFSM", True)
     removeREG = params.get("removeREG", True)
     # extract graph from the outputs to the inputs

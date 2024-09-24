@@ -14,7 +14,7 @@ from .ports import *
 from .definitions import *
 
 
-class Module(Frame, Macros, ParameterHandler, ExtendedGraph):
+class Module(Frame, Macros, ParameterHandler, BNGraph):
     def __init__(
         self,
     ):
@@ -38,35 +38,11 @@ class Module(Frame, Macros, ParameterHandler, ExtendedGraph):
     def setName(self, module_name: str):
         self.module_name = module_name
 
-    def __repr__(self):
-        return f"Module({self.module_name})"
-
-    def loadModuleItems(self, module_items: list):
-        # loadModuleItems the DFG
-        self.node_is_blocking = {}
-        self.submodules = {}
-        for item in module_items:
-            print(item)
-
     def getName(self):
         return self.module_name
 
-    def getGraph(self, skipConstants=True) -> pgv.AGraph:
-        DotGraph.exportDOT(self, params={"skipConstants": skipConstants})
-        return self.graph
-
-    def separateCDFG(self, DFG: pgv.AGraph, CFG: pgv.AGraph):
-        fsmGraph = self.graph.add_subgraph(
-            DFG,
-            name="cluster_data_flow",
-            label="DATA_FLOW",
-            style="dashed",
-            color="blue",
-        )
-        fsmGraph.graph_attr["rankdir"] = "LR"  # Left-to-right layout
-
-        for node in DFG.nodes():
-            self._highlightNode(node, "CYAN")
+    def __repr__(self):
+        return f"Module({self.module_name})"
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Module):
@@ -77,7 +53,7 @@ class Module(Frame, Macros, ParameterHandler, ExtendedGraph):
         return (
             Frame.__eq__(self, other)
             and ParameterHandler.__eq__(self, other)
-            and ExtendedGraph.__eq__(self, other)
+            and BNGraph.__eq__(self, other)
             and Macros.__eq__(self, other)
         )
 

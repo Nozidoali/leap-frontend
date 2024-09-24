@@ -13,8 +13,7 @@ def test_00_transformer():
             netlist: Netlist = readVerilog(verilogDir + file)
             module: Module = netlist.getModule("top")
             assert module is not None
-            module.exportDOT()
-            module.writeDOT("tmp.dot")
+            exportDOT(module)
     assert True
 
 

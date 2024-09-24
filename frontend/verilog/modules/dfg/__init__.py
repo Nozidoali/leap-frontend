@@ -9,6 +9,4 @@ Last Modified time: 2024-06-28 13:16:39
 """
 
 from .node import *
-from .bnGraph import *
-from .dotGraph import *
-from .extGraph import *
+from .graph import *

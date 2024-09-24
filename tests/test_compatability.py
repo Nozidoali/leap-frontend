@@ -1,6 +1,7 @@
 from frontend import *
 import os
 import pytest
+import pygraphviz as pgv
 
 # change the working directory to the root directory of the project
 os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -15,8 +16,7 @@ def test_00_legup():
     module: Module = netlist.getModuleAt(0)
 
     assert module is not None
-    module.exportDOT()
-    module.writeDOT("tmp.dot")
+    exportDOT(module)
 
 
 # test 01
@@ -29,8 +29,7 @@ def test_01_xls():
     module: Module = netlist.getModuleAt(0)
 
     assert module is not None
-    module.exportDOT()
-    module.writeDOT("tmp.dot")
+    exportDOT(module)
 
 
 # test 02
@@ -42,8 +41,7 @@ def test_02_legup():
     module: Module = netlist.getModuleAt(0)
 
     assert module is not None
-    module.exportDOT()
-    module.writeDOT("tmp.dot")
+    exportDOT(module)
 
 
 if __name__ == "__main__":
