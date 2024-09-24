@@ -19,6 +19,7 @@ def test_00_legup():
     graph = exportDOT(module)
     graph.write("tmp.dot")
 
+
 # test 01
 # compatibility with Google XLS
 @pytest.mark.skip(reason="not implemented")

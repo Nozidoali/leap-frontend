@@ -34,7 +34,7 @@ def extractDataFlowControlFlow(graph: pgv.AGraph, dataOutputs: list):
     dataGraph.graph_attr["rank"] = "same"
     for node in dataGraph.nodes():
         highlightNode(node, "CYAN")
-        
+
     controlGraph = graph.add_subgraph(
         controlNodes,
         name="cluster_control_flow",
@@ -43,7 +43,7 @@ def extractDataFlowControlFlow(graph: pgv.AGraph, dataOutputs: list):
     for node in controlGraph.nodes():
         highlightNode(node, "PURPLE")
     controlGraph.graph_attr["rank"] = "same"
-    
+
     # we create a subgraph for the edges between data and control nodes
     toRemove, toAddRed, toAddBlue = [], [], []
     ioNames = []
@@ -79,8 +79,7 @@ def extractDataFlowControlFlow(graph: pgv.AGraph, dataOutputs: list):
         label="FSM I/O",
     )
     ioGraph.graph_attr["rank"] = "same"
-    
-            
+
     for edge in toRemove:
         graph.remove_edge(edge[0], edge[1])
     for edge in toAddRed:
@@ -88,8 +87,8 @@ def extractDataFlowControlFlow(graph: pgv.AGraph, dataOutputs: list):
     for edge in toAddBlue:
         graph.add_edge(edge[0], edge[1], color="blue", style="dashed")
     # Set the graph attributes
-    graph.graph_attr['rankdir'] = 'TB'  # Arrange top-to-bottom
-    graph.graph_attr['overlap'] = 'false'  # Prevent overlapping
-    graph.graph_attr['ranksep'] = '1.0'  # Increase space between ranks (optional)
+    graph.graph_attr["rankdir"] = "TB"  # Arrange top-to-bottom
+    graph.graph_attr["overlap"] = "false"  # Prevent overlapping
+    graph.graph_attr["ranksep"] = "1.0"  # Increase space between ranks (optional)
 
     graph.layout(prog="dot")
