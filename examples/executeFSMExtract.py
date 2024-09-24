@@ -6,16 +6,8 @@ if __name__ == "__main__":
     from frontend import *
     import pygraphviz as pgv
 
-    definitions = {
-        "extractFSM": False,
-        "extractCIP": False,
-        "extractARG": False,
-        "extractREG": False,
-    }
-
     network: Netlist = readVerilog("examples/verilogs/external/legup2.v")
     module = network.getModuleAt(0)
-
     graph: pgv.AGraph = exportDOT(module)
 
     outputsNames = [

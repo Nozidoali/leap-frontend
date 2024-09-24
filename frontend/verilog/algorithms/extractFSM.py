@@ -25,16 +25,71 @@ def extractDataFlowControlFlowNodes(graph: pgv.AGraph, dataOutputs: list):
 
 
 def extractDataFlowControlFlow(graph: pgv.AGraph, dataOutputs: list):
-    dataNodes, _ = extractDataFlowControlFlowNodes(graph, dataOutputs)
-    dataGraph = graph.subgraph(dataNodes)
-    fsmGraph = graph.add_subgraph(
-        dataGraph,
+    dataNodes, controlNodes = extractDataFlowControlFlowNodes(graph, dataOutputs)
+    dataGraph = graph.add_subgraph(
+        dataNodes,
         name="cluster_data_flow",
         label="DATA_FLOW",
-        style="dashed",
-        color="blue",
     )
-    fsmGraph.graph_attr["rankdir"] = "LR"  # Left-to-right layout
-
+    dataGraph.graph_attr["rank"] = "same"
     for node in dataGraph.nodes():
         highlightNode(node, "CYAN")
+        
+    controlGraph = graph.add_subgraph(
+        controlNodes,
+        name="cluster_control_flow",
+        label="CONTROL_FLOW",
+    )
+    for node in controlGraph.nodes():
+        highlightNode(node, "PURPLE")
+    controlGraph.graph_attr["rank"] = "same"
+    
+    # we create a subgraph for the edges between data and control nodes
+    toRemove, toAddRed, toAddBlue = [], [], []
+    ioNames = []
+    for edge in graph.edges():
+        src = edge[0]
+        dst = edge[1]
+        if src in dataNodes and dst in controlNodes:
+            toRemove.append(edge)
+            ctrlName = f"ctrl_{len(ioNames)}"
+            ioNames.append(ctrlName)
+            toAddRed.append((src, ctrlName))
+            toAddBlue.append((ctrlName, dst))
+        elif src in controlNodes and dst in dataNodes:
+            toRemove.append(edge)
+            ctrlName = f"ctrl_{len(ioNames)}"
+            ioNames.append(ctrlName)
+            toAddBlue.append((src, ctrlName))
+            toAddRed.append((ctrlName, dst))
+        else:
+            # set the color of the edge to black
+            edge.attr["color"] = "black"
+            edge.attr["style"] = "solid"
+            continue
+    ioNodes = []
+    for ctrlName in ioNames:
+        graph.add_node(ctrlName)
+        node = graph.get_node(ctrlName)
+        ioNodes.append(node)
+        highlightNode(node, "GREEN")
+    ioGraph = graph.add_subgraph(
+        ioNodes,
+        name="cluster_io",
+        label="FSM I/O",
+    )
+    ioGraph.graph_attr["rank"] = "same"
+    
+            
+    for edge in toRemove:
+        graph.remove_edge(edge[0], edge[1])
+    for edge in toAddRed:
+        graph.add_edge(edge[0], edge[1], color="red", style="dashed")
+    for edge in toAddBlue:
+        graph.add_edge(edge[0], edge[1], color="blue", style="dashed")
+    # Set the graph attributes
+    graph.graph_attr['rankdir'] = 'TB'  # Arrange top-to-bottom
+    graph.graph_attr['overlap'] = 'false'  # Prevent overlapping
+    graph.graph_attr['ranksep'] = '1.0'  # Increase space between ranks (optional)
+
+    graph.layout(prog="dot")
