@@ -173,6 +173,8 @@ class OPType(Enum):
 
     UNKNOWN = "unknown"
 
+    BLACKBOX = "blackbox"
+
 
 class OPNode(DFGNode):
     def __init__(self, op: str, operation: OPType, *children) -> None:
@@ -269,3 +271,12 @@ class UndefinedNode(DFGNode):
 
     def toString(self) -> str:
         raise Exception("Undefined node cannot be converted to string")
+
+
+class BlackBoxNode(DFGNode):
+    def __init__(self, name) -> None:
+        super().__init__(name)
+        self.operation = OPType.BLACKBOX
+
+    def toString(self) -> str:
+        return self.name

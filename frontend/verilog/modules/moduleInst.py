@@ -10,61 +10,35 @@ Last Modified time: 2024-07-25 15:59:34
 
 
 class ModuleInst:
-    def __init__(self, name: str) -> None:
-        self.name = name
-        self.module_name = None
-        self.port_list = []
-        self.port_names = {}
-        self.inplace_parameters = None
-        self.parameter_list = {}
+    def __init__(self, instName: str, moduleName: str) -> None:
+        self.instName: str = instName
+        self.moduleName: str = moduleName
+        self.assignment_list: list = []
+        self.parameter_list: dict = {}
 
-        # self.port_index: int = 0
-        self.is_standard_inst = True
+    def setAssignments(self, assignments: list):
+        if not assignments:
+            return
+        self.assignment_list = assignments
 
-    def addPort(self, name: str, value: str):
-        self.port_list.append(value)
-        index = len(self.port_list) - 1
-        if name is None:
-            name = f"port_{index}"
-            self.is_standard_inst = False
-        self.port_names[name] = index
+    def addParameters(self, parameters: dict):
+        if not parameters:
+            return
+        self.parameter_list.update(parameters)
 
-    def getPort(self, name: str):
-        index = self.port_names[name]
-        return self.port_list[index]
+    def addParameter(self, paramName: str, paramValue: str):
+        self.parameter_list[paramName] = paramValue
 
-    def getPorts(self):
-        return self.port_list
-
-    def getPortNames(self):
-        return self.port_list
-
-    def addParameter(self, name: str, value: str):
-        self.parameter_list[name] = value
-
-    def setModuleName(self, name: str):
-        self.module_name = name
-
-    def setInplaceParameters(self, inplace_parameters):
-        self.inplace_parameters = inplace_parameters[:]
-
-    def getInplaceParameters(self):
-        return self.inplace_parameters
-
-    def hasInplaceParameters(self):
-        return self.inplace_parameters is not None
-
-    def getInstName(self):
-        return self.name
-
-    def getModuleName(self):
-        return self.module_name
-
-    def getPortList(self):
-        return self.port_names.keys()
-
-    def getParameters(self):
+    def getParameters(self) -> dict:
         return self.parameter_list
 
-    def hasParameters(self):
-        return len(self.parameter_list) > 0
+    def getAssignments(self) -> list:
+        return self.assignment_list
+
+    @property
+    def name(self) -> str:
+        return self.instName
+
+    @property
+    def module(self) -> str:
+        return self.moduleName

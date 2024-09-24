@@ -67,6 +67,20 @@ class ModuleInstantiation(Statement):
         return f"ModuleInstantiation({self.inst})"
 
 
+class ModuleInstParameterDefinition(Statement):
+    def __init__(self, parameters: list) -> None:
+        super().__init__()
+        self.parameters = parameters
+
+    def __repr__(self) -> str:
+        return f"ParameterDefinition({self.parameters})"
+
+    def __call__(self, module: Module) -> Any:
+        for instName, paramName, value in self.parameters:
+            instName, paramName = str(instName), str(paramName)
+            module.addParameterToModuleInst(instName, paramName, value)
+
+
 class PortDeclaration(Statement):
     def __init__(self, ports: list) -> None:
         super().__init__()

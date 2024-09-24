@@ -10,7 +10,43 @@ Last Modified time: 2024-07-23 23:19:24
 
 from ..modules import *
 from .headerWriter import *
-from .dfgWriter import *
+
+
+def assignmentToString(assignment: Assignment):
+    retString = ""
+
+    target = assignment.target.toString()
+    expression = assignment.expression.toString()
+    assignOp = "=" if assignment.isBlocking else "<="
+    condition = assignment.condition
+
+    if assignment.event is not None:
+        retString += f"{assignment.event.toString()} begin\n"
+
+    # TODO: consider wire/latch/reg
+    if condition is not None:
+        condition = condition.toString()
+        retString += (
+            f"if ({condition}) begin\n\t{target} {assignOp} {expression};\nend\n"
+        )
+    else:
+        retString += f"\t{target} {assignOp} {expression};\n"
+
+    if assignment.event is not None:
+        retString += "end\n"
+
+    return retString
+
+
+def writeAssignment(f, assignment: Assignment):
+    assignmentString = assignmentToString(assignment)
+    f.write(assignmentString + ";\n")
+
+
+def writeAssignments(f, module: Module):
+    for var in module.var2assigns:
+        for assign in module.getAssignmentsOf(var):
+            writeAssignment(f, assign)
 
 
 def moduleHeaderToString(module: Module):
@@ -52,37 +88,25 @@ def writePortDefinitions(f, module: Module):
 
 
 def moduleInstToString(moduleInst: ModuleInst):
-    inplaceParameterString = ""
-    if moduleInst.hasInplaceParameters():
-        inplaceParameterList = [str(x) for x in moduleInst.getInplaceParameters()]
-        inplaceParameterString = "#(" + ",".join(inplaceParameterList) + ")"
+    paramString = ""
+    params = moduleInst.getParameters()
+    if len(params) > 0:
+        paramString = "#( "
+        paramString += ",".join(
+            [f".{key}({value.toString()})" for key, value in params.items()]
+        )
+        paramString += ") "
+    portString = ""
+    assignments = moduleInst.getAssignments()
+    if len(assignments) > 0:
+        portString += ",\n".join(
+            [f".{key}({value.toString()})" for key, value in assignments]
+        )
 
-    retString = f"{moduleInst.getModuleName()} {inplaceParameterString} {moduleInst.getInstName()} (\n"
-    portStrings = []
-    if moduleInst.is_standard_inst:
-        ports = moduleInst.getPortList()
-        for port in ports:
-            # we skip the comma for the last port
-            portStrings.append(f"\t.{port} ({moduleInst.getPort(port)})")
-    else:
-        ports = moduleInst.getPortNames()
-        for port in ports:
-            portStrings.append(f"\t{port}")
-    retString += ",\n".join(portStrings) + "\n"
-    retString += ");\n"
+    retString = (
+        f"{moduleInst.module} {paramString} {moduleInst.name} (\n{portString}\n);\n"
+    )
 
-    parameters = moduleInst.getParameters()
-    parameterStrings = []
-    if moduleInst.hasParameters():
-        retString += "\n"
-        retString += "defparam\n"
-
-        for key, value in parameters.items():
-            parameterStrings.append(f"\t{moduleInst.getInstName()}.{key} = {value}")
-
-        retString += ",\n".join(parameterStrings) + ";\n"
-
-        retString += "\n"
     return retString
 
 

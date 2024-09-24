@@ -53,19 +53,27 @@ class ModuleTransformer(Transformer):
 
     # module_instantiation: CNAME parameter_instance? CNAME "(" module_instance_arguments ")" ";"
     def module_instantiation(self, items) -> Statement:
-        parameter_list = None
-        if len(items) == 3:
-            module_name, module_inst_name, pin_list = items
-        elif len(items) == 4:
-            module_name, parameter_list, module_inst_name, pin_list = items
-        inst = ModuleInst(module_inst_name)
-        inst.setModuleName(module_name)
-        if parameter_list is not None:
-            inst.setInplaceParameters(parameter_list)
-        for key, value in pin_list:
-            inst.addPort(key, value)
+        module_name, parameter_list, instance_name, argument_list = items
+        inst: ModuleInst = ModuleInst(instance_name, module_name)
+        inst.addParameters(parameter_list)
+        inst.setAssignments(argument_list)
         return ModuleInstantiation(inst)
+
+    def argument_list(self, items):
+        return items
+
+    def named_argument(self, items):
+        varname, expression = items
+        return str(varname), expression
+
+    def positional_argument(self, items):
+        # TODO: implement this
+        raise NotImplementedError()
+        return None, items[0]
 
     def define_parameter(self, items):
         # usually, this block comes after the module instantiation
+        return ModuleInstParameterDefinition(items)
+
+    def parameter_definition(self, items):
         return items

@@ -76,7 +76,7 @@ class ParameterHandler:
                 print(f"Parameter {key} not equal to {value.getParameter(key)}")
                 return False
         return True
-    
+
     def __ne__(self, value: object) -> bool:
         return not self.__eq__(value)
 
@@ -93,7 +93,7 @@ class Macros(dict):
 
     def getMacroString(self):
         retString = ""
-        
+
         key: str
         value: DFGNode
         for key, value in self.items():

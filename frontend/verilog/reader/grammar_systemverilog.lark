@@ -42,15 +42,17 @@ port_definition: [port_direction] [port_type] [port_range] lhs_expression
             | single_statement
             | module_instantiation // This includes module inst antiation
             | macro_definition // This includes `define
+            | define_parameter
 
 // 1.5 Module Instantiation
-module_instantiation: NAME ["#" "(" [variable] ("," variable)* ")"] NAME "(" argument ("," argument)* ")" ";" [define_parameter]
-argument: "." lhs_expression "(" lhs_expression? ")" -> named_argument
-        | lhs_expression -> positional_argument
+module_instantiation: NAME ["#(" argument_list ")"] NAME "(" [argument_list] ")" ";" 
+argument_list: argument ("," argument)*
+argument: "." NAME "(" [expression] ")" -> named_argument
+        | expression -> positional_argument
 
 // 1.6 Define Parameter
-define_parameter: "defparam" [parameter_definition] ("," parameter_definition)* ";"
-parameter_definition: NAME "." NAME "=" lhs_expression
+define_parameter: "defparam" parameter_definition ("," parameter_definition)* ";"
+parameter_definition: NAME "." NAME "=" const_expression
 
 // 2. Declarations
 

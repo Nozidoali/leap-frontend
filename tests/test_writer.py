@@ -510,6 +510,99 @@ endmodule
     assert write_after_read(verilogString)
 
 
+# Test 26
+# Module instantiation
+def test_26_module_instantiation():
+    verilogString = """
+module top (
+    input wire a,
+    input wire b,
+    output wire f
+);
+
+add add_inst (
+    .a(a),
+    .b(b),
+    .f(f)
+);
+
+defparam add_inst.WIDTH = 4;
+
+endmodule
+"""
+    assert write_after_read(verilogString)
+
+
+# Test 27
+# Module instantiation
+def test_27_module_instantiation():
+    verilogString = """
+module top (
+    input wire a,
+    input wire b,
+    output wire f
+);
+
+add #(.WIDTH(4)) add_inst (
+    .a(a),
+    .b(b),
+    .f(f)
+);
+
+endmodule
+"""
+    assert write_after_read(verilogString)
+
+
+# Test 28
+# Module instantiation
+def test_28_module_instantiation():
+    verilogString = """
+module top (
+    input wire a,
+    input wire b,
+    output wire f
+);
+
+add add_inst (
+    .a(a),
+    .b(b),
+    .f(f)
+);
+
+defparam add_inst.IWIDTH = 4;
+defparam add_inst.OWIDTH = 4;
+
+endmodule
+"""
+    assert write_after_read(verilogString)
+
+
+# Test 29
+# Module instantiation
+def test_29_module_instantiation():
+    verilogString = """
+module top (
+    input wire a,
+    input wire b,
+    output wire f
+);
+
+add add_inst (
+    .a(a),
+    .b(b),
+    .f(f)
+);
+
+defparam 
+    add_inst.IWIDTH = 4,
+    add_inst.OWIDTH = 4;
+
+endmodule
+"""
+    assert write_after_read(verilogString)
+
+
 if __name__ == "__main__":
     # test_00_write_assignment()
     # test_01_write_assignment()
@@ -536,4 +629,8 @@ if __name__ == "__main__":
     # test_22_and_or_event()
     # test_23_parameters()
     # test_24_parameters()
-    test_25_parameters()
+    # test_25_parameters()
+    # test_26_module_instantiation()
+    # test_27_module_instantiation()
+    # test_28_module_instantiation()
+    test_29_module_instantiation()

@@ -33,6 +33,20 @@ def test_01_xls():
     module.writeDOT("tmp.dot")
 
 
+# test 02
+# compatibility with legup
+def test_02_legup():
+    verilogDir = "examples/verilogs/external/"
+    verilogFile = os.path.join(verilogDir, "legup2.v")
+    netlist: Netlist = readVerilog(verilogFile)
+    module: Module = netlist.getModuleAt(0)
+
+    assert module is not None
+    module.exportDOT()
+    module.writeDOT("tmp.dot")
+
+
 if __name__ == "__main__":
     test_00_legup()
     # test_01_xls()
+    test_02_legup()

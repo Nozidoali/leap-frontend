@@ -37,11 +37,11 @@ def transformVerilogToNetlist(data: str) -> Netlist:
     import os
 
     ast = parseVerilogToAST(data)
-    
+
     # select the transformer
     transformer = SystemVerilogTransformer()
     netlist = transformer.transform(ast)
-    
+
     return netlist
 
 

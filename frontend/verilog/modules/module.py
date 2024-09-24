@@ -26,7 +26,14 @@ class Module(Frame, Macros, ParameterHandler, ExtendedGraph):
         self.macros = {}
 
     def addInstance(self, inst: ModuleInst):
-        self.submodules[inst.getName()] = inst
+        self.submodules[inst.name] = inst
+
+    def addParameterToModuleInst(self, instName: str, paramName: str, paramValue: str):
+        if instName not in self.submodules:
+            print(f"Instance {instName} not found in {self.getName()}")
+            return
+        inst = self.submodules[instName]
+        inst.addParameter(paramName, paramValue)
 
     def setName(self, module_name: str):
         self.module_name = module_name
