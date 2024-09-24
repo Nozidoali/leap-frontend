@@ -51,16 +51,17 @@ class ConditionTransformer(Transformer):
     # case_statement: "case" "(" expression ")" case_content "endcase"
     def case_statement(self, items):
         lhs: DFGNode = items[0]
-        statements = []
+        print(f"lhs = {lhs}")
+        caseStatements = []
         for cond, statements in items[1:]:
             condition = (
                 OPNode("==", OPType.BINARY_EQ, lhs, cond) if cond is not None else None
             )
-            statements += [x.addCondition(condition) for x in statements]
-        return statements
+            caseStatements += [x.addCondition(condition) for x in statements]
+        return caseStatements
 
     def regular_case(self, items) -> list:
         return items
 
     def default_case(self, items) -> list:
-        return [None] + items
+        return None, items[0]

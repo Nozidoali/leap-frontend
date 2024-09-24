@@ -16,8 +16,8 @@ def test_00_legup():
     module: Module = netlist.getModuleAt(0)
 
     assert module is not None
-    exportDOT(module)
-
+    graph = exportDOT(module)
+    graph.write("tmp.dot")
 
 # test 01
 # compatibility with Google XLS
@@ -47,4 +47,4 @@ def test_02_legup():
 if __name__ == "__main__":
     test_00_legup()
     # test_01_xls()
-    test_02_legup()
+    # test_02_legup()
