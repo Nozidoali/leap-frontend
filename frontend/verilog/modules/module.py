@@ -24,6 +24,7 @@ class Module(Frame, Macros, ParameterHandler, BNGraph):
         self.setName("top")
         self.submodules = {}
         self.macros = {}
+        self.node2assignment = {}
 
     def addInstance(self, inst: ModuleInst):
         self.submodules[inst.name] = inst
