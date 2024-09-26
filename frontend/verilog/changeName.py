@@ -45,6 +45,11 @@ def changeNameInLines(inputLines: list[str], renameClk: bool = True) -> list[str
 
 
 def changeName(inputFile: str, outputFile: str, renameClk: bool = True):
+    """
+    Convert the Verilog of logic synthesis tools' output to a more readable format
+    - Group bits of a signal together
+    - Remove comments
+    """
     with open(inputFile, "r") as f:
         data = f.read()
         if not data:

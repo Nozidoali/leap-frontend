@@ -1,5 +1,11 @@
 -r ./requirements.txt
 pytest
+
+# for building the package
 setuptools>=61.0
 setuptools_scm
 wheel
+
+# for building the docs
+sphinx==5.3.0
+sphinx_rtd_theme==2.0.0
