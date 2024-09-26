@@ -45,6 +45,18 @@ def test_02_legup():
     exportDOT(module)
 
 
+# test 03
+# compatibility with Vivado FSM
+def test_03_vivado():
+    verilogDir = "examples/verilogs/external/"
+    verilogFile = os.path.join(verilogDir, "vivado.v")
+    netlist: Netlist = readVerilog(verilogFile)
+    module: Module = netlist.getModuleAt(0)
+
+    assert module is not None
+    exportDOT(module)
+
+
 if __name__ == "__main__":
     test_00_legup()
     # test_01_xls()

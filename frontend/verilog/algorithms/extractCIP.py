@@ -1,7 +1,8 @@
+import pygraphviz as pgv
+import re
+
 from ..modules import *
 from .highlight import *
-import pygraphviz as pgv
-
 
 def extractCIP(graph: pgv.AGraph):
     CIPpairs = []
