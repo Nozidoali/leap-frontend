@@ -218,6 +218,7 @@ regular_number: /(?<![\d'])\d+(?![\d'bhd])/
 
 
 // Lark
+DELAY_CONTROL: "#" /[0-9]+/
 ESCAPED_IDENTIFIER: /\\([^\s]+)/
 COMMENT: "//" /[^\n]*/ NEWLINE
 INLINE_COMMENT: "(*" /[^\n]*/ "*)"
@@ -235,3 +236,4 @@ STRING_NO_SPACE: /[^\s]+/
 %ignore MULTILINE_COMMENT
 %ignore NEWLINE
 %ignore INLINE_COMMENT
+%ignore DELAY_CONTROL
