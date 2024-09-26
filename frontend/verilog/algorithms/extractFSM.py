@@ -2,6 +2,17 @@ from ..modules import *
 from .highlight import *
 import pygraphviz as pgv
 
+def replaceCond(module: Module, srcCond: str, dstCond: str, newCond: str):
+    mapping = module.node2assignment
+    assert mapping is not {}
+    keys = list(mapping.keys()).copy()
+    for target, expression, cond in keys:
+        if cond == srcCond and target == dstCond:
+            assignment = mapping[(target, expression, cond)]
+            del mapping[(target, expression, cond)]
+            mapping[(target, expression, newCond)] = assignment
+    module.node2assignment = mapping
+
 
 def _extractDataFlowNodesRec(graph: pgv.AGraph, node: pgv.Node, visited: set):
     if node in visited:
@@ -24,7 +35,7 @@ def extractDataFlowControlFlowNodes(graph: pgv.AGraph, dataOutputs: list):
     return dataNodes, controlNodes
 
 
-def extractDataFlowControlFlow(graph: pgv.AGraph, dataOutputs: list):
+def extractDataFlowControlFlow(module: Module, graph: pgv.AGraph, dataOutputs: list):
     dataNodes, controlNodes = extractDataFlowControlFlowNodes(graph, dataOutputs)
     dataGraph = graph.add_subgraph(
         dataNodes,
@@ -56,12 +67,14 @@ def extractDataFlowControlFlow(graph: pgv.AGraph, dataOutputs: list):
             ioNames.append(ctrlName)
             toAddRed.append((src, ctrlName))
             toAddBlue.append((ctrlName, dst))
+            replaceCond(module, src, dst, ctrlName)            
         elif src in controlNodes and dst in dataNodes:
             toRemove.append(edge)
             ctrlName = f"ctrl_{len(ioNames)}"
             ioNames.append(ctrlName)
             toAddBlue.append((src, ctrlName))
             toAddRed.append((ctrlName, dst))
+            replaceCond(module, src, dst, ctrlName)
         else:
             # set the color of the edge to black
             edge.attr["color"] = "black"
