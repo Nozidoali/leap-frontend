@@ -95,8 +95,8 @@ class Port:
 
     def setType(self, type: str):
         if self.type is None and type is not None:
-            assert isinstance(type, PortType)
-            self.type = type
+            assert isinstance(PortType.fromString(type), PortType)
+            self.type = PortType.fromString(type)
             return True
         return False
 
