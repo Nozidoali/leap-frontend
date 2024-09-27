@@ -94,7 +94,8 @@ class Port:
         return False
 
     def setType(self, type: str):
-        if self.type is None and type is not None:
+        if type is not None:
+            assert self.type is None, "Type already set"
             assert isinstance(type, PortType)
             self.type = type
             return True
@@ -105,13 +106,13 @@ class Port:
         self.setType(type)
         self.setRange(range)
 
-    def getType(self):
+    def getType(self) -> PortType:
         return self.type
 
-    def getPortName(self):
-        return self.variable.name
+    def getPortName(self) -> str:
+        return self.variable.toString()
 
-    def getRange(self):
+    def getRange(self) -> Range:
         return self.range
 
     def getHeader(self):
@@ -125,12 +126,16 @@ class Port:
 
     def __eq__(self, value: object) -> bool:
         if not isinstance(value, Port):
+            print(f"Type mismatch: {type(value)}")
             return False
         if self.variable != value.variable:
+            print(f"Variable mismatch: {self.variable} != {value.variable}")
             return False
         if self.direction != value.direction:
+            print(f"Direction mismatch: {self.direction} != {value.direction}")
             return False
         if self.getType() != value.getType():
+            print(f"Type mismatch: {self.getType()} != {value.getType()}, signal = {self.variable}")
             return False
         if self.range != value.range:
             return False
@@ -196,9 +201,7 @@ class Frame:
     def addPort(self, port: Port) -> None:
         name = port.getPortName()
         if name in self.portDefs:
-            self.portDefs[name].type = port.getType()
-            self.portDefs[name].setRange(port.getRange())
-            self.portDefs[name].setHeader(port.getHeader())
+            self.getPort(name).setAll(port.direction, port.type, port.range)
         else:
             self.portDefs[name] = port
 

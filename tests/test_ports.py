@@ -107,15 +107,46 @@ endmodule
 """
     netlist = transformVerilogToNetlist(verilogStr)
     module = netlist.getModule("top")
-    assert module.getPort("d").getType() == PortType.REG
     assert module is not None
+    assert module.getPort("d").getType() == PortType.REG
     assert module.numInputs == 3, f"module.numInputs = {module.numInputs} != 3"
     assert module.numOutputs == 2, f"module.numOutputs = {module.numOutputs} != 2"
 
 
+# Test 05
+# Define a module with input, output, inout, and output ports
+def test_05_port_type():
+    verilogStr = """
+module top (
+    reg [3:0] a
+);
+    input a; /* This should not override the type of a */
+endmodule
+"""
+    netlist = transformVerilogToNetlist(verilogStr)
+    module = netlist.getModule("top")
+    assert module.getPort("a").getType() == PortType.REG
+
+
+# Test 06
+# Define a module with input, output, inout, and output ports
+def test_06_port_type():
+    verilogStr = """
+module top (
+    input [3:0] a
+);
+    reg a; /* This should not override the type of a */
+endmodule
+"""
+    netlist = transformVerilogToNetlist(verilogStr)
+    module = netlist.getModule("top")
+    assert module.getPort("a").getType() == PortType.REG
+
+
 if __name__ == "__main__":
-    test_00_basic()
-    test_01_cornercases()
-    test_02_case()
-    test_03_case()
-    test_04_case()
+    # test_00_basic()
+    # test_01_cornercases()
+    # test_02_case()
+    # test_03_case()
+    # test_04_case()
+    test_05_port_type()
