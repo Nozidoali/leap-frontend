@@ -223,22 +223,22 @@ class Frame:
     def getVariableType(self, variableName: str):
         return self.portDefs[variableName].getType()
 
-    def getPortsByType(self, portType: PortDirection):
+    def getPortsByDir(self, portDir: PortDirection):
         return [
-            port.name for port in self.portDefs.values() if port.direction == portType
+            port.name for port in self.portDefs.values() if port.direction == portDir
         ]
 
     @property
     def numInputs(self) -> int:
-        return len(self.getPortsByType(PortDirection.INPUT))
+        return len(self.getPortsByDir(PortDirection.INPUT))
 
     @property
     def numOutputs(self) -> int:
-        return len(self.getPortsByType(PortDirection.OUTPUT))
+        return len(self.getPortsByDir(PortDirection.OUTPUT))
 
     @property
     def numInouts(self) -> int:
-        return len(self.getPortsByType(PortDirection.INOUT))
+        return len(self.getPortsByDir(PortDirection.INOUT))
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Frame):
