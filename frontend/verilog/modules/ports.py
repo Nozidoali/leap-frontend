@@ -196,6 +196,7 @@ class Frame:
     def addPort(self, port: Port):
         name = port.getPortName()
         if name in self.portDefs:
+            self.portDefs[name].type = port.getType()
             self.portDefs[name].setRange(port.getRange())
             self.portDefs[name].setHeader(port.getHeader())
         else:
