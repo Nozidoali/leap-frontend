@@ -94,9 +94,14 @@ class Port:
         return False
 
     def setType(self, type: str):
+        # NOTE: use type instead of getType() in this function
+        # Otherwise, the type cannot be overwritten
         if type is not None:
-            assert self.type is None, "Type already set"
             assert isinstance(type, PortType)
+            if self.type is not None and self.type != type:
+                raise ValueError(
+                    f"Type mismatch: {self.type} != {type}, signal = {self.variable}"
+                )
             self.type = type
             return True
         return False
@@ -107,7 +112,7 @@ class Port:
         self.setRange(range)
 
     def getType(self) -> PortType:
-        return self.type
+        return self.type if self.type is not None else PortType.WIRE
 
     def getPortName(self) -> str:
         return self.variable.toString()

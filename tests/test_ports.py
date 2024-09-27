@@ -95,7 +95,7 @@ module top (
     output f
 );
     output c;
-    input d;
+    input reg d;
     reg [3:0] e;
     wire [3:0] g;
     

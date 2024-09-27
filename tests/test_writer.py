@@ -622,7 +622,7 @@ endmodule
     assert write_after_read(verilogString)
 
 if __name__ == "__main__":
-    # test_00_write_assignment()
+    test_00_write_assignment()
     # test_01_write_assignment()
     # test_02_write_assignment()
     # test_03_write_assignment()
@@ -652,4 +652,4 @@ if __name__ == "__main__":
     # test_27_module_instantiation()
     # test_28_module_instantiation()
     # test_29_module_instantiation()
-    test_30_port_type()
+    # test_30_port_type()
