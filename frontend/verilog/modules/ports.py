@@ -95,8 +95,8 @@ class Port:
 
     def setType(self, type: str):
         if self.type is None and type is not None:
-            assert isinstance(PortType.fromString(type), PortType)
-            self.type = PortType.fromString(type)
+            assert isinstance(type, PortType)
+            self.type = type
             return True
         return False
 
@@ -164,7 +164,7 @@ class BasicPort(Port):
     ):
         super().__init__(name)
         self.setDirection(direction)
-        self.setType(type)
+        self.setType(PortType.fromString(type))
         self.setRange(range)
 
 

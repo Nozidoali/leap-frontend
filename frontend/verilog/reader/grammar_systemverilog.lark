@@ -57,7 +57,7 @@ parameter_definition: NAME "." NAME "=" const_expression
 // 2. Declarations
 
 // 2.1 Parameter Declarations
-?port_type: "reg" | "wire" | "integer" | "real" | "parameter" | "localparam"
+?port_type: "reg" -> reg | "wire" -> wire | "integer" -> integer | "real" -> real | "parameter" -> parameter | "localparam" -> localparam
 port_direction: "input" -> input | "output" -> output | "inout" -> inout
 
 // 2.4 Variable Assignments
