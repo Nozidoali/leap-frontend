@@ -8,10 +8,7 @@ Last Modified by: Hanyu Wang
 Last Modified time: 2024-05-17 15:08:34
 """
 
-from .modules import *
+from .writer import *
 from .reader import *
-from .writer import *
-from .fixVerilog import *
-from .writer import *
-from .changeName import *
+from .modules import *
 from .algorithms import *
