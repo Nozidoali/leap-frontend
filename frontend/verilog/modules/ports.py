@@ -227,6 +227,11 @@ class Frame:
         return [
             port.name for port in self.portDefs.values() if port.direction == portDir
         ]
+    
+    def getPortsByType(self, portType: PortType):
+        return [
+            port.name for port in self.portDefs.values() if port.type == portType
+        ]
 
     @property
     def numInputs(self) -> int:
