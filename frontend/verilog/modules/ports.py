@@ -140,7 +140,9 @@ class Port:
             print(f"Direction mismatch: {self.direction} != {value.direction}")
             return False
         if self.getType() != value.getType():
-            print(f"Type mismatch: {self.getType()} != {value.getType()}, signal = {self.variable}")
+            print(
+                f"Type mismatch: {self.getType()} != {value.getType()}, signal = {self.variable}"
+            )
             return False
         if self.range != value.range:
             return False
@@ -236,11 +238,9 @@ class Frame:
         return [
             port.name for port in self.portDefs.values() if port.direction == portDir
         ]
-    
+
     def getPortsByType(self, portType: PortType) -> list:
-        return [
-            port.name for port in self.portDefs.values() if port.type == portType
-        ]
+        return [port.name for port in self.portDefs.values() if port.type == portType]
 
     @property
     def numInputs(self) -> int:

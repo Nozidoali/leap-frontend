@@ -4,6 +4,7 @@ import re
 from ..modules import *
 from .highlight import *
 
+
 def extractCIP(graph: pgv.AGraph):
     CIPpairs = []
     for node in graph.nodes():

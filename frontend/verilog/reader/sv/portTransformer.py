@@ -30,7 +30,9 @@ class PortTransformer(Transformer):
         statements = []
         dir, t, range, variables, expression = items
         dir = PortDirection.fromString(dir.data) if dir is not None else None
-        t = PortType.fromString(t.data) if t is not None else None # NOTE: by default, the type is None to avoid overwriting failure
+        t = (
+            PortType.fromString(t.data) if t is not None else None
+        )  # NOTE: by default, the type is None to avoid overwriting failure
         ports = []
         for variable in variables:
             port = Port(variable)

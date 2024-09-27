@@ -2,15 +2,20 @@ from ..modules import *
 import pygraphviz as pgv
 
 
-def addEdgeMap(map: dict, target: str, expression: str, cond: str , assignment: Assignment):
-    map[(str(target), str(expression), str(cond) if cond != None else None)] = assignment
+def addEdgeMap(
+    map: dict, target: str, expression: str, cond: str, assignment: Assignment
+):
+    map[(str(target), str(expression), str(cond) if cond != None else None)] = (
+        assignment
+    )
     return map
+
 
 def foundCtrl_rec(graph: pgv.AGraph, src: str, dst: str):
     list_nodes = [src]
     visited = [src]
-    while(len(list_nodes) > 0):
-        src = list_nodes.pop()    
+    while len(list_nodes) > 0:
+        src = list_nodes.pop()
         for inV, outV in graph.out_edges(src):
             if outV == dst:
                 return True
@@ -20,6 +25,7 @@ def foundCtrl_rec(graph: pgv.AGraph, src: str, dst: str):
                 list_nodes.append(outV)
                 visited.append(outV)
     return False
+
 
 def foundCtrl(graph: pgv.AGraph, border_conn: list, target: str, cond: str):
     found = False
@@ -40,9 +46,10 @@ def foundCtrl(graph: pgv.AGraph, border_conn: list, target: str, cond: str):
 
     return None, None
 
-def graphToBNGraph(module: Module, _graph: pgv.AGraph, subgraph: str=None) -> Module:
+
+def graphToBNGraph(module: Module, _graph: pgv.AGraph, subgraph: str = None) -> Module:
     outGraph = Module()
-    if(subgraph == None):
+    if subgraph == None:
         graph = _graph
     else:
         graph = _graph.get_subgraph(subgraph)
@@ -51,10 +58,26 @@ def graphToBNGraph(module: Module, _graph: pgv.AGraph, subgraph: str=None) -> Mo
     assert mapping != {}
     all_edges = graph.edges()
     all_nodes = graph.nodes()
-    pis = [ module.getPort(port) for port in module.getPortsByDir(PortDirection.INPUT) if port in all_nodes ]
-    pos = [ module.getPort(port) for port in module.getPortsByDir(PortDirection.OUTPUT) if port in all_nodes ]
-    parameters = [ module.getPort(port) for port in module.getPortsByType(PortType.PARAMETER) if port in all_nodes ]
-    localparams = [ module.getPort(port) for port in module.getPortsByType(PortType.LOCALPARAM) if port in all_nodes ]
+    pis = [
+        module.getPort(port)
+        for port in module.getPortsByDir(PortDirection.INPUT)
+        if port in all_nodes
+    ]
+    pos = [
+        module.getPort(port)
+        for port in module.getPortsByDir(PortDirection.OUTPUT)
+        if port in all_nodes
+    ]
+    parameters = [
+        module.getPort(port)
+        for port in module.getPortsByType(PortType.PARAMETER)
+        if port in all_nodes
+    ]
+    localparams = [
+        module.getPort(port)
+        for port in module.getPortsByType(PortType.LOCALPARAM)
+        if port in all_nodes
+    ]
 
     for pi in pis:
         outGraph.addPort(pi)
@@ -65,7 +88,6 @@ def graphToBNGraph(module: Module, _graph: pgv.AGraph, subgraph: str=None) -> Mo
     for localparam in localparams:
         outGraph.addPort(localparam)
 
-
     border_conn = []
     for src, dst in _graph.edges():
         if src in all_nodes and dst not in all_nodes:
@@ -75,19 +97,20 @@ def graphToBNGraph(module: Module, _graph: pgv.AGraph, subgraph: str=None) -> Mo
             border_conn.append((dst, src))
             assert "ctrl_" in src
 
-    
-
     for target, expression, cond in mapping.keys():
         assignment = mapping[(target, expression, cond)]
         ## skipping initial assignements values unless it's a parameter
         modulePort = module.getPort(assignment.target.toString())
-        if modulePort != None and (modulePort.getType() == PortType.LOCALPARAM or modulePort.getType() == PortType.PARAMETER):
+        if modulePort != None and (
+            modulePort.getType() == PortType.LOCALPARAM
+            or modulePort.getType() == PortType.PARAMETER
+        ):
             isParameter = True
         else:
             isParameter = False
         if cond == None and assignment.expression.isConstant() and not isParameter:
             continue
-        srcCtrl, dstCtrl = foundCtrl(_graph , border_conn, target, cond)
+        srcCtrl, dstCtrl = foundCtrl(_graph, border_conn, target, cond)
         if not target in all_nodes and (dstCtrl == None or not "ctrl_" in dstCtrl):
             continue
         if srcCtrl == None:
@@ -112,10 +135,10 @@ def graphToBNGraph(module: Module, _graph: pgv.AGraph, subgraph: str=None) -> Mo
             outGraph.addPort(newOutputPort)
             border_conn.remove((srcCtrl, dstCtrl))
 
-
-    #assert len(border_conn) == 0 ## if it's false there are missing feature to consider other border connections
+    # assert len(border_conn) == 0 ## if it's false there are missing feature to consider other border connections
 
     return outGraph
+
 
 def _exportDOTRec(graph: pgv.AGraph, node: DFGNode) -> str:
     if node.isVariable():
@@ -176,7 +199,9 @@ def exportDOT(module: Module, params: dict = {}) -> pgv.AGraph:
             id_con = None
 
         if not skipConstants and skipSignals == []:
-            node2assignment = addEdgeMap(node2assignment, id_lhs, id_rhs, id_con, assignment)
+            node2assignment = addEdgeMap(
+                node2assignment, id_lhs, id_rhs, id_con, assignment
+            )
 
     graph.layout(prog="dot")
 

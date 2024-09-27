@@ -97,8 +97,10 @@ def extractDataFlowControlFlow(module: Module, graph: pgv.AGraph, dataOutputs: l
 def isOpNode(node: pgv.Node):
     return node.attr["shape"] == "ellipse"
 
+
 def isVarNode(node: pgv.Node):
     return node.attr["shape"] == "box"
+
 
 def getCondAssignment(module: Module, node: pgv.Node, cond: str):
     print(node)
@@ -108,11 +110,20 @@ def getCondAssignment(module: Module, node: pgv.Node, cond: str):
             return assignment.expression
     return None
 
+
 def isStateNode(module: Module, node: pgv.Node):
     variable_type = module.getVariableType(node.get_name())
     return variable_type == PortType.LOCALPARAM
 
-def getArrivalState_rec(CDFG: pgv.AGraph, node: pgv.Node, visited: set, reachedStates : set, module: Module, end_node: str):
+
+def getArrivalState_rec(
+    CDFG: pgv.AGraph,
+    node: pgv.Node,
+    visited: set,
+    reachedStates: set,
+    module: Module,
+    end_node: str,
+):
     if node in visited:
         return None
     print(node)
@@ -128,7 +139,7 @@ def getArrivalState_rec(CDFG: pgv.AGraph, node: pgv.Node, visited: set, reachedS
                 continue
         elif isVarNode(dst):
             var_name = dst.attr["label"]
-            isCond = "cond" in CDFG.get_edge(src, dst).attr["xlabel"] 
+            isCond = "cond" in CDFG.get_edge(src, dst).attr["xlabel"]
             if var_name == end_node:
                 reachedStates.add(dst)
                 return None
@@ -139,23 +150,30 @@ def getArrivalState_rec(CDFG: pgv.AGraph, node: pgv.Node, visited: set, reachedS
                 if isStateNode(assignedValue):
                     reachedStates.add(dst)
                     continue
-        dstNode = getArrivalState_rec(CDFG, dst, visited, reachedStates, module, end_node)
+        dstNode = getArrivalState_rec(
+            CDFG, dst, visited, reachedStates, module, end_node
+        )
     return None
 
 
 # function to extract the arrival states of the data-controlled CFG
-def getArrivalStates(graph: pgv.AGraph, controlPaths: list, module: Module, end_node: str):
+def getArrivalStates(
+    graph: pgv.AGraph, controlPaths: list, module: Module, end_node: str
+):
     arrivalStates = []
     CFG = graph.get_subgraph("cluster_control_flow")
     for dataNode, ctrlNode in controlPaths:
         reachedStates = set()
-        dstState = getArrivalState_rec(graph, ctrlNode, set(), reachedStates, module, end_node)
+        dstState = getArrivalState_rec(
+            graph, ctrlNode, set(), reachedStates, module, end_node
+        )
         assert dstState is not None
         arrivalStates.append((dataNode, dstState))
     return arrivalStates
 
+
 # function to build the original CDFG with the extracted data flow
-def buildOriginalCDFG(graph: pgv.AGraph, module: Module , end_node: str = "finish"):
+def buildOriginalCDFG(graph: pgv.AGraph, module: Module, end_node: str = "finish"):
     CDFG = pgv.AGraph(strict=False, directed=True)
     CDFG.graph_attr["splines"] = "ortho"
     CDFG.graph_attr["rankdir"] = "TB"  # Top-to-bottom layout
@@ -177,8 +195,7 @@ def buildOriginalCDFG(graph: pgv.AGraph, module: Module , end_node: str = "finis
             controlPaths.append((srcNode, dstNode))
         elif dstIsDataNode:
             CDFG.add_node(dstNode)
-    
+
     arrivalStates = getArrivalStates(graph, controlPaths, module, end_node)
 
     return CDFG
-
