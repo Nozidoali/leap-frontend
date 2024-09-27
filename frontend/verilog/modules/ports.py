@@ -116,7 +116,12 @@ class Port:
         self.type: PortType = None
 
     def setRange(self, range: Range):
-        if self.range is None and range is not None:
+        if range is not None:
+            assert isinstance(range, Range)
+            if self.range is not None and self.range != range:
+                raise ValueError(
+                    f"Range mismatch: {self.range} != {range}, signal = {self.variable}"
+                )
             self.range = range
             return True
         return False
