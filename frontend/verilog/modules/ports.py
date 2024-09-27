@@ -125,12 +125,15 @@ class Port:
         direction, type = header
         return self.setDirection(direction) and self.setType(type)
 
-    def setDirection(self, direction: PortDirection):
+    def setDirection(self, direction: PortDirection) -> bool:
         if self.direction is None and direction is not None:
             assert isinstance(direction, PortDirection)
             self.direction = direction
             return True
         return False
+
+    def getDirection(self) -> PortDirection:
+        return self.direction
 
     def setType(self, type: str):
         # NOTE: use type instead of getType() in this function
