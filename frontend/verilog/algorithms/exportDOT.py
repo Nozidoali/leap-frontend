@@ -6,9 +6,36 @@ def addEdgeMap(map: dict, target: str, expression: str, cond: str , assignment: 
     map[(str(target), str(expression), str(cond) if cond != None else None)] = assignment
     return map
 
-def foundDstCtrl(border_conn: list, cond: str):
+def foundCtrl_rec(graph: pgv.AGraph, src: str, dst: str):
+    list_nodes = [src]
+    visited = [src]
+    while(len(list_nodes) > 0):
+        src = list_nodes.pop()    
+        for inV, outV in graph.out_edges(src):
+            if outV == dst:
+                return True
+        for inV, outV in graph.out_edges(src):
+            # check that the node is not a variable
+            if outV not in visited and graph.get_node(outV).attr["shape"] != "box":
+                list_nodes.append(outV)
+                visited.append(outV)
+    return False
+
+def foundCtrl(graph: pgv.AGraph, border_conn: list, target: str, cond: str):
+    found = False
     for src, dst in border_conn:
-        if dst == cond or src == cond:
+        if src == cond or dst == cond:
+            found = True
+    if not found:
+        return None, None
+    ctrlValue = None
+    for src, dst in graph.out_edges(cond):
+        if "ctrl_" in dst:
+            if foundCtrl_rec(graph, dst, target):
+                ctrlValue = dst
+                break
+    for src, dst in border_conn:
+        if (src == cond and dst == ctrlValue) or (src == ctrlValue and dst == cond):
             return src, dst
 
     return None, None
@@ -24,60 +51,58 @@ def graphToBNGraph(module: Module, _graph: pgv.AGraph, subgraph: str=None) -> Mo
     assert mapping != {}
     all_edges = graph.edges()
     all_nodes = graph.nodes()
-    pis = [ module.getPort(port) for port in module.getPortsByType(PortDirection.INPUT) if port in all_nodes ]
-    pos = [ module.getPort(port) for port in module.getPortsByType(PortDirection.OUTPUT) if port in all_nodes ]
+    pis = [ module.getPort(port) for port in module.getPortsByDir(PortDirection.INPUT) if port in all_nodes ]
+    pos = [ module.getPort(port) for port in module.getPortsByDir(PortDirection.OUTPUT) if port in all_nodes ]
+    parameters = [ module.getPort(port) for port in module.getPortsByType(PortType.PARAMETER) if port in all_nodes ]
+    localparams = [ module.getPort(port) for port in module.getPortsByType(PortType.LOCALPARAM) if port in all_nodes ]
 
     for pi in pis:
         outGraph.addPort(pi)
-    
     for po in pos:
         outGraph.addPort(po)
+    for param in parameters:
+        outGraph.addPort(param)
+    for localparam in localparams:
+        outGraph.addPort(localparam)
 
 
     border_conn = []
     for src, dst in _graph.edges():
         if src in all_nodes and dst not in all_nodes:
+            assert "ctrl_" in dst
             border_conn.append((src, dst))
         if src not in all_nodes and dst in all_nodes:
             border_conn.append((dst, src))
+            assert "ctrl_" in src
 
     
-    input_cnt = 0
-    output_cnt = 0
 
     for target, expression, cond in mapping.keys():
         assignment = mapping[(target, expression, cond)]
-        expressionPresent = (expression, target) in all_edges
-        conditionPresent = (cond, target) in all_edges
-        print(cond, expressionPresent, conditionPresent, assignment.target.toString(), expression, target)
-        if expressionPresent and conditionPresent:
+        ## skipping initial assignements values unless it's a parameter
+        modulePort = module.getPort(assignment.target.toString())
+        if modulePort != None and (modulePort.getType() == PortType.LOCALPARAM or modulePort.getType() == PortType.PARAMETER):
+            isParameter = True
+        else:
+            isParameter = False
+        if cond == None and assignment.expression.isConstant() and not isParameter:
+            continue
+        srcCtrl, dstCtrl = foundCtrl(_graph , border_conn, target, cond)
+        if not target in all_nodes and (dstCtrl == None or not "ctrl_" in dstCtrl):
+            continue
+        if srcCtrl == None:
             outGraph.addAssignment(assignment)
-        elif expressionPresent:
-            src, dst = foundDstCtrl(border_conn, expression)
-            if src != None :
-                newInputName = "newInput{}".format(input_cnt)
-                input_cnt = input_cnt + 1
-                newInput = DFGNode(newInputName)
-                newInput.setRange(assignment.expression.range)
-                assignment.setCondition(newInput)
-                newInputPort = InputPort(newInput)
-                outGraph.addPort(newInputPort)
-                #border_conn.remove((expression, target))
-            else:
-                assignment.setCondition(None)
+        elif "ctrl_" in srcCtrl:
+            newInputName = srcCtrl
+            newInput = DFGNode(newInputName)
+            newInput.setRange(assignment.expression.range)
+            assignment.setCondition(newInput)
+            newInputPort = InputPort(newInput)
+            outGraph.addPort(newInputPort)
             outGraph.addAssignment(assignment)
-        elif conditionPresent:
-            if assignment.expression.isConstant():
-                outGraph.addAssignment(assignment)
-            else:
-                assert False # this case is not considered yet
-        elif expression not in all_nodes and target not in all_nodes:
-            src, dst = foundDstCtrl(border_conn, cond)
-            if src == None:
-                continue
-            border_conn.remove( (src, dst) )
-            newOutputName = "newOutput{}".format(output_cnt)
-            output_cnt = output_cnt + 1
+            border_conn.remove((srcCtrl, dstCtrl))
+        elif "ctrl_" in dstCtrl:
+            newOutputName = dstCtrl
             newOutput = DFGNode(newOutputName)
             newOutput.setRange(assignment.condition.range)
             assignment.setCondition(None)
@@ -85,8 +110,8 @@ def graphToBNGraph(module: Module, _graph: pgv.AGraph, subgraph: str=None) -> Mo
             assignment.expression = cond
             newOutputPort = OutputPort(newOutput)
             outGraph.addPort(newOutputPort)
+            border_conn.remove((srcCtrl, dstCtrl))
 
-    print(border_conn)
 
     #assert len(border_conn) == 0 ## if it's false there are missing feature to consider other border connections
 
