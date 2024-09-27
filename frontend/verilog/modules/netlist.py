@@ -15,11 +15,6 @@ from .definitions import *
 class Netlist(Macros, TimeScale):
     """
     A netlist is a collection of modules
-
-    :param modules: a list of modules
-    :type modules: list
-    :param definitions: a dictionary of definitions
-    :type definitions: dict
     """
 
     def __init__(self):

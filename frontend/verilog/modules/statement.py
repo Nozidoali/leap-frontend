@@ -120,6 +120,17 @@ class TimeScaleDefinition(Statement):
 
 
 class Assignment(Statement):
+    """
+    Assignments are the elementary statements in the module.
+
+    It consists of:
+
+    - **target** (DFGNode): the target variable
+    - **expression** (DFGNode): the expression to be assigned to the target
+    - **condition** (DFGNode): the condition under which the assignment is valid
+    - **event** (DFGNode): the event under which the assignment is valid
+    """
+
     def __init__(
         self, target: DFGNode, expression: DFGNode, condition: DFGNode = None
     ) -> None:

@@ -6,5 +6,24 @@ Netlist
 
 .. autoclass:: frontend.Netlist
    :members:
-   :undoc-members:
-   :show-inheritance:
+
+
+Module
+------
+
+.. autoclass:: frontend.Module
+   :members:
+
+
+Port
+----
+
+.. autoclass:: frontend.Port
+   :members:
+
+
+Assignment
+----------
+
+.. autoclass:: frontend.Assignment
+   :members:

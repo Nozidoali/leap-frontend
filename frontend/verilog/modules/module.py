@@ -15,6 +15,16 @@ from .definitions import *
 
 
 class Module(Frame, Macros, ParameterHandler, BNGraph):
+    """
+    Module class represents a module in a Verilog netlist.
+    In LEAP, a module is:
+
+    - A Frame, which is a collection of ports
+    - A CDFG (BNGraph), which is the control/data flow graph of the module
+    - A ParameterHandler, which describes the reconfigurable parameters of the module
+    - A Macros, which contains the macros defined in the module (constant values)
+    """
+
     def __init__(
         self,
     ):
