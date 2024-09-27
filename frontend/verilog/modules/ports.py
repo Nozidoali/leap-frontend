@@ -126,8 +126,12 @@ class Port:
         return self.setDirection(direction) and self.setType(type)
 
     def setDirection(self, direction: PortDirection) -> bool:
-        if self.direction is None and direction is not None:
+        if direction is not None:
             assert isinstance(direction, PortDirection)
+            if self.direction is not None and self.direction != direction:
+                raise ValueError(
+                    f"Direction mismatch: {self.direction} != {direction}, signal = {self.variable}"
+                )
             self.direction = direction
             return True
         return False

@@ -1,5 +1,6 @@
 from frontend import *
 import pytest
+import lark
 
 
 # Test 01
@@ -12,7 +13,7 @@ module top (
 );
 endmodule
 """
-    with pytest.raises(AssertionError):
+    with pytest.raises(lark.exceptions.VisitError):
         netlist: Netlist = transformVerilogToNetlist(verilogStr)
         module: Module = netlist.getModule("top")
         assert module is not None
