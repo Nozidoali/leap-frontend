@@ -107,6 +107,7 @@ endmodule
 """
     netlist = transformVerilogToNetlist(verilogStr)
     module = netlist.getModule("top")
+    assert module.getPort("d").getType() == PortType.REG
     assert module is not None
     assert module.numInputs == 3, f"module.numInputs = {module.numInputs} != 3"
     assert module.numOutputs == 2, f"module.numOutputs = {module.numOutputs} != 2"

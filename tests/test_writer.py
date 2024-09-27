@@ -603,6 +603,24 @@ endmodule
     assert write_after_read(verilogString)
 
 
+# Test 30
+# Port Type
+def test_30_port_type():
+    verilogString = """
+module top (
+    input wire a,
+    input wire b,
+    output reg f
+);
+
+always @(*) begin
+    f = a + b;
+end
+
+endmodule
+"""
+    assert write_after_read(verilogString)
+
 if __name__ == "__main__":
     # test_00_write_assignment()
     # test_01_write_assignment()
@@ -633,4 +651,5 @@ if __name__ == "__main__":
     # test_26_module_instantiation()
     # test_27_module_instantiation()
     # test_28_module_instantiation()
-    test_29_module_instantiation()
+    # test_29_module_instantiation()
+    test_30_port_type()

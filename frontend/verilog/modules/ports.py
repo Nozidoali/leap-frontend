@@ -130,7 +130,7 @@ class Port:
             return False
         if self.direction != value.direction:
             return False
-        if self.type != value.type:
+        if self.getType() != value.getType():
             return False
         if self.range != value.range:
             return False
@@ -190,10 +190,10 @@ class InputPort(BasicPort):
 
 class Frame:
     def __init__(self) -> None:
-        self.portDefs = {}
-        self.ioPorts = set()
+        self.portDefs: dict = {}
+        self.ioPorts: set = set()
 
-    def addPort(self, port: Port):
+    def addPort(self, port: Port) -> None:
         name = port.getPortName()
         if name in self.portDefs:
             self.portDefs[name].type = port.getType()
@@ -205,7 +205,7 @@ class Frame:
         if port.direction is not None:
             self.ioPorts.add(name)
 
-    def addPorts(self, ports: list):
+    def addPorts(self, ports: list) -> None:
         for port in ports:
             self.addPort(port)
 
@@ -218,18 +218,18 @@ class Frame:
     def getPortNames(self) -> list:
         return list(self.portDefs.keys())
 
-    def getPort(self, portName: str):
+    def getPort(self, portName: str) -> Port:
         return self.portDefs[portName]
 
     def getVariableType(self, variableName: str):
         return self.portDefs[variableName].getType()
 
-    def getPortsByDir(self, portDir: PortDirection):
+    def getPortsByDir(self, portDir: PortDirection) -> list:
         return [
             port.name for port in self.portDefs.values() if port.direction == portDir
         ]
     
-    def getPortsByType(self, portType: PortType):
+    def getPortsByType(self, portType: PortType) -> list:
         return [
             port.name for port in self.portDefs.values() if port.type == portType
         ]
