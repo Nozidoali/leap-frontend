@@ -110,7 +110,7 @@ class Port:
     A port is the elementary unit of a frame.
     """
 
-    variable: DFGNode
+    variable: BNode
     range: Optional[Range] = None
     direction: Optional[PortDirection] = None
     type: Optional[PortType] = None
@@ -208,6 +208,14 @@ class Port:
     @property
     def name(self):
         return self.variable.name
+
+    @property
+    def isPi(self):
+        return self.direction == PortDirection.INPUT
+
+    @property
+    def isPo(self):
+        return self.direction == PortDirection.OUTPUT
 
 
 def portToString(port: Port):

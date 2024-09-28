@@ -2,7 +2,7 @@ from frontend import *
 import pytest
 
 
-def checkNodeIsAIG(node: DFGNode):
+def checkNodeIsAIG(node: BNode):
     if node.isOperation():
         assert node.operation in [
             OPType.BINARY_AND,

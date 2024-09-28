@@ -107,8 +107,8 @@ class ExpressionTransformer(Transformer):
         return VarNode(items[0])
 
     def always_block(self, items):
-        event_condition: DFGNode = OPNode("always", OPType.EVENT_ALWAYS, items[0])
-        assert isinstance(event_condition, DFGNode)
+        event_condition: BNode = OPNode("always", OPType.EVENT_ALWAYS, items[0])
+        assert isinstance(event_condition, BNode)
         return [
             x.setEvent(event_condition)
             for x in items[1]
@@ -116,8 +116,8 @@ class ExpressionTransformer(Transformer):
         ]
 
     def initial_block(self, items):
-        event_condition: DFGNode = InitEvent()
-        assert isinstance(event_condition, DFGNode)
+        event_condition: BNode = InitEvent()
+        assert isinstance(event_condition, BNode)
         return [
             x.setEvent(event_condition)
             for x in items[0]

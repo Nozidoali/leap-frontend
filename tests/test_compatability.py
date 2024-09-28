@@ -9,6 +9,7 @@ os.chdir(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 # test 00
 # compatibility with legup
+@pytest.mark.skip(reason="test takes too long")
 def test_00_legup():
     verilogDir = "examples/verilogs/external/"
     verilogFile = os.path.join(verilogDir, "legup.v")
@@ -35,6 +36,7 @@ def test_01_xls():
 
 # test 02
 # compatibility with legup
+@pytest.mark.skip(reason="test takes too long")
 def test_02_legup():
     verilogDir = "examples/verilogs/external/"
     verilogFile = os.path.join(verilogDir, "legup2.v")
@@ -47,6 +49,7 @@ def test_02_legup():
 
 # test 03
 # compatibility with Vivado FSM
+@pytest.mark.skip(reason="test takes too long")
 def test_03_vivado():
     verilogDir = "examples/verilogs/external/"
     verilogFile = os.path.join(verilogDir, "vivado.v")

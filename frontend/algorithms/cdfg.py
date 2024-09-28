@@ -20,7 +20,13 @@ class CDFGraph(pgv.AGraph):
         self.nodeToAssignment = {}
         self.frame: Frame = None
 
-    def add_node(self, node: DFGNode, **kwargs) -> str:
+    def toBNode(self, node: pgv.Node) -> BNode:
+        # TODO: range is not being set
+        opName = node.attr["operation"]
+        opType = getOpType(opName) if opName != "None" else None
+        return OPNode(node.attr["variable_name"], opType, [])
+
+    def add_node(self, node: BNode, **kwargs) -> str:
         # TODO: convert these to strings and retrieve them in the graph
         kwargs["variable_name"] = node.variable_name
         kwargs["operation"] = node.operation.value
@@ -67,10 +73,11 @@ class CDFGraph(pgv.AGraph):
     def addEdge(
         self, source: pgv.Node, target: pgv.Node, idx: int, eType: EdgeType
     ) -> None:
+        eType = eType.value if isinstance(eType, EdgeType) else eType
         edge_attrs = {
-            "eType": eType.value,
+            "eType": eType,
             "eIndex": idx,
-            "xlabel": f"{eType.value}_{idx}",
+            "xlabel": f"{eType}_{idx}",
         }
         # Customize edge styles based on the edge type
         if eType == EdgeType.CONDITION:
@@ -81,18 +88,18 @@ class CDFGraph(pgv.AGraph):
         self.add_edge(source, target, **edge_attrs)
 
     @staticmethod
-    def toNode(node: pgv.Node) -> DFGNode:
+    def toNode(node: pgv.Node) -> BNode:
         opName = node.attr["operation"]
         opType = getOpType(opName) if opName != "None" else None
         return OPNode(node.attr["variable_name"], opType, [])
 
 
-# External function to recursively add a DFGNode to the graph
-def _addNodeRecursively(graph: CDFGraph, node: DFGNode) -> str:
+# External function to recursively add a BNode to the graph
+def _addNodeRecursively(graph: CDFGraph, node: BNode) -> str:
     nodeId = graph.add_node(node)
     # Recursively add children nodes and edges
     for child in node.children:
-        assert isinstance(child, DFGNode)
+        assert isinstance(child, BNode)
         childId = _addNodeRecursively(graph, child)
         graph.add_edge(childId, nodeId)
     return nodeId
@@ -131,6 +138,14 @@ def moduleToGraph(module: Module) -> CDFGraph:
     return graph
 
 
+def _detectPortDirection(graph: CDFGraph, node: pgv.Node) -> PortDirection:
+    if len(graph.successors(node)) == 0:
+        return PortDirection.INPUT
+    elif len(graph.predecessors(node)) == 0:
+        return PortDirection.OUTPUT
+    return None
+
+
 def graphToModule(graph: CDFGraph, param: dict = {}) -> Module:
     module = Module()  # Initialize a new Module
     autoDerivePortDirection = param.get("autoDerivePortDirection", True)
@@ -141,16 +156,7 @@ def graphToModule(graph: CDFGraph, param: dict = {}) -> Module:
             port: Port = graph.frame.getPort(node)
 
             if autoDerivePortDirection:
-                # if the node has no children, it is a input port
-                if len(graph.successors(node)) == 0:
-                    port.setDirection(PortDirection.INPUT, override=True)
-                # if the node has no parents, it is a output port
-                elif len(graph.predecessors(node)) == 0:
-                    port.setDirection(PortDirection.OUTPUT, override=True)
-                # else it is a internal signal
-                else:
-                    port.setDirection(None, override=True)
-
+                port.direction = _detectPortDirection(graph, node)
             module.addPort(port)
 
             # get assignments
@@ -171,9 +177,9 @@ def graphToModule(graph: CDFGraph, param: dict = {}) -> Module:
     return module
 
 
-def _recreateDFGNode(graph: CDFGraph, node: pgv.Node) -> DFGNode:
+def _recreateDFGNode(graph: CDFGraph, node: pgv.Node) -> BNode:
     """
-    Recreate a DFGNode based on its ID in the graph.
+    Recreate a BNode based on its ID in the graph.
     """
     # Rebuild the node based on its shape and attributes in the graph
     assert isinstance(node, pgv.Node)

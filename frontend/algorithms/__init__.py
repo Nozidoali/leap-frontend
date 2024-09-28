@@ -3,3 +3,4 @@ from .elaborateAssignment import *
 from .extractFSM import *
 from .exportDOT import *
 from .cdfg import *
+from .mapping import *

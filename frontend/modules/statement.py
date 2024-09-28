@@ -56,7 +56,7 @@ class PortDeclaration(Statement):
 @dataclass
 class MacroDefinition(Statement):
     name: str
-    value: DFGNode
+    value: BNode
 
     def __call__(self, module: Module) -> Any:
         module.addMacro(self.name, self.value)
@@ -87,10 +87,10 @@ class AssignmentStatement(Statement):
     def __repr__(self) -> str:
         return f"AssignmentStatement({self.assignment})"
 
-    def addCondition(self, condition: DFGNode):
+    def addCondition(self, condition: BNode):
         self.assignment.addCondition(condition)
         return self
 
-    def setEvent(self, event: DFGNode):
+    def setEvent(self, event: BNode):
         self.assignment.setEvent(event)
         return self

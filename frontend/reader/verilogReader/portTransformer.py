@@ -17,8 +17,8 @@ class PortTransformer(Transformer):
     # port_range : "[" expression ":" expression "]"
     @v_args(inline=True)
     def port_range(self, start, end):
-        assert isinstance(start, DFGNode), f"start = {start}, type = {type(start)}"
-        assert isinstance(end, DFGNode), f"end = {end}, type = {type(end)}"
+        assert isinstance(start, BNode), f"start = {start}, type = {type(start)}"
+        assert isinstance(end, BNode), f"end = {end}, type = {type(end)}"
         return Range(start, end)
 
     def variable_list(self, items):

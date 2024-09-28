@@ -135,10 +135,10 @@ from typing import List, Optional
 
 
 @dataclass
-class DFGNode:
+class BNode:
     variable_name: str = str(field(default_factory=str))
     range: Optional[Range] = None
-    children: List["DFGNode"] = field(default_factory=list)
+    children: List["BNode"] = field(default_factory=list)
 
     def isVariable(self) -> bool:
         return self.operation == OPType.VARIABLE
@@ -156,8 +156,8 @@ class DFGNode:
         return self.variable_name
 
     def __eq__(self, value: object) -> bool:
-        if not isinstance(value, DFGNode):
-            print(f"Expected DFGNode, got {type(value)}")
+        if not isinstance(value, BNode):
+            print(f"Expected BNode, got {type(value)}")
             return False
         if self.operation != value.operation:
             print(f"Operation mismatch: {self.operation} != {value.operation}")
@@ -198,8 +198,8 @@ class DFGNode:
         for child in self.children:
             child.replaceVariable(old, new)
 
-    def copy(self) -> "DFGNode":
-        node = DFGNode(self.variable_name)
+    def copy(self) -> "BNode":
+        node = BNode(self.variable_name)
         node.operation = self.operation
         node.range = self.range
         node.children = [child.copy() for child in self.children]
@@ -207,9 +207,9 @@ class DFGNode:
 
 
 @dataclass
-class OPNode(DFGNode):
+class OPNode(BNode):
     operation: OPType = OPType.UNKNOWN
-    children: List[DFGNode] = field(default_factory=list)
+    children: List[BNode] = field(default_factory=list)
 
     def __init__(self, op: str, operation: OPType, *items) -> None:
         # Initialize the parent class with the operation name
@@ -260,7 +260,7 @@ class OPNode(DFGNode):
 
 
 @dataclass
-class VarNode(DFGNode):
+class VarNode(BNode):
     operation: OPType = OPType.VARIABLE
 
     def toString(self) -> str:
@@ -272,7 +272,7 @@ class VarNode(DFGNode):
 
 
 @dataclass
-class ConstantNode(DFGNode):
+class ConstantNode(BNode):
     operation: OPType = OPType.CONSTANT
 
     def __init__(self, value: Any):
@@ -280,19 +280,19 @@ class ConstantNode(DFGNode):
 
 
 @dataclass
-class EmptyEvent(DFGNode):
+class EmptyEvent(BNode):
     operation: OPType = OPType.EVENT_COMB
     variable_name: str = "*"
 
 
 @dataclass
-class InitEvent(DFGNode):
+class InitEvent(BNode):
     operation: OPType = OPType.EVENT_INIT
     variable_name: str = "initial"
 
 
 @dataclass
-class UndefinedNode(DFGNode):
+class UndefinedNode(BNode):
     operation: OPType = OPType.UNKNOWN
     variable_name: str = "*"
 
@@ -301,5 +301,5 @@ class UndefinedNode(DFGNode):
 
 
 @dataclass
-class BlackBoxNode(DFGNode):
+class BlackBoxNode(BNode):
     operation: OPType = OPType.BLACKBOX

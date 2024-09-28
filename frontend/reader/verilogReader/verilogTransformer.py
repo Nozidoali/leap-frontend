@@ -46,5 +46,5 @@ class VerilogTransformer(
     # macro_body: /.+/
     def macro_definition(self, items):
         name: str = str(items[0])
-        value: DFGNode = items[1]
+        value: BNode = items[1]
         return MacroDefinition(name, value)

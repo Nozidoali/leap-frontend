@@ -26,7 +26,7 @@ class TimeValue:
 class Parameter:
     range: Range
     name: str
-    value: DFGNode
+    value: BNode
 
     def __repr__(self) -> str:
         return f"#{self.name} {self.value.toString()}"
@@ -53,7 +53,7 @@ class ParameterHandler(dict):
 
 
 class Macros(dict):
-    def addMacro(self, name: str, value: DFGNode):
+    def addMacro(self, name: str, value: BNode):
         self[name] = value
 
     def getMacros(self):

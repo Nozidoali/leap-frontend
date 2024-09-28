@@ -11,7 +11,7 @@ def getPrioritized(op1: OPType, op2: OPType) -> str:
     # Generate the Verilog string
     module = Module()
     module.setName("top")
-    n1: DFGNode = None
+    n1: BNode = None
     if op1.numOperands == 2:
         # create a binary operation
         module.addPort(InputPort("n1_a"))
@@ -26,7 +26,7 @@ def getPrioritized(op1: OPType, op2: OPType) -> str:
         a = VarNode("n1")
         n1 = OPNode("*", op1, a)
 
-    n2: DFGNode = None
+    n2: BNode = None
     if op2.numOperands == 2:
         # create a binary operation
         module.addPort(InputPort("na_a"))
@@ -56,7 +56,7 @@ def getPrioritized(op1: OPType, op2: OPType) -> str:
     module = netlist.getModule("top")
 
     # we check which operator is on the top
-    assign: DFGNode = module.getAssignNode("f")
+    assign: BNode = module.getAssignNode("f")
     return assign.operation
 
 

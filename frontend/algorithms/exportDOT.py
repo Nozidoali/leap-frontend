@@ -117,7 +117,7 @@ def graphToBNGraph(module: Module, _graph: pgv.AGraph, subgraph: str = None) -> 
             outGraph.addAssignment(assignment)
         elif "ctrl_" in srcCtrl:
             newInputName = srcCtrl
-            newInput = DFGNode(newInputName)
+            newInput = BNode(newInputName)
             newInput.setRange(assignment.expression.range)
             assignment.setCondition(newInput)
             newInputPort = InputPort(newInput)
@@ -126,7 +126,7 @@ def graphToBNGraph(module: Module, _graph: pgv.AGraph, subgraph: str = None) -> 
             border_conn.remove((srcCtrl, dstCtrl))
         elif "ctrl_" in dstCtrl:
             newOutputName = dstCtrl
-            newOutput = DFGNode(newOutputName)
+            newOutput = BNode(newOutputName)
             newOutput.setRange(assignment.condition.range)
             assignment.setCondition(None)
             assignment.target = newOutput
@@ -140,7 +140,7 @@ def graphToBNGraph(module: Module, _graph: pgv.AGraph, subgraph: str = None) -> 
     return outGraph
 
 
-def _exportDOTRec(graph: pgv.AGraph, node: DFGNode) -> str:
+def _exportDOTRec(graph: pgv.AGraph, node: BNode) -> str:
     if node.isVariable():
         name = node.toString()
         label = name

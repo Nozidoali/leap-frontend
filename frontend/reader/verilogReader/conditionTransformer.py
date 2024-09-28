@@ -63,7 +63,7 @@ class ConditionTransformer(Transformer):
 
     # case_statement: "case" "(" expression ")" case_content "endcase"
     def case_statement(self, items):
-        lhs: DFGNode = items[0]
+        lhs: BNode = items[0]
         caseStatements = []
         for cond, statements in items[1:]:
             condition = (

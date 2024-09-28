@@ -70,3 +70,8 @@ class Netlist(Macros, TimeScale):
 
     def __ne__(self, value: object) -> bool:
         return not self.__eq__(value)
+
+    def postProcess(self, params: dict = {}) -> None:
+        params.update(self.getMacros())
+        for module in self.getModules():
+            module.postProcess(params)

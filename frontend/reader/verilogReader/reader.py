@@ -38,7 +38,8 @@ def transformVerilogToNetlist(data: str) -> Netlist:
 
     # select the transformer
     transformer = VerilogTransformer()
-    netlist = transformer.transform(ast)
+    netlist: Netlist = transformer.transform(ast)
+    netlist.postProcess()
 
     return netlist
 

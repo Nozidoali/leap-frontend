@@ -10,6 +10,8 @@ module top (
     input b,
     output f
 );
+
+assign f = a & b;
 endmodule
 """
     netlist = transformVerilogToNetlist(verilogStr)
@@ -69,6 +71,9 @@ module top (
 );
     output c;
     input d;
+    
+    assign c = a & b;
+    assign f = d;
 endmodule
 """
     netlist = transformVerilogToNetlist(verilogStr)
@@ -103,6 +108,9 @@ module top (
 );
     output c;
     input d;
+    
+    assign c = a & b;
+    assign f = d;
 endmodule
 """
     netlist = transformVerilogToNetlist(verilogStr)
@@ -144,6 +152,9 @@ module top (
     reg [3:0] i [3:0];
     
     wire [3:0] j [3:0];
+    
+    assign c = a & b;
+    assign f = d;
 endmodule
 """
     netlist = transformVerilogToNetlist(verilogStr)
@@ -251,6 +262,20 @@ endmodule
     netlist = transformVerilogToNetlist(verilogStr)
     module = netlist.getModule("top")
     assert module.getPort("a").getType() == PortType.LOCALPARAM
+
+
+# Test 11:
+# Define a module with time port and check the range
+def test_11_port_type():
+    verilogStr = """
+module top (
+);
+    wire [3:0] a;
+endmodule
+"""
+    netlist = transformVerilogToNetlist(verilogStr)
+    module = netlist.getModule("top")
+    assert module.getPort("a").getType() == PortType.WIRE
 
 
 if __name__ == "__main__":
