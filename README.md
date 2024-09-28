@@ -13,10 +13,11 @@ LEAP (Logic nEtwork-Aware Pipelining) is a framework for exploiting logic synthe
 **For better a HLS performance**. Conventional synthesis flows apply high-level synthesis (HLS) before logic synthesis and technology mapping, where the majority of circuit's structural and functional information are determined. Lacking these informtion, HLS algorithms such as pipelining often make suboptimal decisions that are not revertable by subsequent synthesis stages. LEAP addresses this issue by integrating logic synthesis and technology mapping into HLS, enabling HLS algorithms to make better decisions based on the circuit's structural and functional information.
 
 ## What LEAP-frontend does?
-<img src="./static/leap-overview.svg" align="right" style="margin-right:12pt;margin-left: 36pt" />
 
 LEAP frontend:
 - Takes the behavioral description of a circuit in Verilog as input.
 - Transforms the behavioral description into a graph
 - Apply customized **lossless** algorithms on the graph
 - Write the graph into different formats for further processing in the backend
+
+<img src="./static/leap-overview.svg" style="margin-right:12pt;margin-left: 12pt" />
