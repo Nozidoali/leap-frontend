@@ -9,6 +9,9 @@ Last Modified time: 2024-06-25 23:58:04
 """
 
 from enum import Enum
+
+from dataclasses import dataclass
+from typing import Optional
 from .dfg import *
 
 
@@ -101,19 +104,16 @@ class PortType(Enum):
         return type.value if type is not None else None
 
 
+@dataclass
 class Port:
     """
     A port is the elementary unit of a frame.
     """
 
-    def __init__(
-        self,
-        variable: DFGNode,
-    ):
-        self.variable: DFGNode = variable
-        self.range: Range = None
-        self.direction: PortDirection = None
-        self.type: PortType = None
+    variable: DFGNode
+    range: Optional[Range] = None
+    direction: Optional[PortDirection] = None
+    type: Optional[PortType] = None
 
     def setRange(self, range: Range):
         if range is not None:
@@ -144,7 +144,7 @@ class Port:
     def getDirection(self) -> PortDirection:
         return self.direction
 
-    def setType(self, type: str):
+    def setType(self, type: PortType):
         # NOTE: use type instead of getType() in this function
         # Otherwise, the type cannot be overwritten
         if type is not None:
@@ -157,7 +157,7 @@ class Port:
             return True
         return False
 
-    def setAll(self, direction: PortDirection, type: str, range: Range):
+    def setAll(self, direction: PortDirection, type: PortType, range: Range):
         self.setDirection(direction)
         self.setType(type)
         self.setRange(range)
@@ -174,12 +174,8 @@ class Port:
     def getHeader(self):
         return (self.direction, self.type)
 
-    def __repr__(self):
-        direction_str = (
-            "(" + self.direction.value + ")" if self.direction is not None else ""
-        )
-        return f"Port({self.name}, {direction_str}, {self.type}, {self.range})"
-
+    # We need to override the __eq__ function to compare two ports
+    # Because we need to make sure type WIRE is equal to None
     def __eq__(self, value: object) -> bool:
         if not isinstance(value, Port):
             print(f"Type mismatch: {type(value)}")
@@ -217,38 +213,31 @@ def portToString(port: Port):
     return f"{portDirString}{typeString}{rangeString}{port.name}"
 
 
+@dataclass
 class BasicPort(Port):
-    def __init__(
-        self,
-        name: str,
-        direction: PortDirection,
-        type: str = "wire",
-        range: tuple = None,
-    ):
-        super().__init__(name)
-        self.setDirection(direction)
-        self.setType(PortType.fromString(type))
-        self.setRange(range)
+    name: str
+    direction: PortDirection
+    type: PortType = PortType.WIRE
+    range: Optional[Range] = None
+
+    def __post_init__(self):
+        self.setDirection(self.direction)
+        self.setType(self.type)
+        self.setRange(self.range)
 
 
+@dataclass
 class OutputPort(BasicPort):
-    def __init__(
-        self,
-        name: str,
-        type: str = "wire",
-        range: tuple = None,
-    ):
-        super().__init__(name, PortDirection.OUTPUT, type, range)
+    def __post_init__(self):
+        self.direction = PortDirection.OUTPUT
+        super().__post_init__()
 
 
+@dataclass
 class InputPort(BasicPort):
-    def __init__(
-        self,
-        name: str,
-        type: str = "wire",
-        range: tuple = None,
-    ):
-        super().__init__(name, PortDirection.INPUT, type, range)
+    def __post_init__(self):
+        self.direction = PortDirection.INPUT
+        super().__post_init__()
 
 
 class Frame:
