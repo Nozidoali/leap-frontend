@@ -22,8 +22,8 @@ from lark import Lark
 # http://www.verilog.com/VerilogBNF.html
 # http://www.externsoft.ch/download/verilog.html
 
-from .sv import *
-from ..modules import *
+from ...modules import *
+from .verilogTransformer import VerilogTransformer
 
 GRAMMAR_FILE = "grammar_systemverilog.lark"
 
@@ -34,12 +34,10 @@ def transformVerilogToNetlist(data: str) -> Netlist:
     :param data: Raw verilog string.
     :return:
     """
-    import os
-
     ast = parseVerilogToAST(data)
 
     # select the transformer
-    transformer = SystemVerilogTransformer()
+    transformer = VerilogTransformer()
     netlist = transformer.transform(ast)
 
     return netlist

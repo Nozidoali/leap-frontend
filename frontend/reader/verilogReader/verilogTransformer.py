@@ -15,7 +15,7 @@ from .portTransformer import *
 from .moduleTransformer import *
 
 
-class SystemVerilogTransformer(
+class VerilogTransformer(
     ModuleTransformer,
     ConditionTransformer,
     PortTransformer,
