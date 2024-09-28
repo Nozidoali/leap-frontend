@@ -3,11 +3,9 @@ from frontend import *
 
 def readAfterWrite(module: Module):
     graph = moduleToGraph(module)
-    # graph.write("test.dot")
     newModule = graphToModule(graph)
-    newGraph = moduleToGraph(newModule)
-    # newGraph.write("test_new.dot")
     print(moduleToString(newModule))
+    assert module == newModule
 
 
 def test_00_basic():

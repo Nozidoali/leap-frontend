@@ -29,7 +29,7 @@ class ExpressionTransformer(Transformer):
         return OPNode("`", OPType.MACRO, ConstantNode(items[0]))
 
     def variable(self, items):
-        return VarNode(items[0])
+        return VarNode(str(items[0]))
 
     # Generalized operation helper (for all types of operations)
     def op_node(self, symbol, op_type, items):

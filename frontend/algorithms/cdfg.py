@@ -155,7 +155,7 @@ def graphToModule(graph: CDFGraph, param: dict = {}) -> Module:
 
             # get assignments
             for val, cond, event in graph.getAssignments(node):
-                target = VarNode(node)
+                target = VarNode(str(node))
                 expression = _recreateDFGNode(graph, val)
                 condition = _recreateDFGNode(graph, cond) if cond is not None else None
                 event = _recreateDFGNode(graph, event) if event is not None else None

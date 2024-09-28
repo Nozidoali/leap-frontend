@@ -24,26 +24,43 @@ class Assignment:
     def addCondition(self, condition: DFGNode):
         if condition is None:
             return
-        if self.condition is None:
-            self.condition = condition
-        else:
-            self.condition = OPNode("&&", OPType.BINARY_AND, self.condition, condition)
+        self.condition = (
+            condition
+            if self.condition is None
+            else OPNode("&&", OPType.BINARY_AND, self.condition, condition)
+        )
         return self
 
     def setEvent(self, event: DFGNode):
         self.event = event
         return self
 
-    def __repr__(self) -> str:
-        if self.isBlocking:
-            return f"{self.target} = {self.expression}"
-        return f"{self.target} <= {self.expression} ({self.condition})"
-
     def replaceVariable(self, old: str, new: str):
         self.target.replaceVariable(old, new)
         self.expression.replaceVariable(old, new)
         if self.condition is not None:
             self.condition.replaceVariable(old, new)
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, Assignment):
+            print(f"Expected Assignment, got {type(other)}")
+            return False
+        if self.target != other.target:
+            print(f"Target mismatch: {self.target} != {other.target}")
+            return False
+        if self.expression != other.expression:
+            print(f"Expression mismatch: {self.expression} != {other.expression}")
+            return False
+        if self.condition != other.condition:
+            print(f"Condition mismatch: {self.condition} != {other.condition}")
+            return False
+        if self.event != other.event:
+            print(f"Event mismatch: {self.event} != {other.event}")
+            return False
+        return True
+
+    def __ne__(self, value: object) -> bool:
+        return not self.__eq__(value)
 
 
 @dataclass
@@ -201,7 +218,7 @@ class BNGraph:
             for i in range(len(assignments1)):
                 if assignments1[i] != assignments2[i]:
                     print(
-                        f"Assignment {i} is not equal, {assignments1[i]} != {assignments2[i]}"
+                        f"Assignment {i} is not equal, \n{assignments1[i]} \n!=\n {assignments2[i]}"
                     )
                     return False
         return True

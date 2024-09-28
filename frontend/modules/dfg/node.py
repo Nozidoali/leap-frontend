@@ -136,12 +136,9 @@ from typing import List, Optional
 
 @dataclass
 class DFGNode:
-    variable_name: str = field(default_factory=str)
+    variable_name: str = str(field(default_factory=str))
     range: Optional[Range] = None
     children: List["DFGNode"] = field(default_factory=list)
-
-    def __repr__(self) -> str:
-        return f"Node({self.variable_name})"
 
     def isVariable(self) -> bool:
         return self.operation == OPType.VARIABLE
@@ -160,19 +157,32 @@ class DFGNode:
 
     def __eq__(self, value: object) -> bool:
         if not isinstance(value, DFGNode):
+            print(f"Expected DFGNode, got {type(value)}")
             return False
         if self.operation != value.operation:
+            print(f"Operation mismatch: {self.operation} != {value.operation}")
             return False
         if self.variable_name != value.variable_name:
+            print(
+                f"Variable name mismatch: {self.variable_name} != {value.variable_name}"
+            )
             return False
         if self.range != value.range:
+            print(f"Range mismatch: {self.range} != {value.range}")
             return False
         if len(self.children) != len(value.children):
+            print(
+                f"Number of children mismatch: {len(self.children)} != {len(value.children)}"
+            )
             return False
         for i in range(len(self.children)):
             if self.children[i] != value.children[i]:
+                print(f"Child {i} mismatch: {self.children[i]} != {value.children[i]}")
                 return False
         return True
+
+    def __ne__(self, value: object) -> bool:
+        return not self.__eq__(value)
 
     @property
     def name(self) -> str:
@@ -203,7 +213,7 @@ class OPNode(DFGNode):
 
     def __init__(self, op: str, operation: OPType, *items) -> None:
         # Initialize the parent class with the operation name
-        super().__init__(op)
+        super().__init__(str(op))
         assert operation is not None, f"Operation is None, op = {op}"
         self.operation = operation
         self.children = list(items)
