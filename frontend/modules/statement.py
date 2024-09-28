@@ -1,55 +1,22 @@
+from dataclasses import dataclass
+from typing import List, Any
+from abc import ABC, abstractmethod
+
 from .dfg import *
 from .module import *
 from .netlist import *
 from .definitions import *
 
 
-class Statement:
+class Statement(ABC):
     """
     Statement is the base class for all statements in the module.
     It is a callable object that can be called with a module object to add the statement to the module.
     """
 
-    def __init__(self) -> None:
-        self.condition: DFGNode = None
-        self.event: DFGNode = None
-
-    def setCondition(self, condition):
-        self.condition = condition
-
-    def addCondition(self, condition: DFGNode):
-        if condition is None:
-            return
-        if self.condition is None:
-            self.condition = condition
-        else:
-            self.condition = OPNode("&&", OPType.BINARY_AND, self.condition, condition)
-        return self
-
-    def setEvent(self, event: DFGNode):
-        self.event = event
-        return self
-
+    @abstractmethod
     def __call__(self, module: Module) -> Any:
-        raise NotImplementedError
-
-    def __eq__(self, value: object) -> bool:
-        if not isinstance(value, Statement):
-            print(f"Type mismatch: {type(value)}")
-            return False
-        if self.condition is None and value.condition is not None:
-            print(f"Condition mismatch: {self.condition} != {value.condition}")
-            return False
-        if self.condition != value.condition:
-            print(f"Condition mismatch: {self.condition} != {value.condition}")
-            return False
-        if self.event is None and value.event is not None:
-            print(f"Event mismatch: {self.event} != {value.event}")
-            return False
-        if self.event != value.event:
-            print(f"Event mismatch: {self.event} != {value.event}")
-            return False
-        return True
+        pass
 
 
 class ModuleInstantiation(Statement):
@@ -78,109 +45,52 @@ class ModuleInstParameterDefinition(Statement):
             module.addParameterToModuleInst(instName, paramName, value)
 
 
+@dataclass
 class PortDeclaration(Statement):
-    def __init__(self, ports: list) -> None:
-        super().__init__()
-        self.ports = ports
-
-    def __repr__(self) -> str:
-        return f"PortDeclaration({self.ports})"
+    ports: List[Any]
 
     def __call__(self, module: Module) -> Any:
         module.addPorts(self.ports)
 
 
+@dataclass
 class MacroDefinition(Statement):
-    def __init__(self, name: str, value: DFGNode) -> None:
-        super().__init__()
-        self.name: DFGNode = name
-        self.value: DFGNode = value
-
-    def __repr__(self) -> str:
-        return f"MacroDefinition({self.name} = {self.value.toString()})"
+    name: str
+    value: DFGNode
 
     def __call__(self, module: Module) -> Any:
         module.addMacro(self.name, self.value)
 
-
-class TimeScaleDefinition(Statement):
-    def __init__(self, val1: TimeValue, val2: TimeValue) -> None:
-        super().__init__()
-        self.val1 = val1
-        self.val2 = val2
-
     def __repr__(self) -> str:
-        return f"TimeScaleDefinition({self.val1} {self.val2})"
+        return f"MacroDefinition({self.name} = {self.value.toString()})"
+
+
+@dataclass
+class TimeScaleDefinition(Statement):
+    val1: TimeValue
+    val2: TimeValue
 
     def __call__(self, netlist: Netlist) -> Any:
         netlist.setTimescale(self.val1, self.val2)
 
-
-class Assignment(Statement):
-    """
-    Assignments are the elementary statements in the module.
-
-    It consists of:
-
-    - **target** (DFGNode): the target variable
-    - **expression** (DFGNode): the expression to be assigned to the target
-    - **condition** (DFGNode): the condition under which the assignment is valid
-    - **event** (DFGNode): the event under which the assignment is valid
-    """
-
-    def __init__(
-        self, target: DFGNode, expression: DFGNode, condition: DFGNode = None
-    ) -> None:
-        super().__init__()
-        self.target: DFGNode = target
-        self.expression: DFGNode = expression
-        self.type = None
-        self.isBlocking = True
-
     def __repr__(self) -> str:
-        retString = ""
-        if self.isBlocking:
-            retString += f"{self.target} = {self.expression}"
-        else:
-            retString += f"{self.target} <= {self.expression} ({self.condition})"
-        return retString
+        return f"TimeScaleDefinition({self.val1} {self.val2})"
 
-    def replaceVariable(self, old: str, new: str):
-        self.target.replaceVariable(old, new)
-        self.expression.replaceVariable(old, new)
-        if self.condition is not None:
-            self.condition.replaceVariable(old, new)
+
+@dataclass
+class AssignmentStatement(Statement):
+    assignment: Assignment
 
     def __call__(self, module: Module) -> Any:
-        return module.addAssignment(self)
+        module.addAssignment(self.assignment)
 
-    def __eq__(self, value: object) -> bool:
-        if not isinstance(value, Assignment):
-            print(f"Type mismatch: {type(value)}")
-            return False
-        if self.target != value.target:
-            print(f"Target mismatch: {self.target} != {value.target}")
-            return False
-        if self.expression != value.expression:
-            print(f"Expression mismatch: {self.expression} != {value.expression}")
-            return False
-        if self.isBlocking != value.isBlocking:
-            print(f"Blocking mismatch: {self.isBlocking} != {value.isBlocking}")
-            return False
-        return super().__eq__(value)
+    def __repr__(self) -> str:
+        return f"AssignmentStatement({self.assignment})"
 
+    def addCondition(self, condition: DFGNode):
+        self.assignment.addCondition(condition)
+        return self
 
-class BlockingAssignment(Assignment):
-    def __init__(
-        self, target: DFGNode, expression: DFGNode, condition: DFGNode = None
-    ) -> None:
-        super().__init__(target, expression, condition)
-        self.isBlocking = True
-
-
-class NonBlockingAssignment(Assignment):
-    def __init__(
-        self, target: DFGNode, expression: DFGNode, condition: DFGNode = None
-    ) -> None:
-        super().__init__(target, expression, condition)
-        self.isBlocking = False
+    def setEvent(self, event: DFGNode):
+        self.assignment.setEvent(event)
+        return self

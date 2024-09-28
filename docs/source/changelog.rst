@@ -11,6 +11,7 @@ v0.1.4 (Not yet released)
 * Verilog I/O:
     - Add support for module instantiation in SystemVerilog
     - Add syntax checking for port type, directions, and ranges (as well as the test cases, see: `test/test_ports.py` and `test/test_ports_false.py`). 
+    - Update many classes to `dataclass` (e.g. `Port`, `Module`, `Netlist`, `Assignment`, `DFGNode`, `OPNode`, `OPType`, `BNGraph`) to make them immutable
 
 v0.1.2 (September 22, 2024)
 ---------------------------

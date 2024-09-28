@@ -44,10 +44,18 @@ class ConditionTransformer(Transformer):
         return flatten(items)
 
     def if_statement(self, items):
-        return [x.addCondition(items[0]) for x in items[1]]
+        return [
+            x.addCondition(items[0])
+            for x in items[1]
+            if isinstance(x, AssignmentStatement)
+        ]
 
     def else_if_statement(self, items):
-        return [x.addCondition(items[0]) for x in items[1]]
+        return [
+            x.addCondition(items[0])
+            for x in items[1]
+            if isinstance(x, AssignmentStatement)
+        ]
 
     def else_statement(self, items):
         return items[0]
@@ -60,7 +68,11 @@ class ConditionTransformer(Transformer):
             condition = (
                 OPNode("==", OPType.BINARY_EQ, lhs, cond) if cond is not None else None
             )
-            caseStatements += [x.addCondition(condition) for x in statements]
+            caseStatements += [
+                x.addCondition(condition)
+                for x in statements
+                if isinstance(x, AssignmentStatement)
+            ]
         return caseStatements
 
     def regular_case(self, items) -> list:

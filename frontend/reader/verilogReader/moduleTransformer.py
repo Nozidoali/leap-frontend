@@ -58,10 +58,10 @@ class ModuleTransformer(Transformer):
         return port
 
     def blocking_assignment(self, items):
-        return BlockingAssignment(items[0], items[1])
+        return AssignmentStatement(BlockingAssignment(items[0], items[1]))
 
     def non_blocking_assignment(self, items):
-        return NonBlockingAssignment(items[0], items[1])
+        return AssignmentStatement(NonBlockingAssignment(items[0], items[1]))
 
     # module_instantiation: CNAME parameter_instance? CNAME "(" module_instance_arguments ")" ";"
     def module_instantiation(self, items) -> Statement:

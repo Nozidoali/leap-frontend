@@ -174,6 +174,10 @@ class Port:
     def getHeader(self):
         return (self.direction, self.type)
 
+    @property
+    def isTrivial(self) -> bool:
+        return self.direction is None and self.type is None and self.range is None
+
     # We need to override the __eq__ function to compare two ports
     # Because we need to make sure type WIRE is equal to None
     def __eq__(self, value: object) -> bool:

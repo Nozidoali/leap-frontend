@@ -37,8 +37,13 @@ class PortTransformer(Transformer):
             port = Port(variable)
             port.setAll(dir, t, range)
             if expression:
-                assert len(variables) == 1
-                statements.append(BlockingAssignment(variable, expression))
-            ports.append(port)
+                assert (
+                    len(variables) == 1
+                ), "ambiguous assignment for multiple variables"
+                statements.append(
+                    AssignmentStatement(BlockingAssignment(variable, expression))
+                )
+            if not port.isTrivial:
+                ports.append(port)
         statements.append(PortDeclaration(ports))
         return statements

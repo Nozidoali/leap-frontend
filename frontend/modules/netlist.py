@@ -64,7 +64,7 @@ class Netlist(Macros, TimeScale):
                 return False
 
         # compare parameters
-        return super().__eq__(other)
+        return Macros.__eq__(self, other) and TimeScale.__eq__(self, other)
 
     def __ne__(self, value: object) -> bool:
         return not self.__eq__(value)

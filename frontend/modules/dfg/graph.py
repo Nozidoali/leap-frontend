@@ -1,13 +1,69 @@
-from typing import List
+from dataclasses import dataclass, field
+from typing import Optional, Dict, List
+
 from .node import *
+
+
+@dataclass
+class Assignment:
+    """
+    Assignments are the elementary statements in the module.
+
+    - **target** (DFGNode): the target variable
+    - **expression** (DFGNode): the expression to be assigned to the target
+    - **condition** (DFGNode): the condition under which the assignment is valid
+    - **event** (DFGNode): the event under which the assignment is valid
+    """
+
+    target: DFGNode
+    expression: DFGNode
+    condition: Optional[DFGNode] = None
+    event: Optional[DFGNode] = None
+    isBlocking: bool = True
+
+    def addCondition(self, condition: DFGNode):
+        if condition is None:
+            return
+        if self.condition is None:
+            self.condition = condition
+        else:
+            self.condition = OPNode("&&", OPType.BINARY_AND, self.condition, condition)
+        return self
+
+    def setEvent(self, event: DFGNode):
+        self.event = event
+        return self
+
+    def __repr__(self) -> str:
+        if self.isBlocking:
+            return f"{self.target} = {self.expression}"
+        return f"{self.target} <= {self.expression} ({self.condition})"
+
+    def replaceVariable(self, old: str, new: str):
+        self.target.replaceVariable(old, new)
+        self.expression.replaceVariable(old, new)
+        if self.condition is not None:
+            self.condition.replaceVariable(old, new)
+
+
+@dataclass
+class BlockingAssignment(Assignment):
+    def __post_init__(self):
+        self.isBlocking = True
+
+
+@dataclass
+class NonBlockingAssignment(Assignment):
+    def __post_init__(self):
+        self.isBlocking = False
 
 
 class BNGraph:
     def __init__(self):
-        self.assignments: list = []
-        self.var2assigns: dict = {}
+        self.assignments: List[Assignment] = []
+        self.var2assigns: Dict[str, List[int]] = {}
 
-    def addAssignment(self, assignment) -> None:
+    def addAssignment(self, assignment: Assignment) -> None:
         self.assignments.append(assignment)
         assert isinstance(
             assignment.target, DFGNode
@@ -39,19 +95,19 @@ class BNGraph:
     def isDefined(self, variableName: str) -> bool:
         return variableName in self.var2assigns
 
-    def getAssignmentsOf(self, variableName: str) -> List["Assignment"]:
+    def getAssignmentsOf(self, variableName: str) -> List[Assignment]:
         if variableName not in self.var2assigns:
             return []
         return [self.assignments[idx] for idx in self.var2assigns[variableName]]
 
-    def getAssignNode(self, variableName: str):
+    def getAssignNode(self, variableName: str) -> Optional[DFGNode]:
         # get the node corresponding to the variable
         for assignment in self.getAssignmentsOf(variableName):
             # should be only one
             return assignment.expression
         return None
 
-    def getDependencies(self, variableName: str, excludeControls=False):
+    def getDependencies(self, variableName: str, excludeControls=False) -> List[str]:
         # get the dependencies of the variable
         dependencies = []
         for assignment in self.getAssignmentsOf(variableName):
@@ -62,7 +118,7 @@ class BNGraph:
                 dependencies.extend(self.getDependenciesRec(cond))
         return dependencies
 
-    def getDependenciesRec(self, node: DFGNode):
+    def getDependenciesRec(self, node: DFGNode) -> List[str]:
         # get the dependencies of the node
         if node.isVariable():
             return [node.name]
@@ -71,7 +127,7 @@ class BNGraph:
             dependencies.extend(self.getDependenciesRec(child))
         return dependencies
 
-    def expandAssignment(self):
+    def expandAssignment(self) -> None:
         # extract the assignment of the variable, merge the predecessors
         # until we reach the inputs
         for assignment in self.assignments:
@@ -95,7 +151,7 @@ class BNGraph:
         newNode.children = children
         return newNode
 
-    def traverseAndApply(self, func: callable, postOrder: bool = True):
+    def traverseAndApply(self, func: callable, postOrder: bool = True) -> None:
         visited = set()
         for assignment in self.assignments:
             root = assignment.expression
@@ -103,7 +159,7 @@ class BNGraph:
 
     def _traverseAndApplyRec(
         self, node: DFGNode, func: callable, visited: set, postOrder: bool
-    ):
+    ) -> None:
         # traverse the graph and apply the function
 
         # apply the function, this is a pre-order traversal
@@ -126,7 +182,7 @@ class BNGraph:
         if postOrder:
             func(node)
 
-    def getVariableNames(self):
+    def getVariableNames(self) -> List[str]:
         return list(self.var2assigns.keys())
 
     def __eq__(self, other: object) -> bool:

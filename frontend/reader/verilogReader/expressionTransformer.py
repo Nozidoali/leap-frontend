@@ -109,12 +109,20 @@ class ExpressionTransformer(Transformer):
     def always_block(self, items):
         event_condition: DFGNode = OPNode("always", OPType.EVENT_ALWAYS, items[0])
         assert isinstance(event_condition, DFGNode)
-        return [x.setEvent(event_condition) for x in items[1]]
+        return [
+            x.setEvent(event_condition)
+            for x in items[1]
+            if isinstance(x, AssignmentStatement)
+        ]
 
     def initial_block(self, items):
         event_condition: DFGNode = InitEvent()
         assert isinstance(event_condition, DFGNode)
-        return [x.setEvent(event_condition) for x in items[0]]
+        return [
+            x.setEvent(event_condition)
+            for x in items[0]
+            if isinstance(x, AssignmentStatement)
+        ]
 
     def combinational_event_expression(self, _):
         return EmptyEvent()
