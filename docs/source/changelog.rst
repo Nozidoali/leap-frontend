@@ -1,8 +1,8 @@
 Change log
 ==========
 
-v0.1.4 (Not yet released)
--------------------------
+v0.1.4 (September 27, 2024)
+---------------------------
 
 * Graph Representation
     - Remove `DOTGraph` class and `ExtendedGraph` class

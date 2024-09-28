@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name="leap-frontend"
 
 # read it from the file
-version = "0.1.2"
+version = "0.1.4"
 dependencies = [
     "lark>=1.2",
     "pygraphviz>=1.10"
