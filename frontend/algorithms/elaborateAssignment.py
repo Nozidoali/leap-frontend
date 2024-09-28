@@ -2,6 +2,8 @@ from ..modules import *
 from ..writer import *
 from ..reader import *
 
+from .exportDOT import exportDOT
+
 
 def createModuleFromAssignment(assignment: Assignment, width: int = 6):
     module = Module()
@@ -34,5 +36,5 @@ def elaborateAssignment(assignment: Assignment):
     module = netlist.getModule("top")
     module.expandAssignment()
 
-    module.exportDOT()
-    module.writeDOT("toy.dot")
+    graph = exportDOT(module)
+    graph.write("tmp.dot")

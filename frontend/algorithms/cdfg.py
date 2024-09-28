@@ -1,5 +1,5 @@
 import pygraphviz as pgv
-from typing import List, Tuple, Dict
+from typing import List, Dict
 from enum import Enum
 from ..modules import *
 
@@ -36,62 +36,49 @@ class CDFGraph(pgv.AGraph):
         super().add_node(nodeId, **kwargs)
         return nodeId
 
-    def isVariable(self, node: pgv.Node) -> bool:
-        return node.attr["operation"] == "VARIABLE"
-
     def getAssignments(self, node: pgv.Node) -> List[Dict[EdgeType, pgv.Node]]:
-        # for each predecessor of the node, check the edge and get the assignment
+        """
+        Retrieves assignments for a given node based on its incoming edges.
+        """
         id2assignment: Dict[int, Dict[EdgeType, pgv.Node]] = {}
+
         for predecessor in self.predecessors(node):
             edge = self.get_edge(predecessor, node)
 
-            # we check the condition and value of the edge
-            idx: int = edge.attr["eIndex"]
-            eType: EdgeType = edge.attr["eType"]
+            # Get index and edge type from edge attributes
+            idx: int = int(edge.attr["eIndex"])
+            eType: EdgeType = EdgeType(edge.attr["eType"])
 
+            # Initialize the assignment dict for this index if not already done
             if idx not in id2assignment:
-                id2assignment[idx] = {
-                    EdgeType.VALUE.value: None,
-                    EdgeType.CONDITION.value: None,
-                    EdgeType.EVENT.value: None,
-                }
+                id2assignment[idx] = {eType: None for eType in EdgeType}
+
+            # Assign the predecessor node to the correct edge type in the assignment
             id2assignment[idx][eType] = predecessor
+
         # Create a list of assignments, based on sorted index
         return [
-            (
-                id2assignment[idx][EdgeType.VALUE.value],
-                id2assignment[idx][EdgeType.CONDITION.value],
-                id2assignment[idx][EdgeType.EVENT.value],
-            )
+            tuple(
+                id2assignment[idx][eType] for eType in EdgeType
+            )  # Iterate over EdgeType
             for idx in sorted(id2assignment.keys())
         ]
 
-    def add_value_edge(self, source: pgv.Node, target: pgv.Node, idx: int) -> None:
-        self.add_edge(
-            source, target, xlabel=f"val_{idx}", eType=EdgeType.VALUE.value, eIndex=idx
-        )
-
-    def add_condition_edge(self, source: pgv.Node, target: pgv.Node, idx: int) -> None:
-        self.add_edge(
-            source,
-            target,
-            style="dashed",
-            color="red",
-            xlabel=f"cond_{idx}",
-            eType=EdgeType.CONDITION.value,
-            eIndex=idx,
-        )
-
-    def add_event_edge(self, source: pgv.Node, target: pgv.Node, idx: int) -> None:
-        self.add_edge(
-            source,
-            target,
-            style="dotted",
-            color="blue",
-            xlabel=f"event_{idx}",
-            eType=EdgeType.EVENT.value,
-            eIndex=idx,
-        )
+    def addEdge(
+        self, source: pgv.Node, target: pgv.Node, idx: int, eType: EdgeType
+    ) -> None:
+        edge_attrs = {
+            "eType": eType.value,
+            "eIndex": idx,
+            "xlabel": f"{eType.value}_{idx}",
+        }
+        # Customize edge styles based on the edge type
+        if eType == EdgeType.CONDITION:
+            edge_attrs.update({"style": "dashed", "color": "red"})
+        elif eType == EdgeType.EVENT:
+            edge_attrs.update({"style": "dotted", "color": "blue"})
+        # Add the edge with the specified attributes
+        self.add_edge(source, target, **edge_attrs)
 
     @staticmethod
     def toNode(node: pgv.Node) -> DFGNode:
@@ -105,9 +92,9 @@ def _addNodeRecursively(graph: CDFGraph, node: DFGNode) -> str:
     nodeId = graph.add_node(node)
     # Recursively add children nodes and edges
     for child in node.children:
+        assert isinstance(child, DFGNode)
         childId = _addNodeRecursively(graph, child)
         graph.add_edge(childId, nodeId)
-
     return nodeId
 
 
@@ -129,13 +116,13 @@ def moduleToGraph(module: Module) -> CDFGraph:
         # Add the event edge
         if assignment.event is not None:
             eventNode = _addNodeRecursively(graph, assignment.event)
-            graph.add_event_edge(eventNode, lhsNode, i)
+            graph.addEdge(eventNode, lhsNode, i, EdgeType.EVENT)
 
         # Add the assignment edge
-        graph.add_value_edge(rhsNode, lhsNode, i)
+        graph.addEdge(rhsNode, lhsNode, i, EdgeType.VALUE)
         if assignment.condition is not None:
             conditionNode = _addNodeRecursively(graph, assignment.condition)
-            graph.add_condition_edge(conditionNode, lhsNode, i)
+            graph.addEdge(conditionNode, lhsNode, i, EdgeType.CONDITION)
 
         # Set the assignment attributes on the lhs node
         lhs = graph.get_node(lhsNode)
