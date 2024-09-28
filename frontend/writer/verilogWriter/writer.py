@@ -17,7 +17,7 @@ def netlistToString(netlist: Netlist) -> str:
     verilogStr = ""
     verilogStr += netlist.getMacroString() + netlist.getTimescaleString() + "\n"
 
-    for moduleName in netlist.getModules():
+    for moduleName in netlist.getModuleNames():
         module = netlist.getModule(moduleName)
         verilogStr += moduleToString(module) + "\n"
 

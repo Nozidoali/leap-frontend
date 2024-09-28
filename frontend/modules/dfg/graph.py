@@ -1,13 +1,12 @@
+from typing import List
 from .node import *
-
 
 class BNGraph:
     def __init__(self):
-        self.assignments = []
-        self.var2assigns = {}
-        self.graph = None
+        self.assignments: list = []
+        self.var2assigns: dict = {}
 
-    def addAssignment(self, assignment):
+    def addAssignment(self, assignment) -> None:
         self.assignments.append(assignment)
         assert isinstance(
             assignment.target, DFGNode
@@ -17,7 +16,7 @@ class BNGraph:
             self.var2assigns[variableName] = []
         self.var2assigns[variableName].append(len(self.assignments) - 1)
 
-    def removeAssignment(self, idx: int):
+    def removeAssignment(self, idx: int) -> None:
         self.assignments[idx] = None
 
     def removeVariable(self, variableName: str):
@@ -25,7 +24,7 @@ class BNGraph:
             self.removeAssignment(idx)
         del self.var2assigns[variableName]
 
-    def updateAssignments(self):
+    def updateAssignments(self) -> None:
         self.assignments = [
             assignment for assignment in self.assignments if assignment is not None
         ]
@@ -36,10 +35,10 @@ class BNGraph:
                 self.var2assigns[variableName] = []
             self.var2assigns[variableName].append(idx)
 
-    def isDefined(self, variableName: str):
+    def isDefined(self, variableName: str) -> bool:
         return variableName in self.var2assigns
 
-    def getAssignmentsOf(self, variableName: str):
+    def getAssignmentsOf(self, variableName: str) -> List['Assignment']:
         if variableName not in self.var2assigns:
             return []
         return [self.assignments[idx] for idx in self.var2assigns[variableName]]
@@ -94,6 +93,35 @@ class BNGraph:
             children.append(childNode)
         newNode.children = children
         return newNode
+
+    def traverseAndApply(self, func: callable, postOrder: bool=True):
+        visited = set()
+        for assignment in self.assignments:
+            root = assignment.expression
+            self._traverseAndApplyRec(root, func, visited, postOrder)
+        
+    def _traverseAndApplyRec(self, node: DFGNode, func: callable, visited: set, postOrder: bool):
+        # traverse the graph and apply the function
+
+        # apply the function, this is a pre-order traversal        
+        if not postOrder:
+            func(node)
+
+        if node.isVariable():
+            if node.toString() in visited:
+                return
+            visited.add(node.toString())
+            depNode = self.getAssignNode(node.name)
+            if depNode is not None:
+                self._traverseAndApplyRec(depNode, func, visited, postOrder)
+            
+        # traverse the children
+        for child in node.children:
+            self._traverseAndApplyRec(child, func, visited, postOrder)
+            
+        # apply the function, this is a post-order traversal
+        if postOrder:
+            func(node)
 
     def getVariableNames(self):
         return list(self.var2assigns.keys())

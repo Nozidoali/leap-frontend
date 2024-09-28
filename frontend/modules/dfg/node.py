@@ -57,6 +57,9 @@ class DFGNode:
 
     def isConstant(self) -> bool:
         return self.operation == OPType.CONSTANT
+    
+    def isOperation(self) -> bool:
+        return not self.isVariable() and not self.isConstant()
 
     def setRange(self, range: Range):
         self.range = range
