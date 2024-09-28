@@ -1,6 +1,7 @@
 from typing import List
 from .node import *
 
+
 class BNGraph:
     def __init__(self):
         self.assignments: list = []
@@ -38,7 +39,7 @@ class BNGraph:
     def isDefined(self, variableName: str) -> bool:
         return variableName in self.var2assigns
 
-    def getAssignmentsOf(self, variableName: str) -> List['Assignment']:
+    def getAssignmentsOf(self, variableName: str) -> List["Assignment"]:
         if variableName not in self.var2assigns:
             return []
         return [self.assignments[idx] for idx in self.var2assigns[variableName]]
@@ -94,16 +95,18 @@ class BNGraph:
         newNode.children = children
         return newNode
 
-    def traverseAndApply(self, func: callable, postOrder: bool=True):
+    def traverseAndApply(self, func: callable, postOrder: bool = True):
         visited = set()
         for assignment in self.assignments:
             root = assignment.expression
             self._traverseAndApplyRec(root, func, visited, postOrder)
-        
-    def _traverseAndApplyRec(self, node: DFGNode, func: callable, visited: set, postOrder: bool):
+
+    def _traverseAndApplyRec(
+        self, node: DFGNode, func: callable, visited: set, postOrder: bool
+    ):
         # traverse the graph and apply the function
 
-        # apply the function, this is a pre-order traversal        
+        # apply the function, this is a pre-order traversal
         if not postOrder:
             func(node)
 
@@ -114,11 +117,11 @@ class BNGraph:
             depNode = self.getAssignNode(node.name)
             if depNode is not None:
                 self._traverseAndApplyRec(depNode, func, visited, postOrder)
-            
+
         # traverse the children
         for child in node.children:
             self._traverseAndApplyRec(child, func, visited, postOrder)
-            
+
         # apply the function, this is a post-order traversal
         if postOrder:
             func(node)

@@ -9,6 +9,89 @@ Last Modified time: 2024-07-24 01:11:59
 """
 
 from typing import Any
+from dataclasses import dataclass
+from enum import Enum, auto
+
+
+class OPType(Enum):
+    # Automatically generate lowercase value for each enum member
+    def _generate_next_value_(name, *_):
+        return name.lower()
+
+    # Binary operations
+    BINARY_AND = auto()
+    BINARY_OR = auto()
+    BINARY_BITAND = auto()
+    BINARY_XOR = auto()
+    BINARY_XNOR = auto()
+    BINARY_BITOR = auto()
+    BINARY_EQ = auto()
+    BINARY_NEQ = auto()
+    BINARY_EQ_EXT = auto()
+    BINARY_NEQ_EXT = auto()
+    BINARY_LT = auto()
+    BINARY_GT = auto()
+    BINARY_LEQ = auto()
+    BINARY_GEQ = auto()
+    BINARY_RSHIFT = auto()
+    BINARY_RSHIFT_EXT = auto()
+    BINARY_LSHIFT = auto()
+    BINARY_LSHIFT_EXT = auto()
+
+    # Binary event operations
+    BINARY_EVENT_AND = auto()
+    BINARY_EVENT_OR = auto()
+
+    # Arithmetic operations
+    BINARY_ADD = auto()
+    BINARY_SUB = auto()
+    BINARY_MUL = auto()
+    BINARY_DIV = auto()
+    BINARY_MOD = auto()
+    BINARY_POW = auto()
+
+    # Unary operations
+    UNARY_POS = auto()
+    UNARY_NEG = auto()
+    UNARY_NOT = auto()
+    UNARY_INV = auto()
+    UNARY_AND = auto()
+    UNARY_OR = auto()
+    UNARY_XOR = auto()
+    UNARY_NAND = auto()
+    UNARY_NOR = auto()
+    UNARY_XNOR = auto()
+    CONDITIONAL_EXPRESSION = auto()
+
+    # Unary event operations
+    UNARY_POSEDGE = auto()
+    UNARY_NEGEDGE = auto()
+
+    # Constants
+    VARIABLE = auto()
+    CONSTANT = auto()
+    MACRO = auto()
+
+    # Array operations
+    ARRAY_CONCAT = auto()
+    ARRAY_REPLICATE = auto()
+    ARRAY_SLICE = auto()
+    ARRAY_INDEX = auto()
+
+    # Special operations
+    FUNCTION_CALL = auto()
+
+    # Event operations
+    EVENT_INIT = auto()
+    EVENT_COMB = auto()
+    EVENT_ALWAYS = auto()
+
+    # Miscellaneous
+    UNKNOWN = auto()
+    BLACKBOX = auto()
+
+    # Assignments
+    ASSIGN = auto()
 
 
 class Range:
@@ -40,14 +123,16 @@ def rangeToString(range: Range) -> str:
     )
 
 
-class DFGNode:
-    # Expressions are hard to handle because of the recursive nature
+from dataclasses import dataclass, field
+from typing import List, Optional
 
-    def __init__(self, name: str = None) -> None:
-        self.variable_name: str = str(name)  # could be a Tree object
-        self.operation: OPType = None
-        self.range: Range = None
-        self.children: list = []
+
+@dataclass
+class DFGNode:
+    variable_name: str = field(default_factory=str)
+    operation: Optional[OPType] = None
+    range: Optional[Range] = None
+    children: List["DFGNode"] = field(default_factory=list)
 
     def __repr__(self) -> str:
         return f"Node({self.variable_name})"
@@ -57,7 +142,7 @@ class DFGNode:
 
     def isConstant(self) -> bool:
         return self.operation == OPType.CONSTANT
-    
+
     def isOperation(self) -> bool:
         return not self.isVariable() and not self.isConstant()
 
@@ -65,8 +150,7 @@ class DFGNode:
         self.range = range
 
     def toString(self) -> str:
-        print(f"toString not implemented for {self}, op = {self.operation}")
-        raise NotImplementedError
+        return self.variable_name
 
     def __eq__(self, value: object) -> bool:
         if not isinstance(value, DFGNode):
@@ -95,105 +179,41 @@ class DFGNode:
     def replaceVariable(self, old: str, new: str):
         if self.variable_name == old:
             self.variable_name = new
-        child: DFGNode
         for child in self.children:
             child.replaceVariable(old, new)
 
-    def copy(self):
+    def copy(self) -> "DFGNode":
         node = DFGNode(self.variable_name)
         node.operation = self.operation
         node.range = self.range
-        for child in self.children:
-            node.children.append(child.copy())
+        node.children = [child.copy() for child in self.children]
         return node
 
 
-from enum import Enum
-
-
-class OPType(Enum):
-    BINARY_AND = "binary_and"
-    BINARY_OR = "binary_or"
-    BINARY_BITAND = "binary_bitand"
-    BINARY_XOR = "binary_xor"
-    BINARY_XNOR = "binary_xnor"
-    BINARY_BITOR = "binary_bitor"
-    BINARY_EQ = "binary_eq"
-    BINARY_NEQ = "binary_neq"
-    BINARY_EQ_EXT = "binary_eq_ext"
-    BINARY_NEQ_EXT = "binary_neq_ext"
-    BINARY_LT = "binary_lt"
-    BINARY_GT = "binary_gt"
-    BINARY_LEQ = "binary_leq"
-    BINARY_GEQ = "binary_geq"
-    BINARY_RSHIFT = "binary_rshift"
-    BINARY_RSHIFT_EXT = "binary_rshift_ext"
-    BINARY_LSHIFT = "binary_lshift"
-    BINARY_LSHIFT_EXT = "binary_lshift_ext"
-
-    # Arithmetic operations
-    BINARY_ADD = "binary_add"
-    BINARY_SUB = "binary_sub"
-    BINARY_MUL = "binary_mul"
-    BINARY_DIV = "binary_div"
-    BINARY_MOD = "binary_mod"
-    BINARY_POW = "binary_pow"
-
-    # Unary operations
-    UNARY_POS = "unary_pos"
-    UNARY_NEG = "unary_neg"
-    UNARY_NOT = "unary_not"
-    UNARY_INV = "unary_inv"
-    UNARY_AND = "unary_and"
-    UNARY_OR = "unary_or"
-    UNARY_XOR = "unary_xor"
-    UNARY_NAND = "unary_nand"
-    UNARY_NOR = "unary_nor"
-    UNARY_XNOR = "unary_xnor"
-    CONDITIONAL_EXPRESSION = "conditional_expression"
-
-    VARIABLE = "variable"
-    CONSTANT = "constant"
-    MACRO = "macro"
-
-    ARRAY_CONCAT = "array_concat"
-    ARRAY_REPLICATE = "array_replicate"
-    ARRAY_SLICE = "array_slice"
-    ARRAY_INDEX = "array_index"
-
-    FUNCTION_CALL = "function_call"
-
-    EVENT_INIT = "event_init"
-    EVENT_COMB = "event_comb"
-
-    UNARY_POSEDGE = "unary_posedge"
-    UNARY_NEGEDGE = "unary_negedge"
-
-    BINARY_EVENT_AND = "binary_event_and"
-    BINARY_EVENT_OR = "binary_event_or"
-
-    EVENT_ALWAYS = "event_always"
-
-    UNKNOWN = "unknown"
-
-    BLACKBOX = "blackbox"
-
-
+@dataclass
 class OPNode(DFGNode):
-    def __init__(self, op: str, operation: OPType, *children) -> None:
+    operation: OPType
+    children: List[DFGNode] = field(default_factory=list)
+
+    def __init__(self, op: str, operation: OPType, *items) -> None:
+        # Initialize the parent class with the operation name
         super().__init__(op)
         self.operation = operation
-        self.children = children
+        self.children = list(items)
 
     def toString(self) -> str:
         opName = self.operation.value
         if opName.startswith("binary_"):
+            assert (
+                len(self.children) == 2
+            ), f"Expected 2 children, got {len(self.children)}, op = {opName}, they are {self.children}"
             return f"({self.children[0].toString()} {self.variable_name} {self.children[1].toString()})"
         if opName.startswith("unary_"):
+            assert (
+                len(self.children) == 1
+            ), f"Expected 1 child, got {len(self.children)}, op = {opName}, they are {self.children}"
             return f"({self.variable_name} {self.children[0].toString()})"
         match self.operation:
-            # Case 1
-            # Array operations
             case OPType.ARRAY_CONCAT:
                 return f"{{{', '.join([child.toString() for child in self.children])}}}"
             case OPType.ARRAY_REPLICATE:
@@ -204,16 +224,12 @@ class OPNode(DFGNode):
                 return f"{self.children[0].toString()}[{self.children[1].toString()}:{self.children[2].toString()}]"
             case OPType.ARRAY_INDEX:
                 return f"{self.children[0].toString()}[{self.children[1].toString()}]"
-            # Case 2
-            # Event operations
             case OPType.EVENT_ALWAYS:
                 return f"always @({self.children[0].toString()})"
             case OPType.EVENT_INIT:
                 return "initial"
             case OPType.EVENT_COMB:
                 return "*"
-            # Case 3
-            # Special operations
             case OPType.CONDITIONAL_EXPRESSION:
                 return f"({self.children[0].toString()} ? {self.children[1].toString()} : {self.children[2].toString()})"
             case OPType.FUNCTION_CALL:
@@ -223,14 +239,12 @@ class OPNode(DFGNode):
             case OPType.UNKNOWN:
                 return self.variable_name
             case _:
-                print(f"Unsupported operation {self.operation}")
                 raise Exception(f"Unsupported operation {self.operation}")
 
 
+@dataclass
 class VarNode(DFGNode):
-    def __init__(self, name: str) -> None:
-        super().__init__(name)
-        self.operation = OPType.VARIABLE
+    operation: OPType = OPType.VARIABLE
 
     def toString(self) -> str:
         return (
@@ -240,46 +254,35 @@ class VarNode(DFGNode):
         )
 
 
+@dataclass
 class ConstantNode(DFGNode):
-    def __init__(self, value: Any) -> None:
+    operation: OPType = OPType.CONSTANT
+
+    def __init__(self, value: Any):
         super().__init__(str(value))
-        self.operation = OPType.CONSTANT
-
-    def toString(self) -> str:
-        return self.variable_name
 
 
+@dataclass
 class EmptyEvent(DFGNode):
-    def __init__(self) -> None:
-        super().__init__("*")
-        self.operation = OPType.EVENT_COMB
-
-    def toString(self) -> str:
-        return "*"
+    operation: OPType = OPType.EVENT_COMB
+    variable_name: str = "*"
 
 
+@dataclass
 class InitEvent(DFGNode):
-    def __init__(self) -> None:
-        super().__init__("initial")
-        self.operation = OPType.EVENT_INIT
-
-    def toString(self) -> str:
-        return "initial"
+    operation: OPType = OPType.EVENT_INIT
+    variable_name: str = "initial"
 
 
+@dataclass
 class UndefinedNode(DFGNode):
-    def __init__(self) -> None:
-        super().__init__("*")
-        self.operation = OPType.UNKNOWN
+    operation: OPType = OPType.UNKNOWN
+    variable_name: str = "*"
 
     def toString(self) -> str:
         raise Exception("Undefined node cannot be converted to string")
 
 
+@dataclass
 class BlackBoxNode(DFGNode):
-    def __init__(self, name) -> None:
-        super().__init__(name)
-        self.operation = OPType.BLACKBOX
-
-    def toString(self) -> str:
-        return self.name
+    operation: OPType = OPType.BLACKBOX

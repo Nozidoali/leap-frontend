@@ -34,7 +34,7 @@ class Netlist(Macros, TimeScale):
 
     def getModuleNames(self) -> List[str]:
         return list(self.modules.keys())
-    
+
     def getModules(self) -> List[Module]:
         return list(self.modules.values())
 

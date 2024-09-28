@@ -89,7 +89,8 @@ class ExpressionTransformer(Transformer):
 
     # Dynamically generate methods for all operations
     for op_type, symbol in operations.items():
-        locals()[f"{op_type.name.lower()}"] = (
+        # Capture the current values of symbol and op_type in the lambda using default arguments
+        locals()[f"{op_type.value}"] = (
             lambda self, items, s=symbol, t=op_type: self.op_node(s, t, items)
         )
 

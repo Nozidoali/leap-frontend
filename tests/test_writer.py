@@ -623,10 +623,10 @@ endmodule
 
 
 if __name__ == "__main__":
-    test_00_write_assignment()
+    # test_00_write_assignment()
     # test_01_write_assignment()
     # test_02_write_assignment()
-    # test_03_write_assignment()
+    test_03_write_assignment()
     # test_04_write_assignment()
     # test_05_write_assignment()
     # test_06_write_assignment()
