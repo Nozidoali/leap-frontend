@@ -60,20 +60,6 @@ def writeModuleHeader(f, module: Module):
     f.write(headerString)
 
 
-def parametersToString(parameters: dict):
-    retString = ""
-    for _, parameter in parameters.items():
-        rangeString = rangeToString(parameter.range)
-        retString += f"parameter {rangeString}{parameter.name} = {parameter.value};\n"
-    return retString + "\n"
-
-
-def writeParameters(f, module: Module):
-    parameters: dict = module.getParameters()
-    if len(parameters) > 0:
-        f.write(parametersToString(parameters))
-
-
 def portDefsToString(portDefs: dict):
     retString = ""
     for _, port in portDefs.items():
@@ -119,7 +105,6 @@ def moduleToString(module: Module):
     moduleString = ""
     moduleString += moduleHeaderToString(module)
     moduleString += module.getMacroString()
-    moduleString += parametersToString(module.getParameters())
     moduleString += portDefsToString(module.getPorts())
     moduleString += "\n"
 
@@ -136,7 +121,6 @@ def moduleToString(module: Module):
 
 def writeModule(f, module: Module):
     writeModuleHeader(f, module)
-    writeParameters(f, module)
     writePortDefinitions(f, module)
     f.write("\n")
 
