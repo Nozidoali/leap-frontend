@@ -94,6 +94,13 @@ class OPType(Enum):
     ASSIGN = auto()
 
 
+def getOpType(op: str) -> OPType:
+    for opType in OPType:
+        if opType.value == op:
+            return opType
+    return OPType.UNKNOWN
+
+
 class Range:
     def __init__(self, start: Any, end: Any = None):
         self.start = start
@@ -130,7 +137,6 @@ from typing import List, Optional
 @dataclass
 class DFGNode:
     variable_name: str = field(default_factory=str)
-    operation: Optional[OPType] = None
     range: Optional[Range] = None
     children: List["DFGNode"] = field(default_factory=list)
 
@@ -192,12 +198,13 @@ class DFGNode:
 
 @dataclass
 class OPNode(DFGNode):
-    operation: OPType
+    operation: OPType = OPType.UNKNOWN
     children: List[DFGNode] = field(default_factory=list)
 
     def __init__(self, op: str, operation: OPType, *items) -> None:
         # Initialize the parent class with the operation name
         super().__init__(op)
+        assert operation is not None, f"Operation is None, op = {op}"
         self.operation = operation
         self.children = list(items)
 
@@ -239,7 +246,7 @@ class OPNode(DFGNode):
             case OPType.UNKNOWN:
                 return self.variable_name
             case _:
-                raise Exception(f"Unsupported operation {self.operation}")
+                return super().toString()
 
 
 @dataclass

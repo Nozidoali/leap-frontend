@@ -18,10 +18,12 @@ class Netlist(Macros, TimeScale):
     A netlist is a collection of modules
     """
 
-    def __init__(self):
+    def __init__(self, modules: List[Module] = []):
         Macros.__init__(self)
         TimeScale.__init__(self)
         self.modules = {}
+        for module in modules:
+            self.addModule(module)
 
     def addModule(self, module: Module):
         self.modules[module.getName()] = module

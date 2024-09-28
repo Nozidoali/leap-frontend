@@ -11,7 +11,7 @@ Last Modified time: 2024-06-25 23:58:04
 from enum import Enum
 
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Dict, List, Set
 from .dfg import *
 
 
@@ -130,7 +130,10 @@ class Port:
         direction, type = header
         return self.setDirection(direction) and self.setType(type)
 
-    def setDirection(self, direction: PortDirection) -> bool:
+    def setDirection(self, direction: PortDirection, override: bool = False) -> bool:
+        if override:
+            self.direction = direction
+            return True
         if direction is not None:
             assert isinstance(direction, PortDirection)
             if self.direction is not None and self.direction != direction:
@@ -144,9 +147,12 @@ class Port:
     def getDirection(self) -> PortDirection:
         return self.direction
 
-    def setType(self, type: PortType):
+    def setType(self, type: PortType, override: bool = False) -> bool:
         # NOTE: use type instead of getType() in this function
         # Otherwise, the type cannot be overwritten
+        if override:
+            self.type = type
+            return True
         if type is not None:
             assert isinstance(type, PortType)
             if self.type is not None and self.type != type:
@@ -246,8 +252,8 @@ class InputPort(BasicPort):
 
 class Frame:
     def __init__(self) -> None:
-        self.portDefs: dict = {}
-        self.ioPorts: set = set()
+        self.portDefs: Dict[str, Port] = {}
+        self.ioPorts: Set[str] = set()
 
     def addPort(self, port: Port) -> None:
         name = port.getPortName()
@@ -310,3 +316,6 @@ class Frame:
                 print(f"Port {port} in self is not equal to port {port} in other")
                 return False
         return True
+
+    def getFrame(self):
+        return self

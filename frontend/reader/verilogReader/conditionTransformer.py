@@ -51,6 +51,7 @@ class ConditionTransformer(Transformer):
         ]
 
     def else_if_statement(self, items):
+        # TODO: we need to consider the previous if statement
         return [
             x.addCondition(items[0])
             for x in items[1]
