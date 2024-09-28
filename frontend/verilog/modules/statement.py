@@ -1,8 +1,5 @@
-from frontend.verilog.modules.dfg import Any
-from frontend.verilog.modules.module import Any, Module
 from .dfg import *
 from .module import *
-from .moduleInst import *
 from .netlist import *
 from .definitions import *
 

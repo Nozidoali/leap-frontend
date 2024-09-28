@@ -130,9 +130,12 @@ class TimeScale:
 
     def __eq__(self, value: object) -> bool:
         if not isinstance(value, TimeScale):
+            print(f"Value {value} is not TimeScale")
             return False
         if self.val1 != value.val1:
+            print(f"Value {self.val1} != {value.val1}")
             return False
         if self.val2 != value.val2:
+            print(f"Value {self.val2} != {value.val2}")
             return False
         return True

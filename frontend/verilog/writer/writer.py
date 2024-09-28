@@ -13,11 +13,6 @@ from .headerWriter import *
 from .moduleWriter import *
 
 
-def writeVerilogAST(module: Module, filename: str):
-    assert isinstance(module, Module), "module should be an instance of Module"
-    module.dfg.toGraph(filename)
-
-
 def netlistToString(netlist: Netlist) -> str:
     verilogStr = ""
     verilogStr += netlist.getMacroString() + netlist.getTimescaleString() + "\n"

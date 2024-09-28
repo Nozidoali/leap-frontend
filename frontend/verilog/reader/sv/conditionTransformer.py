@@ -8,15 +8,19 @@ Last Modified by: Hanyu Wang
 Last Modified time: 2024-06-25 23:22:01
 """
 
-import logging
-
-logger = logging.getLogger(__name__)
-
-from lark import Transformer, v_args, Tree
+from lark import Transformer
 from ...modules import *
 
-from enum import Enum, auto
-from .larkUtils import *
+
+def flatten(items):
+    result = []
+    for item in items:
+        if isinstance(item, list):
+            result.extend(flatten(item))
+        else:
+            if item is not None:
+                result.append(item)
+    return result
 
 
 class ConditionTransformer(Transformer):

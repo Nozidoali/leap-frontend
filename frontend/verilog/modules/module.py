@@ -9,9 +9,43 @@ Last Modified time: 2024-06-25 23:55:15
 """
 
 from .dfg import *
-from .moduleInst import *
 from .ports import *
 from .definitions import *
+
+
+class ModuleInst:
+    def __init__(self, instName: str, moduleName: str) -> None:
+        self.instName: str = instName
+        self.moduleName: str = moduleName
+        self.assignment_list: list = []
+        self.parameter_list: dict = {}
+
+    def setAssignments(self, assignments: list):
+        if not assignments:
+            return
+        self.assignment_list = assignments
+
+    def addParameters(self, parameters: dict):
+        if not parameters:
+            return
+        self.parameter_list.update(parameters)
+
+    def addParameter(self, paramName: str, paramValue: str):
+        self.parameter_list[paramName] = paramValue
+
+    def getParameters(self) -> dict:
+        return self.parameter_list
+
+    def getAssignments(self) -> list:
+        return self.assignment_list
+
+    @property
+    def name(self) -> str:
+        return self.instName
+
+    @property
+    def module(self) -> str:
+        return self.moduleName
 
 
 class Module(Frame, Macros, ParameterHandler, BNGraph):
@@ -57,6 +91,7 @@ class Module(Frame, Macros, ParameterHandler, BNGraph):
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Module):
+            print(f"Type mismatch: {type(other)}")
             return False
         if self.getName() != other.getName():
             print(f"Module names are not equal: {self.getName()} != {other.getName()}")

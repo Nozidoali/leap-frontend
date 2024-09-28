@@ -10,7 +10,17 @@ Last Modified time: 2024-06-26 00:00:10
 
 from lark import Transformer
 from ...modules import *
-from .larkUtils import *
+
+
+def flatten(items):
+    result = []
+    for item in items:
+        if isinstance(item, list):
+            result.extend(flatten(item))
+        else:
+            if item is not None:
+                result.append(item)
+    return result
 
 
 class ModuleTransformer(Transformer):
