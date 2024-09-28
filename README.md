@@ -21,3 +21,21 @@ LEAP frontend:
 - Write the graph into different formats for further processing in the backend
 
 <img src="./static/leap-overview.svg" style="margin-right:12pt;margin-left: 12pt" />
+
+## Getting Started
+Install LEAP-frontend using pip:
+```bash
+pip install leap_frontend
+```
+
+### Usage
+In Python, you can use LEAP-frontend as follows:
+```python
+from frontend import *
+
+if __name__ == "__main__":
+    # Read the input Verilog file
+    graph = ReadVerilog("input.v")
+    dot = writeDOT(graph)
+    dot.write("output.dot")
+```
