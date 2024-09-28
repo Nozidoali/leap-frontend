@@ -6,6 +6,7 @@ v0.1.6 (Not Yet Released)
 
 * Graph Representation
     - Update class name `DFGNode` to `BNode`, to separate the class from the CDFG
+    - Add test cases for syntax checking 
 
 v0.1.4 (September 27, 2024)
 ---------------------------
