@@ -128,11 +128,12 @@ def graphToBNGraph(module: Module, _graph: pgv.AGraph, subgraph: str = None) -> 
             newOutputName = dstCtrl
             newOutput = BNode(newOutputName)
             newOutput.setRange(assignment.condition.range)
-            assignment.condition = None
             assignment.target = newOutput
-            assignment.expression = cond
+            assignment.expression = assignment.condition
+            assignment.condition = None
             newOutputPort = OutputPort(newOutput)
             outGraph.addPort(newOutputPort)
+            outGraph.addAssignment(assignment)
             border_conn.remove((srcCtrl, dstCtrl))
 
     # assert len(border_conn) == 0 ## if it's false there are missing feature to consider other border connections
