@@ -246,7 +246,7 @@ class OPNode(BNode):
             case OPType.ARRAY_INDEX:
                 return f"{self.children[0].toString()}[{self.children[1].toString()}]"
             case OPType.EVENT_ALWAYS:
-                return f"always @({self.children[0].toString()})"
+                return f"always @({self.children[0].toString()})".replace("((","(").replace("))",")")
             case OPType.EVENT_INIT:
                 return "initial"
             case OPType.EVENT_COMB:
