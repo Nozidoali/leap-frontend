@@ -93,7 +93,7 @@ single_statement: "assign" lhs_expression "=" expression ";" -> blocking_assignm
 
 // 3.1 Conditional Statements
 // The "if" statement is used to execute a block of code if a condition is true. If the condition is false, another block of code can be executed with the "else" statement.
-conditional_statement: [if_statement] else_if_statement* else_statement?
+conditional_statement: if_statement else_if_statement* else_statement?
 if_statement: "if" "(" expression ")" statement
 else_if_statement: "else if" "(" expression ")" statement
 else_statement: "else" statement
