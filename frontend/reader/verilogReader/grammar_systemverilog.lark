@@ -108,7 +108,7 @@ statement: statement_block | single_statement
 // 3.3 Case Statements
 case_statement: "case" "(" lhs_expression ")" case_item+ "endcase"
 case_item: "default" ":" (statement_block | single_statement) -> default_case
-        | lhs_expression ":" (statement_block | single_statement) -> regular_case
+        | (const_expression | lhs_expression) ":" (statement_block | single_statement) -> regular_case
 
 // 5 Function calls
 dollar_indentifier: "$" /[a-zA-Z_][a-zA-Z0-9_]*/

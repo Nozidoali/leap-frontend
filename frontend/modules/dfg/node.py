@@ -187,7 +187,7 @@ class BNode:
     @property
     def name(self) -> str:
         return self.variable_name
-    
+
     @name.setter
     def name(self, name: str):
         self.variable_name = name
@@ -246,7 +246,7 @@ class OPNode(BNode):
             case OPType.ARRAY_INDEX:
                 return f"{self.children[0].toString()}[{self.children[1].toString()}]"
             case OPType.EVENT_ALWAYS:
-                return f"always @({self.children[0].toString()})".replace("((","(").replace("))",")")
+                return f"always @({self.children[0].toString()})"
             case OPType.EVENT_INIT:
                 return "initial"
             case OPType.EVENT_COMB:

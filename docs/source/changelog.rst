@@ -8,6 +8,9 @@ v0.1.6 (Not Yet Released)
     - Update class name `DFGNode` to `BNode`, to separate the class from the CDFG
     - Add test cases for syntax checking 
 
+* Verilog I/O:
+    - Add condition propagation for the if else statement
+
 v0.1.4 (September 27, 2024)
 ---------------------------
 

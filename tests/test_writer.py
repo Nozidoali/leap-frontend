@@ -724,6 +724,156 @@ endmodule
     assert write_after_read(verilogString)
 
 
+# Test 35
+# If else with multiple conditions
+def test_35_if_else():
+    verilogString = """
+module top (
+    input wire a,
+    input wire b,
+    output reg f
+);
+
+always @(*) begin
+    if (a == b+1) begin
+        f = a;
+    end else begin
+        f = 1;
+    end
+end
+
+endmodule
+"""
+    assert write_after_read(verilogString)
+
+
+# Test 36
+# Case statement with default
+def test_36_case():
+    verilogString = """
+module top (
+    input wire a,
+    input wire b,
+    output reg f
+);
+
+always @(*) begin
+    case ( a )
+        1: f = b;
+        2: f = a;
+        3: f = a + b;
+        default: f = 0;
+    endcase
+end
+
+endmodule
+"""
+    assert write_after_read(verilogString)
+
+
+# Test 37
+# Case statement with default
+def test_37_case():
+    verilogString = """
+module top (
+    input wire a,
+    input wire b,
+    output reg f
+);
+
+parameter [2:0] ONE = 1;
+
+
+always @(*) begin
+    case ( a )
+        ONE: f = b;
+        2: f = a;
+        3: f = a + b;
+        default: f = 0;
+    endcase
+end
+
+endmodule
+"""
+    assert write_after_read(verilogString)
+
+
+# Test 38
+# Case statement without default
+def test_38_case():
+    verilogString = """
+module top (
+    input wire a,
+    input wire b,
+    output reg f
+);
+
+always @(*) begin
+    case ( a )
+        1: f = b;
+        2: f = a;
+        3: f = a + b;
+    endcase
+end
+
+endmodule
+"""
+    assert write_after_read(verilogString)
+
+
+# Test 39
+# Case statement with constant
+def test_39_case():
+    verilogString = """
+module top (
+    input wire a,
+    input wire b,
+    output reg f
+);
+
+parameter [2:0] ONE = 1;
+
+
+always @(*) begin
+    case ( a )
+        ONE: f = b;
+        2: f = a;
+        3: f = a + b;
+    endcase
+end
+
+endmodule
+"""
+    assert write_after_read(verilogString)
+
+
+# Test 40
+# Always block with multiple conditions and mixed operators (and, or)
+def test_40_mixed_event_conditions():
+    verilogString = """
+module top (
+    input clk,
+    input reset,
+    input wire [3:0] a,
+    input wire [3:0] b,
+    output reg f
+);
+
+always @(posedge clk or negedge reset or a or b) begin
+    if (!reset) begin
+        f <= 0;
+    end else if (a && b) begin
+        f <= 1;
+    end else if (a || b) begin
+        f <= a + b;
+    end else begin
+        f <= 0;
+    end
+end
+endmodule
+"""
+    assert write_after_read(verilogString)
+
 if __name__ == "__main__":
     # test_00_write_assignment()
     # test_01_write_assignment()
@@ -740,7 +890,7 @@ if __name__ == "__main__":
     # test_12_conditional_expression()
     # test_13_multiple_operations()
     # test_14_conditions()
-    test_15_conditions()
+    # test_15_conditions()
     # test_16_conditions()
     # test_17_conditions()
     # test_18_reset_event()
@@ -760,3 +910,9 @@ if __name__ == "__main__":
     # test_32_if_else()
     # test_33_if_else()
     # test_34_if_else()
+    # test_35_if_else()
+    # test_36_case()
+    # test_37_case()
+    # test_38_case()
+    # test_39_case()
+    test_40_mixed_event_conditions()
