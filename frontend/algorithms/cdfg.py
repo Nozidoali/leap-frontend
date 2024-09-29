@@ -14,7 +14,9 @@ class CDFGraph(pgv.AGraph):
 
     def __init__(self, strict: bool = False, directed: bool = True, **kwargs):
         # Initialize the AGraph with the required arguments
-        super().__init__(strict=strict, directed=directed, **kwargs)
+        super().__init__(
+            strict=strict, directed=directed, splines="ortho", rankdir="TB", **kwargs
+        )
 
         # Custom properties for CDFGraph
         self.nodeToAssignment = {}
@@ -26,7 +28,7 @@ class CDFGraph(pgv.AGraph):
         opType = getOpType(opName) if opName != "None" else None
         return OPNode(node.attr["variable_name"], opType, [])
 
-    def add_node(self, node: BNode, **kwargs) -> str:
+    def add_node(self, node: OPNode, **kwargs) -> str:
         # TODO: convert these to strings and retrieve them in the graph
         kwargs["variable_name"] = node.variable_name
         kwargs["operation"] = node.operation.value
@@ -80,10 +82,12 @@ class CDFGraph(pgv.AGraph):
             "xlabel": f"{eType}_{idx}",
         }
         # Customize edge styles based on the edge type
-        if eType == EdgeType.CONDITION:
+        if eType == EdgeType.CONDITION.value:
             edge_attrs.update({"style": "dashed", "color": "red"})
-        elif eType == EdgeType.EVENT:
+        elif eType == EdgeType.EVENT.value:
             edge_attrs.update({"style": "dotted", "color": "blue"})
+        else:
+            edge_attrs.update({"style": "solid", "color": "black"})
         # Add the edge with the specified attributes
         self.add_edge(source, target, **edge_attrs)
 
@@ -190,3 +194,73 @@ def _recreateDFGNode(graph: CDFGraph, node: pgv.Node) -> BNode:
         children.append(childNode)
     newNode.children = children
     return newNode
+
+
+def reduce(graph: CDFGraph) -> CDFGraph:
+    """
+    Run structural hashing on the graph and merge nodes with the same functionality and the same children.
+    """
+
+    def _reduce_node(
+        node: pgv.Node,
+        old_to_new_node: Dict[pgv.Node, str],
+        operation_to_nodes: Dict[str, Dict[tuple, str]],
+    ) -> str:
+        """
+        Recursively reduce a node and its predecessors.
+        """
+        if node in old_to_new_node:
+            return old_to_new_node[node]
+
+        if CDFGraph.toNode(node).isVariable() or CDFGraph.toNode(node).isConstant():
+            new_node_id = new_graph.add_node(CDFGraph.toNode(node))
+            old_to_new_node[node] = new_node_id
+            return new_node_id
+
+        operation = node.attr["operation"]
+        children_ids = []
+        for child in graph.predecessors(node):
+            children_ids.append(
+                _reduce_node(child, old_to_new_node, operation_to_nodes)
+            )
+        children_signatures = tuple(children_ids)
+
+        if operation not in operation_to_nodes:
+            operation_to_nodes[operation] = {}
+        if children_signatures in operation_to_nodes[operation]:
+            existing_node = operation_to_nodes[operation][children_signatures]
+            old_to_new_node[node] = existing_node
+            return existing_node
+        else:
+            new_node_id = new_graph.add_node(CDFGraph.toNode(node))
+            operation_to_nodes[operation][children_signatures] = new_node_id
+            old_to_new_node[node] = new_node_id
+            return new_node_id
+
+    # Create a new graph
+    new_graph = CDFGraph()
+
+    # Dictionary to map old nodes to new nodes in the new graph
+    old_to_new_node: Dict[pgv.Node, str] = {}
+    operation_to_nodes: Dict[str, Dict[tuple, str]] = {}
+
+    # Reduce all nodes in the graph
+    for node in list(graph.nodes()):
+        _reduce_node(node, old_to_new_node, operation_to_nodes)
+        assert node in old_to_new_node
+
+    # Add edges to the new graph
+    edge_exists: Dict[tuple, bool] = {}
+    for edge in graph.edges():
+        source = old_to_new_node[edge[0]]
+        target = old_to_new_node[edge[1]]
+
+        edge_signature = (source, target)
+        if edge_signature in edge_exists:
+            continue
+        edge_exists[edge_signature] = True
+
+        edge_attrs = graph.get_edge(edge[0], edge[1]).attr
+        new_graph.add_edge(source, target, **edge_attrs)
+
+    return new_graph
