@@ -17,7 +17,7 @@ if __name__ == "__main__":
     ctrl_names = ["ap_done", "ap_idle", "ap_ready", "finish"]
     outputsNames = [
         port
-        for port in module.getPortsByType(PortDirection.OUTPUT)
+        for port in module.getPortsByDir(PortDirection.OUTPUT)
         if port not in ctrl_names
     ]
 
