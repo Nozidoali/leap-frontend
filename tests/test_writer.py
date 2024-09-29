@@ -649,6 +649,81 @@ endmodule
     assert write_after_read(verilogString)
 
 
+# Test 32
+# If else with multiple conditions
+def test_32_if_else():
+    verilogString = """
+module top (
+    input wire a,
+    input wire b,
+    output reg f
+);
+
+always @(*) begin
+    if (a > b) begin
+        f = a;
+    end else if (a < b) begin
+        f = b;
+    end else begin
+        f = 0;
+    end
+end
+
+endmodule
+"""
+    assert write_after_read(verilogString)
+
+
+# Test 33
+# If else with multiple conditions
+def test_33_if_else():
+    verilogString = """
+module top (
+    input wire a,
+    input wire b,
+    output reg f
+);
+
+always @(*) begin
+    if (a > b) begin
+        f = a;
+    end else if (a < b) begin
+        f = b;
+    end
+end
+
+endmodule
+"""
+    assert write_after_read(verilogString)
+
+
+# Test 34
+# If else with multiple conditions
+def test_34_if_else():
+    verilogString = """
+module top (
+    input wire a,
+    input wire b,
+    output reg f
+);
+
+always @(*) begin
+    if (a == b+1) begin
+        f = a;
+    end else if (a == b-1) begin
+        f = b;
+    end else if (a == b) begin
+        f = 0;
+    end else if (a != b) begin
+        f = 1;
+    end
+end
+
+endmodule
+"""
+    assert write_after_read(verilogString)
+
+
 if __name__ == "__main__":
     # test_00_write_assignment()
     # test_01_write_assignment()
@@ -676,9 +751,12 @@ if __name__ == "__main__":
     # test_23_parameters()
     # test_24_parameters()
     # test_25_parameters()
-    test_26_module_instantiation()
+    # test_26_module_instantiation()
     # test_27_module_instantiation()
     # test_28_module_instantiation()
     # test_29_module_instantiation()
     # test_30_port_type()
     # test_31_port_range()
+    # test_32_if_else()
+    # test_33_if_else()
+    test_34_if_else()
