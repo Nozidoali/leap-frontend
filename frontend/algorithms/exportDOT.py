@@ -119,7 +119,7 @@ def graphToBNGraph(module: Module, _graph: pgv.AGraph, subgraph: str = None) -> 
             newInputName = srcCtrl
             newInput = BNode(newInputName)
             newInput.setRange(assignment.expression.range)
-            assignment.setCondition(newInput)
+            assignment.condition = newInput
             newInputPort = InputPort(newInput)
             outGraph.addPort(newInputPort)
             outGraph.addAssignment(assignment)
@@ -128,7 +128,7 @@ def graphToBNGraph(module: Module, _graph: pgv.AGraph, subgraph: str = None) -> 
             newOutputName = dstCtrl
             newOutput = BNode(newOutputName)
             newOutput.setRange(assignment.condition.range)
-            assignment.setCondition(None)
+            assignment.condition = None
             assignment.target = newOutput
             assignment.expression = cond
             newOutputPort = OutputPort(newOutput)
