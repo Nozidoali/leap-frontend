@@ -724,6 +724,53 @@ endmodule
     assert write_after_read(verilogString)
 
 
+# Test 35
+# If else with multiple conditions
+def test_35_if_else():
+    verilogString = """
+module top (
+    input wire a,
+    input wire b,
+    output reg f
+);
+
+always @(*) begin
+    if (a == b+1) begin
+        f = a;
+    end else begin
+        f = 1;
+    end
+end
+
+endmodule
+"""
+    assert write_after_read(verilogString)
+
+
+# Test 36
+# If else with multiple conditions
+def test_36_case():
+    verilogString = """
+module top (
+    input wire a,
+    input wire b,
+    output reg f
+);
+
+always @(*) begin
+    case ( a )
+        1: f = b;
+        2: f = a;
+        3: f = a + b;
+        default: f = 0;
+    endcase
+end
+
+endmodule
+"""
+    assert write_after_read(verilogString)
+
+
 if __name__ == "__main__":
     # test_00_write_assignment()
     # test_01_write_assignment()
@@ -740,7 +787,7 @@ if __name__ == "__main__":
     # test_12_conditional_expression()
     # test_13_multiple_operations()
     # test_14_conditions()
-    test_15_conditions()
+    # test_15_conditions()
     # test_16_conditions()
     # test_17_conditions()
     # test_18_reset_event()
@@ -760,3 +807,5 @@ if __name__ == "__main__":
     # test_32_if_else()
     # test_33_if_else()
     # test_34_if_else()
+    # test_35_if_else()
+    test_36_case()

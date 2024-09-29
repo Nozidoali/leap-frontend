@@ -187,7 +187,7 @@ class BNode:
     @property
     def name(self) -> str:
         return self.variable_name
-    
+
     @name.setter
     def name(self, name: str):
         self.variable_name = name

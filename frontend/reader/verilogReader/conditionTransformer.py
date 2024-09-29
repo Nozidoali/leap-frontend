@@ -54,7 +54,7 @@ class ConditionTransformer(Transformer):
                 condNew = OPNode("!", OPType.UNARY_NOT, currCondition)
                 if cond is not None:
                     condNew = OPNode("&&", OPType.BINARY_AND, condNew, cond)
-                
+
             # propagate the condition
             if currCondition is None:
                 assert cond is not None, "condition is None"
@@ -85,15 +85,25 @@ class ConditionTransformer(Transformer):
     def case_statement(self, items):
         lhs: BNode = items[0]
         caseStatements = []
+        currCondition = None
         for cond, statements in items[1:]:
-            condition = (
-                OPNode("==", OPType.BINARY_EQ, lhs, cond) if cond is not None else None
-            )
-            caseStatements += [
-                x.addCondition(condition)
-                for x in statements
-                if isinstance(x, AssignmentStatement)
-            ]
+            if cond is None:
+                # This is the default case
+                condition = OPNode("!", OPType.UNARY_NOT, currCondition)
+            else:
+                # This is a regular case
+                condition = OPNode("==", OPType.BINARY_EQ, lhs, cond)
+                currCondition = (
+                    condition
+                    if currCondition is None
+                    else OPNode("||", OPType.BINARY_OR, currCondition, condition)
+                )
+
+            # process the statements
+            for statement in statements:
+                if isinstance(statement, AssignmentStatement):
+                    statement.addCondition(condition)
+                caseStatements.append(statement)
         return caseStatements
 
     def regular_case(self, items) -> list:
