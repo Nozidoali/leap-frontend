@@ -62,6 +62,11 @@ class Assignment:
     def __ne__(self, value: object) -> bool:
         return not self.__eq__(value)
 
+    def toString(self) -> str:
+        eventStr = self.event.toString() if self.event is not None else ""
+        condStr = self.condition.toString() if self.condition is not None else ""
+        return f"always @({eventStr}) if ({condStr}) {self.target.toString()} = {self.expression.toString()}"
+
 
 @dataclass
 class BlockingAssignment(Assignment):

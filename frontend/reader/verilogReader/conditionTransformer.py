@@ -8,6 +8,7 @@ Last Modified by: Hanyu Wang
 Last Modified time: 2024-06-25 23:22:01
 """
 
+from typing import List, Dict, Any, Tuple
 from lark import Transformer
 from ...modules import *
 
@@ -40,26 +41,45 @@ class ConditionTransformer(Transformer):
         return flatten(items)
 
     # conditional_statement: if_statement else_if_statements? else_statement?
-    def conditional_statement(self, items):
-        return flatten(items)
+    def conditional_statement(
+        self, items: List[Tuple[BNode, List[Statement]]]
+    ) -> List[Statement]:
+        allStatements = []
+        currCondition = None
+        for cond, statements in items:
+            # process the condition
+            if currCondition is None:
+                condNew = cond
+            else:
+                condNew = OPNode("!", OPType.UNARY_NOT, currCondition)
+                if cond is not None:
+                    condNew = OPNode("&&", OPType.BINARY_AND, condNew, cond)
+                
+            # propagate the condition
+            if currCondition is None:
+                assert cond is not None, "condition is None"
+                currCondition = cond
+            else:
+                currCondition = OPNode("||", OPType.BINARY_OR, currCondition, cond)
 
-    def if_statement(self, items):
-        return [
-            x.addCondition(items[0])
-            for x in items[1]
-            if isinstance(x, AssignmentStatement)
-        ]
+            # process the statements
+            for statement in statements:
+                if isinstance(statement, AssignmentStatement):
+                    statement.addCondition(condNew)
+                    # print(f"statement = {statement.assignment.toString()}")
+                allStatements.append(statement)
 
-    def else_if_statement(self, items):
+        return allStatements
+
+    def if_statement(self, items) -> Tuple[BNode, list]:
+        return items
+
+    def else_if_statement(self, items) -> Tuple[BNode, list]:
         # TODO: we need to consider the previous if statement
-        return [
-            x.addCondition(items[0])
-            for x in items[1]
-            if isinstance(x, AssignmentStatement)
-        ]
+        return items
 
-    def else_statement(self, items):
-        return items[0]
+    def else_statement(self, items) -> Tuple[BNode, list]:
+        return None, items[0]
 
     # case_statement: "case" "(" expression ")" case_content "endcase"
     def case_statement(self, items):

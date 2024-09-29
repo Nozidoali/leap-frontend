@@ -45,5 +45,6 @@ class PortTransformer(Transformer):
                 )
             if not port.isTrivial:
                 ports.append(port)
-        statements.append(PortDeclaration(ports))
+        if len(ports) > 0:
+            statements.append(PortDeclaration(ports))
         return statements
