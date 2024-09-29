@@ -874,6 +874,7 @@ endmodule
 """
     assert write_after_read(verilogString)
 
+
 if __name__ == "__main__":
     # test_00_write_assignment()
     # test_01_write_assignment()
