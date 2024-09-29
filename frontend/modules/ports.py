@@ -213,7 +213,7 @@ class Port:
 
     @name.setter
     def name(self, name: str):
-        self.variable.name = name
+        pass
 
     @property
     def isPi(self):
