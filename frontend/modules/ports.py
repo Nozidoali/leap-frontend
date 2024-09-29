@@ -187,6 +187,8 @@ class Port:
     # We need to override the __eq__ function to compare two ports
     # Because we need to make sure type WIRE is equal to None
     def __eq__(self, value: object) -> bool:
+        if value is None:
+            return False
         if not isinstance(value, Port):
             print(f"Type mismatch: {type(value)}")
             return False
@@ -208,6 +210,10 @@ class Port:
     @property
     def name(self):
         return self.variable.name
+
+    @name.setter
+    def name(self, name: str):
+        self.variable.name = name
 
     @property
     def isPi(self):
