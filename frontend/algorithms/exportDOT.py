@@ -56,37 +56,17 @@ def graphToBNGraph(module: Module, _graph: pgv.AGraph, subgraph: str = None) -> 
 
     mapping = module.node2assignment
     assert mapping != {}
-    all_edges = graph.edges()
     all_nodes = graph.nodes()
-    pis = [
-        module.getPort(port)
-        for port in module.getPortsByDir(PortDirection.INPUT)
-        if port in all_nodes
-    ]
-    pos = [
-        module.getPort(port)
-        for port in module.getPortsByDir(PortDirection.OUTPUT)
-        if port in all_nodes
-    ]
-    parameters = [
-        module.getPort(port)
-        for port in module.getPortsByType(PortType.PARAMETER)
-        if port in all_nodes
-    ]
-    localparams = [
-        module.getPort(port)
-        for port in module.getPortsByType(PortType.LOCALPARAM)
-        if port in all_nodes
-    ]
+    
+    for port in module.getPorts():
+        if port in all_nodes:
+            modulePort = module.getPort(port)
+            outGraph.addPort(modulePort)
 
-    for pi in pis:
-        outGraph.addPort(pi)
-    for po in pos:
-        outGraph.addPort(po)
-    for param in parameters:
-        outGraph.addPort(param)
-    for localparam in localparams:
-        outGraph.addPort(localparam)
+    # add the clock port if not present
+    if "clk" not in all_nodes:
+        clkPort = InputPort(BNode("clk"))
+        outGraph.addPort(clkPort)
 
     border_conn = []
     for src, dst in _graph.edges():
