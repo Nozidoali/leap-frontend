@@ -21,6 +21,9 @@ class CDFGraph(pgv.AGraph):
         # Custom properties for CDFGraph
         self.frame: Frame = None
 
+        # Set the "dirty" label for the range
+        self._nodeToRange: Dict[str, Range] = {}
+
     def toBNode(self, node: pgv.Node) -> BNode:
         # TODO: range is not being set
         opName = node.attr["operation"]
@@ -28,11 +31,14 @@ class CDFGraph(pgv.AGraph):
         return OPNode(node.attr["variable_name"], opType, [])
 
     def toPort(self, node: pgv.Node) -> Port:
-        return self.frame.getPort(self.toBNode(node).name)
+        port = self.frame.getPort(self.toBNode(node).name)
+        portRange = self.toRange(node)
+        port.setRange(portRange)
+        return port
 
     def toRange(self, node: pgv.Node) -> Range:
-        if node.attr["range"] is None or node.attr["range"] == "None":
-            return None
+        if self.getRange(node) is not None:
+            return self.getRange(node)
         try:
             width: int = int(node.attr["range"])
             return BasicRange(width)
@@ -41,6 +47,14 @@ class CDFGraph(pgv.AGraph):
 
     def toOpType(self, node: pgv.Node) -> OPType:
         return getOpType(node.attr["operation"])
+
+    def setRange(self, node: pgv.Node, range: Range) -> None:
+        node = node if isinstance(node, pgv.Node) else self.get_node(node)
+        self._nodeToRange[node] = range
+
+    def getRange(self, node: pgv.Node) -> Range:
+        node = node if isinstance(node, pgv.Node) else self.get_node(node)
+        return self._nodeToRange.get(node, None)
 
     def add_node(self, node: OPNode, **kwargs) -> str:
         # TODO: convert these to strings and retrieve them in the graph
@@ -68,8 +82,11 @@ class CDFGraph(pgv.AGraph):
         return nodeId
 
     def addVarNode(self, variable_name: str, range: Range = None) -> str:
-        node = VarNode(variable_name, range)
-        return self.add_node(node)
+        node = VarNode(variable_name)
+        # add the range to the frame
+        nodeId = self.add_node(node)
+        self.setRange(nodeId, range)
+        return nodeId
 
     def addOpNode(
         self, variable_name: str, operation: OPType, children: List[str]
@@ -314,6 +331,8 @@ def graphToModule(graph: CDFGraph, param: dict = {}) -> Module:
     for node in graph.nodes():
         if node in graph.variables:
             port: Port = graph.toPort(node)
+            range: Range = graph.toRange(node)
+            port.setRange(range)
             module.addPort(port)
 
             # get assignments
