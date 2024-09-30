@@ -33,14 +33,29 @@ class CDFGraph(pgv.AGraph):
     def toRange(self, node: pgv.Node) -> Range:
         if node.attr["range"] is None or node.attr["range"] == "None":
             return None
-        width: int = int(node.attr["range"])
-        return BasicRange(width)
+        try:
+            width: int = int(node.attr["range"])
+            return BasicRange(width)
+        except:
+            return None
+
+    def toOpType(self, node: pgv.Node) -> OPType:
+        return getOpType(node.attr["operation"])
 
     def add_node(self, node: OPNode, **kwargs) -> str:
         # TODO: convert these to strings and retrieve them in the graph
         kwargs["variable_name"] = node.variable_name
         kwargs["operation"] = node.operation.value
-        kwargs["range"] = node.range.toWidth() if node.range is not None else None
+
+        # TODO: range is not being set
+        variable_name = node.variable_name
+        if self.frame is None or variable_name not in self.frame.getPortNames():
+            portRange = None
+        else:
+            portRange = self.frame.getPort(variable_name).getRange()
+
+        if portRange is not None:
+            kwargs["range"] = portRange.toWidth()
         if node.isVariable() or node.isConstant():
             nodeId = node.toString()
             kwargs["label"] = node.toString()
@@ -351,7 +366,7 @@ def reduce(graph: CDFGraph) -> CDFGraph:
             return old_to_new_node[node]
 
         if CDFGraph.toNode(node).isVariable() or CDFGraph.toNode(node).isConstant():
-            new_node_id = new_graph.add_node(CDFGraph.toNode(node))
+            new_node_id = new_graph.add_node(CDFGraph.toNode(node), **node.attr)
             old_to_new_node[node] = new_node_id
             return new_node_id
 
@@ -370,7 +385,7 @@ def reduce(graph: CDFGraph) -> CDFGraph:
             old_to_new_node[node] = existing_node
             return existing_node
         else:
-            new_node_id = new_graph.add_node(CDFGraph.toNode(node))
+            new_node_id = new_graph.add_node(CDFGraph.toNode(node), **node.attr)
             operation_to_nodes[operation][children_signatures] = new_node_id
             old_to_new_node[node] = new_node_id
             return new_node_id
@@ -420,7 +435,7 @@ def extractWindow(
             return old_to_new_node[root]
 
         # create a new node in the new graph
-        new_node_id = new_graph.add_node(CDFGraph.toNode(root))
+        new_node_id = new_graph.add_node(CDFGraph.toNode(root), **root.attr)
         old_to_new_node[root] = new_node_id
 
         for child in graph.predecessors(root):
@@ -448,7 +463,7 @@ def extractWindow(
         x if isinstance(x, pgv.Node) else graph.get_node(x) for x in cut
     ]
     for leaf in cut:
-        leaf_id = new_graph.add_node(CDFGraph.toNode(leaf))
+        leaf_id = new_graph.add_node(CDFGraph.toNode(leaf), **leaf.attr)
         old_to_new_node[leaf] = leaf_id
 
     node = node if isinstance(node, pgv.Node) else graph.get_node(node)
