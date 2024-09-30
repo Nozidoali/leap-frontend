@@ -57,7 +57,7 @@ def graphToBNGraph(module: Module, _graph: pgv.AGraph, subgraph: str = None) -> 
     mapping = module.node2assignment
     assert mapping != {}
     all_nodes = graph.nodes()
-    
+
     for port in module.getPorts():
         if port in all_nodes:
             modulePort = module.getPort(port)

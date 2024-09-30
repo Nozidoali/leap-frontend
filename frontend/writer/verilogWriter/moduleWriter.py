@@ -106,20 +106,21 @@ def writeModuleInst(f, moduleInst: ModuleInst):
 
 # function to extract the default values of the parameters
 def getParamValues(module: Module):
-    listParams = [
-        port for port in module.getPortsByType(PortType.PARAMETER) 
-    ]
-    listLocalParams = [
-        port for port in module.getPortsByType(PortType.LOCALPARAM)
-    ]
+    listParams = [port for port in module.getPortsByType(PortType.PARAMETER)]
+    listLocalParams = [port for port in module.getPortsByType(PortType.LOCALPARAM)]
     listParams += listLocalParams
     defaultParamsValues = {}
     for var in module.var2assigns:
         for assign in module.getAssignmentsOf(var):
             if assign.target.toString() in listParams:
-                assert assign.expression.isConstant(), f"Expected constant expression for parameters, got {assign.expression}"
-                defaultParamsValues[assign.target.toString()] = assign.expression.toString()
+                assert (
+                    assign.expression.isConstant()
+                ), f"Expected constant expression for parameters, got {assign.expression}"
+                defaultParamsValues[assign.target.toString()] = (
+                    assign.expression.toString()
+                )
     return defaultParamsValues
+
 
 def moduleToString(module: Module):
     moduleString = ""
@@ -135,7 +136,13 @@ def moduleToString(module: Module):
         for assign in module.getAssignmentsOf(var):
             # TODO: consider the wire/latch/reg
             # skip the assignment if it's a parameter or localparam and it's a constant expression without condition
-            skipAssignment =  assign.target.toString() in module.getPortsByType(PortType.PARAMETER) or assign.target.toString() in module.getPortsByType(PortType.LOCALPARAM) and assign.expression.isConstant() and assign.condition is None
+            skipAssignment = (
+                assign.target.toString() in module.getPortsByType(PortType.PARAMETER)
+                or assign.target.toString()
+                in module.getPortsByType(PortType.LOCALPARAM)
+                and assign.expression.isConstant()
+                and assign.condition is None
+            )
             if not skipAssignment:
                 moduleString += assignmentToString(assign)
     moduleString += "endmodule\n"
