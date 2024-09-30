@@ -31,7 +31,7 @@ class CDFGraph(pgv.AGraph):
         return self.frame.getPort(self.toBNode(node).name)
 
     def toRange(self, node: pgv.Node) -> Range:
-        if node.attr["range"] is None:
+        if node.attr["range"] is None or node.attr["range"] == "None":
             return None
         width: int = int(node.attr["range"])
         return BasicRange(width)

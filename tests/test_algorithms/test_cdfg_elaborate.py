@@ -1,7 +1,6 @@
 from frontend import *
 
-
-def test_00_if_else():
+def test_00_elaborate_if_else():
     verilogString = """
 module top (
     input wire a,
@@ -27,13 +26,12 @@ endmodule
     dotOld = reduce(dotOld)
     elaborateConditionsAt(dotOld, "f")
     dotNew = extractWindow(dotOld, "f", ["a", "b"])
-    dotNew.write("outputNew.dot")
     moduleNew = graphToModule(dotNew)
     print(moduleToString(moduleNew))
-
+    
     assert moduleNew.numInputs == 2
     assert moduleNew.numOutputs == 1
-
+    
 
 if __name__ == "__main__":
-    test_00_if_else()
+    test_00_elaborate_if_else()
