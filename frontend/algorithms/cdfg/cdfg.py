@@ -1,7 +1,7 @@
 import pygraphviz as pgv
 from typing import List, Dict
 from enum import Enum
-from ..modules import *
+from ...modules import *
 
 
 class EdgeType(Enum):
@@ -19,7 +19,6 @@ class CDFGraph(pgv.AGraph):
         )
 
         # Custom properties for CDFGraph
-        self.nodeToAssignment = {}
         self.frame: Frame = None
 
     def toBNode(self, node: pgv.Node) -> BNode:
@@ -33,7 +32,7 @@ class CDFGraph(pgv.AGraph):
         kwargs["variable_name"] = node.variable_name
         kwargs["operation"] = node.operation.value
         kwargs["range"] = node.range
-        if node.isVariable():
+        if node.isVariable() or node.isConstant():
             nodeId = node.toString()
             kwargs["label"] = node.toString()
             kwargs["shape"] = "box"
@@ -43,6 +42,55 @@ class CDFGraph(pgv.AGraph):
             kwargs["shape"] = "ellipse"
         super().add_node(nodeId, **kwargs)
         return nodeId
+
+    def addVarNode(self, variable_name: str, range: Range = None) -> str:
+        node = VarNode(variable_name, range)
+        return self.add_node(node)
+
+    def addOpNode(
+        self, variable_name: str, operation: OPType, children: List[str]
+    ) -> str:
+        node = OPNode(variable_name, operation, [])
+        nodeId = self.add_node(node)
+        for childId in children:
+            self.add_edge(childId, nodeId)
+        return nodeId
+
+    def addAssignment(
+        self,
+        target: str,
+        expression: str,
+        condition: str = None,
+        event: str = None,
+        isBlocking: bool = True,
+    ) -> None:
+        targetNode = self.get_node(target)
+        expressionNode = self.get_node(expression)
+        conditionNode = self.get_node(condition) if condition is not None else None
+        eventNode = self.get_node(event) if event is not None else None
+        self.addEdge(
+            expressionNode,
+            targetNode,
+            eType=EdgeType.VALUE,
+            eIndex=self.number_of_edges(),
+        )
+        if conditionNode is not None:
+            self.addEdge(
+                conditionNode,
+                targetNode,
+                eType=EdgeType.CONDITION,
+                eIndex=self.number_of_edges(),
+            )
+        if eventNode is not None:
+            self.addEdge(
+                eventNode,
+                targetNode,
+                eType=EdgeType.EVENT,
+                eIndex=self.number_of_edges(),
+            )
+
+        # Set the assignment attributes on the lhs node
+        targetNode.attr["isBlocking"] = isBlocking
 
     def getAssignments(self, node: pgv.Node) -> List[Dict[EdgeType, pgv.Node]]:
         """
@@ -73,13 +121,13 @@ class CDFGraph(pgv.AGraph):
         ]
 
     def addEdge(
-        self, source: pgv.Node, target: pgv.Node, idx: int, eType: EdgeType
+        self, source: pgv.Node, target: pgv.Node, eIndex: int, eType: EdgeType
     ) -> None:
         eType = eType.value if isinstance(eType, EdgeType) else eType
         edge_attrs = {
             "eType": eType,
-            "eIndex": idx,
-            "xlabel": f"{eType}_{idx}",
+            "eIndex": eIndex,
+            "xlabel": f"{eType}_{eIndex}",
         }
         # Customize edge styles based on the edge type
         if eType == EdgeType.CONDITION.value:
@@ -96,6 +144,42 @@ class CDFGraph(pgv.AGraph):
         opName = node.attr["operation"]
         opType = getOpType(opName) if opName != "None" else None
         return OPNode(node.attr["variable_name"], opType, [])
+
+    @property
+    def variables(self) -> List[str]:
+        return [node for node in self.nodes() if CDFGraph.toNode(node).isVariable()]
+
+    @property
+    def pis(self) -> List[pgv.Node]:
+        return [
+            node
+            for node in self.variables
+            if len(self.predecessors(node)) == 0 and len(self.successors(node)) > 0
+        ]
+
+    @property
+    def pos(self) -> List[pgv.Node]:
+        return [
+            node
+            for node in self.variables
+            if len(self.predecessors(node)) > 0 and len(self.successors(node)) == 0
+        ]
+
+    @property
+    def internalNodes(self) -> List[pgv.Node]:
+        return [
+            node
+            for node in self.variables
+            if len(self.predecessors(node)) > 0 and len(self.successors(node)) > 0
+        ]
+
+    @staticmethod
+    def isCond(edge: pgv.Edge) -> bool:
+        return edge.attr["eType"] == EdgeType.CONDITION.value
+
+    @staticmethod
+    def isEvent(edge: pgv.Edge) -> bool:
+        return edge.attr["eType"] == EdgeType.EVENT.value
 
 
 # External function to recursively add a BNode to the graph
@@ -142,25 +226,74 @@ def moduleToGraph(module: Module) -> CDFGraph:
     return graph
 
 
-def _detectPortDirection(graph: CDFGraph, node: pgv.Node) -> PortDirection:
-    if len(graph.successors(node)) == 0:
-        return PortDirection.INPUT
-    elif len(graph.predecessors(node)) == 0:
-        return PortDirection.OUTPUT
-    return None
+def _inheritFrame(graphOld: CDFGraph, graphNew: CDFGraph) -> Frame:
+    frame = Frame()
+    frame.addPorts(
+        [
+            OutputPort(CDFGraph.toNode(x))
+            for x in graphNew.pos
+            if CDFGraph.toNode(x).variable_name in graphOld.frame.getPortNames()
+        ]
+    )
+    frame.addPorts(
+        [
+            InputPort(CDFGraph.toNode(x))
+            for x in graphNew.pis
+            if CDFGraph.toNode(x).variable_name in graphOld.frame.getPortNames()
+        ]
+    )
+    frame.addPorts(
+        [
+            BasicPort(CDFGraph.toNode(x))
+            for x in graphNew.internalNodes
+            if CDFGraph.toNode(x).variable_name in graphOld.frame.getPortNames()
+        ]
+    )
+    return frame
+
+
+def _detectFrame(graph: CDFGraph) -> Frame:
+    frame = Frame()
+    frame.addPorts([OutputPort(CDFGraph.toNode(x)) for x in graph.pos])
+    frame.addPorts([InputPort(CDFGraph.toNode(x)) for x in graph.pis])
+    frame.addPorts([BasicPort(CDFGraph.toNode(x)) for x in graph.internalNodes])
+    return frame
+
+
+def hasLoop(graph: CDFGraph) -> bool:
+
+    def _hasLoop(node: pgv.Node, visited: set) -> bool:
+        if node in visited:
+            return True
+        visited.add(node)
+        for child in graph.predecessors(node):
+            if _hasLoop(child, visited):
+                return True
+        visited.remove(node)
+        return False
+
+    visited = set()
+    for node in graph.nodes():
+        if node not in visited:
+            if _hasLoop(node, visited):
+                return True
+    return False
 
 
 def graphToModule(graph: CDFGraph, param: dict = {}) -> Module:
+    """
+    WARNING: This function only works for trees, not for graphs with cycles.
+    """
+    if hasLoop(graph):
+        raise Exception("Cannot convert a graph with loops to a module")
+
     module = Module()  # Initialize a new Module
-    autoDerivePortDirection = param.get("autoDerivePortDirection", True)
+    graph.frame = graph.frame or _detectFrame(graph)
 
     # Iterate over all nodes in the graph and recreate DFGNodes
     for node in graph.nodes():
         if node in graph.frame.getPortNames():
             port: Port = graph.frame.getPort(node)
-
-            if autoDerivePortDirection:
-                port.direction = _detectPortDirection(graph, node)
             module.addPort(port)
 
             # get assignments
@@ -239,6 +372,7 @@ def reduce(graph: CDFGraph) -> CDFGraph:
 
     # Create a new graph
     new_graph = CDFGraph()
+    new_graph.frame = graph.frame.copy()
 
     # Dictionary to map old nodes to new nodes in the new graph
     old_to_new_node: Dict[pgv.Node, str] = {}
@@ -264,3 +398,119 @@ def reduce(graph: CDFGraph) -> CDFGraph:
         new_graph.add_edge(source, target, **edge_attrs)
 
     return new_graph
+
+
+def extractWindow(
+    graph: CDFGraph, node: pgv.Node, cut: List[pgv.Node] = []
+) -> CDFGraph:
+    """
+    Extract a window around a specific node in the graph.
+    """
+
+    def _extract_node(root: pgv.Node, old_to_new_node: set) -> str:
+        """
+        Recursively extract a node and its predecessors.
+        """
+        if root in old_to_new_node:
+            return old_to_new_node[root]
+
+        # create a new node in the new graph
+        new_node_id = new_graph.add_node(CDFGraph.toNode(root))
+        old_to_new_node[root] = new_node_id
+
+        for child in graph.predecessors(root):
+            if CDFGraph.isCond(graph.get_edge(child, root)):
+                return new_node_id
+
+        for child in graph.predecessors(root):
+            if CDFGraph.isEvent(graph.get_edge(child, root)):
+                continue
+            child_id = _extract_node(child, old_to_new_node)
+            new_graph.add_edge(
+                child_id, new_node_id, **graph.get_edge(child, root).attr
+            )
+
+        return new_node_id
+
+    # Create a new graph
+    new_graph = CDFGraph()
+
+    # Extract the window around the specified node
+    old_to_new_node: Dict[pgv.Node, str] = {}
+
+    # Add the cut nodes to the new graph
+    cut: List[pgv.Node] = [
+        x if isinstance(x, pgv.Node) else graph.get_node(x) for x in cut
+    ]
+    for leaf in cut:
+        leaf_id = new_graph.add_node(CDFGraph.toNode(leaf))
+        old_to_new_node[leaf] = leaf_id
+
+    node = node if isinstance(node, pgv.Node) else graph.get_node(node)
+    _extract_node(node, old_to_new_node)
+
+    new_graph.frame = _inheritFrame(graph, new_graph)
+    return new_graph
+
+
+def elaborateConditionsAt(graph: CDFGraph, node: pgv.Node) -> None:
+
+    node: pgv.Node = node if isinstance(node, pgv.Node) else graph.get_node(node)
+    id2assignment: Dict[int, Dict[EdgeType, pgv.Node]] = {}
+
+    for predecessor in graph.predecessors(node):
+        edge: pgv.Edge = graph.get_edge(predecessor, node)
+
+        # Get index and edge type from edge attributes
+        idx: int = int(edge.attr["eIndex"])
+        eType: EdgeType = EdgeType(edge.attr["eType"])
+
+        # Initialize the assignment dict for this index if not already done
+        if idx not in id2assignment:
+            id2assignment[idx] = {eType: None for eType in EdgeType}
+
+        # Assign the predecessor node to the correct edge type in the assignment
+        id2assignment[idx][eType] = predecessor
+
+    # change the condition to a MUX node if there are multiple conditions
+    if len(id2assignment) <= 1:
+        return
+
+    # get the default value
+    defaultValNode = None
+    for idx, assignment in id2assignment.items():
+        condNode = assignment[EdgeType.CONDITION]
+        valNode = assignment[EdgeType.VALUE]
+        if condNode is None:
+            assert defaultValNode is None, "Multiple default values found"
+            defaultValNode = valNode
+
+    currHeadNode: pgv.Node = defaultValNode or graph.add_node(ConstantNode("X"))
+    for idx, assignment in id2assignment.items():
+        condNode = assignment[EdgeType.CONDITION]
+        valNode = assignment[EdgeType.VALUE]
+
+        if condNode is None:
+            continue
+
+        # create a new MUX node
+        muxNode = OPNode(
+            f"?:",
+            OPType.CONDITIONAL_EXPRESSION,
+            CDFGraph.toNode(condNode),
+            CDFGraph.toNode(valNode),
+            CDFGraph.toNode(currHeadNode),
+        )
+        muxNodeId = graph.add_node(muxNode)
+
+        for pred in [condNode, valNode, currHeadNode]:
+            graph.add_edge(pred, muxNodeId)
+
+        currHeadNode = muxNodeId
+
+    # remove the previous predecessors of the node
+    for pred in list(graph.predecessors(node)):
+        graph.delete_edge(pred, node)
+
+    # add the new edge
+    graph.addEdge(currHeadNode, node, 0, EdgeType.VALUE)
