@@ -121,10 +121,35 @@ def test_05_multiple_ops():
     assert module.numOutputs == 1
 
 
+# Test 06
+# Simple graph to module with range
+def test_06_basic():
+    graph = CDFGraph()
+    a = graph.addVarNode("a", BasicRange(8))
+    b = graph.addVarNode("b", BasicRange(8))
+    plus = graph.addOpNode("+", OPType.BINARY_ADD, [a, b])
+    c = graph.addVarNode("c", BasicRange(8))
+    graph.addAssignment(c, plus)
+    graph.write("output.dot")
+    module = graphToModule(graph)
+
+    # Check the module
+    print(moduleToString(module))
+    assert module.numInouts == 0
+    assert module.numInputs == 2
+    assert module.numOutputs == 1
+
+    # Check the ranges
+    assert module.getPort("a").range == BasicRange(8)
+    assert module.getPort("b").range == BasicRange(8)
+    assert module.getPort("c").range == BasicRange(8)
+
+
 if __name__ == "__main__":
     # test_00_basic()
     # test_01_unary()
     # test_02_conditional()
     # test_03_logical_and()
     # test_04_array_index()
-    test_05_multiple_ops()
+    # test_05_multiple_ops()
+    test_06_basic()

@@ -27,11 +27,20 @@ class CDFGraph(pgv.AGraph):
         opType = getOpType(opName) if opName != "None" else None
         return OPNode(node.attr["variable_name"], opType, [])
 
+    def toPort(self, node: pgv.Node) -> Port:
+        return self.frame.getPort(self.toBNode(node).name)
+
+    def toRange(self, node: pgv.Node) -> Range:
+        if node.attr["range"] is None:
+            return None
+        width: int = int(node.attr["range"])
+        return BasicRange(width)
+
     def add_node(self, node: OPNode, **kwargs) -> str:
         # TODO: convert these to strings and retrieve them in the graph
         kwargs["variable_name"] = node.variable_name
         kwargs["operation"] = node.operation.value
-        kwargs["range"] = node.range
+        kwargs["range"] = node.range.toWidth() if node.range is not None else None
         if node.isVariable() or node.isConstant():
             nodeId = node.toString()
             kwargs["label"] = node.toString()
@@ -238,37 +247,15 @@ def moduleToGraph(module: Module) -> CDFGraph:
     return graph
 
 
-def _inheritFrame(graphOld: CDFGraph, graphNew: CDFGraph) -> Frame:
-    frame = Frame()
-    frame.addPorts(
-        [
-            OutputPort(CDFGraph.toNode(x))
-            for x in graphNew.pos
-            if CDFGraph.toNode(x).variable_name in graphOld.frame.getPortNames()
-        ]
-    )
-    frame.addPorts(
-        [
-            InputPort(CDFGraph.toNode(x))
-            for x in graphNew.pis
-            if CDFGraph.toNode(x).variable_name in graphOld.frame.getPortNames()
-        ]
-    )
-    frame.addPorts(
-        [
-            BasicPort(CDFGraph.toNode(x))
-            for x in graphNew.internalNodes
-            if CDFGraph.toNode(x).variable_name in graphOld.frame.getPortNames()
-        ]
-    )
-    return frame
-
-
 def _detectFrame(graph: CDFGraph) -> Frame:
     frame = Frame()
-    frame.addPorts([OutputPort(CDFGraph.toNode(x)) for x in graph.pos])
-    frame.addPorts([InputPort(CDFGraph.toNode(x)) for x in graph.pis])
-    frame.addPorts([BasicPort(CDFGraph.toNode(x)) for x in graph.internalNodes])
+    frame.addPorts(
+        [OutputPort(CDFGraph.toNode(x), graph.toRange(x)) for x in graph.pos]
+    )
+    frame.addPorts([InputPort(CDFGraph.toNode(x), graph.toRange(x)) for x in graph.pis])
+    frame.addPorts(
+        [BasicPort(CDFGraph.toNode(x), graph.toRange(x)) for x in graph.internalNodes]
+    )
     return frame
 
 
@@ -302,15 +289,21 @@ def graphToModule(graph: CDFGraph, param: dict = {}) -> Module:
     module = Module()  # Initialize a new Module
     graph.frame = graph.frame or _detectFrame(graph)
 
+    # for debug
+    # print("Variables: ", graph.variables)
+    # print("PIs: ", graph.pis)
+    # print("POs: ", graph.pos)
+    # print("Internal Nodes: ", graph.internalNodes)
+
     # Iterate over all nodes in the graph and recreate DFGNodes
     for node in graph.nodes():
-        if node in graph.frame.getPortNames():
-            port: Port = graph.frame.getPort(node)
+        if node in graph.variables:
+            port: Port = graph.toPort(node)
             module.addPort(port)
 
             # get assignments
             for val, cond, event in graph.getAssignments(node):
-                target = VarNode(str(node))
+                target = CDFGraph.toNode(node)
                 expression = _recreateDFGNode(graph, val)
                 condition = _recreateDFGNode(graph, cond) if cond is not None else None
                 event = _recreateDFGNode(graph, event) if event is not None else None
@@ -461,7 +454,6 @@ def extractWindow(
     node = node if isinstance(node, pgv.Node) else graph.get_node(node)
     _extract_node(node, old_to_new_node)
 
-    new_graph.frame = _inheritFrame(graph, new_graph)
     return new_graph
 
 

@@ -101,22 +101,51 @@ def getOpType(op: str) -> OPType:
     return OPType.UNKNOWN
 
 
+@dataclass
 class Range:
-    def __init__(self, start: Any, end: Any = None):
-        self.start = start
-        self.end = end
+    start: Any
+    end: Optional[Any] = None
 
     def __eq__(self, value: object) -> bool:
         if not isinstance(value, Range):
+            print(f"Expected Range, got {type(value)}")
             return False
         if self.end is None and value.end is not None:
-            return
-        if self.start is None and value.start is not None:
+            print(f"End mismatch: {self.end} != {value.end}")
             return False
-        return self.start == value.start and self.end == value.end
+        if self.start is None and value.start is not None:
+            print(f"Start mismatch: {self.start} != {value.start}")
+            return False
+        if self.start != value.start or self.end != value.end:
+            print(
+                f"Range mismatch: {self.start.toString()} != {value.start.toString()}, {self.end.toString()} != {value.end.toString()}"
+            )
+            return False
+        return True
+
+    def __ne__(self, value: object) -> bool:
+        return not self.__eq__(value)
 
     def __repr__(self) -> str:
         return f"Range({self.start}, {self.end})"
+
+    def toWidth(self) -> int:
+        if not isinstance(self.start, ConstantNode) or not isinstance(
+            self.end, ConstantNode
+        ):
+            raise Exception(
+                f"Expected ConstantNode, got {type(self.start)} and {type(self.end)}"
+            )
+        startVal = int(self.start.variable_name)
+        endVal = int(self.end.variable_name)
+        if endVal != 0:
+            raise Exception(f"Expected 0, got {endVal}")
+        return startVal + 1
+
+
+class BasicRange(Range):
+    def __init__(self, width: int) -> None:
+        super().__init__(ConstantNode(width - 1), ConstantNode(0))
 
 
 def rangeToString(range: Range) -> str:
@@ -158,7 +187,7 @@ class BNode:
         if self.operation != value.operation:
             print(f"Operation mismatch: {self.operation} != {value.operation}")
             return False
-        if self.variable_name != value.variable_name:
+        if str(self.variable_name) != str(value.variable_name):
             print(
                 f"Variable name mismatch: {self.variable_name} != {value.variable_name}"
             )
