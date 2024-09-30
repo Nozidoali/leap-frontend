@@ -139,6 +139,18 @@ class CDFGraph(pgv.AGraph):
         # Add the edge with the specified attributes
         self.add_edge(source, target, **edge_attrs)
 
+    # we need to override the add_edge method to maintain the child order
+    def add_edge(self, u, v=None, key=None, **attr):
+        # pred id is the number of predecessors of the target node
+        predId = len(self.predecessors(v))
+        attr["predId"] = predId
+        return super().add_edge(u, v, key, **attr)
+
+    # override the predecessors method to sort the predecessors based on predId
+    def predecessors(self, n):
+        preds = super().predecessors(n)
+        return sorted(preds, key=lambda x: self.get_edge(x, n).attr["predId"])
+
     @staticmethod
     def toNode(node: pgv.Node) -> BNode:
         opName = node.attr["operation"]
@@ -485,7 +497,10 @@ def elaborateConditionsAt(graph: CDFGraph, node: pgv.Node) -> None:
             assert defaultValNode is None, "Multiple default values found"
             defaultValNode = valNode
 
-    currHeadNode: pgv.Node = defaultValNode or graph.add_node(ConstantNode("X"))
+    currHeadNode: pgv.Node = defaultValNode or graph.get_node(
+        graph.add_node(ConstantNode("0"))
+    )
+    assert isinstance(currHeadNode, pgv.Node)
     for idx, assignment in id2assignment.items():
         condNode = assignment[EdgeType.CONDITION]
         valNode = assignment[EdgeType.VALUE]
@@ -504,9 +519,12 @@ def elaborateConditionsAt(graph: CDFGraph, node: pgv.Node) -> None:
         muxNodeId = graph.add_node(muxNode)
 
         for pred in [condNode, valNode, currHeadNode]:
-            graph.add_edge(pred, muxNodeId)
+            if pred == condNode:
+                graph.add_edge(pred, muxNodeId, color="red")
+            else:
+                graph.add_edge(pred, muxNodeId)
 
-        currHeadNode = muxNodeId
+        currHeadNode = graph.get_node(muxNodeId)
 
     # remove the previous predecessors of the node
     for pred in list(graph.predecessors(node)):
