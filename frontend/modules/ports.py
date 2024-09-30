@@ -333,3 +333,8 @@ class Frame:
 
     def getFrame(self):
         return self
+
+    def copy(self):
+        frame = Frame()
+        frame.addPorts(self.portDefs.values())
+        return frame

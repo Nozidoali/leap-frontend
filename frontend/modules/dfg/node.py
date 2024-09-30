@@ -8,8 +8,8 @@ Last Modified by: Hanyu Wang
 Last Modified time: 2024-07-24 01:11:59
 """
 
-from typing import Any
-from dataclasses import dataclass
+from typing import Any, List, Optional
+from dataclasses import dataclass, field
 from enum import Enum, auto
 
 
@@ -128,10 +128,6 @@ def rangeToString(range: Range) -> str:
         if range.end is not None
         else f"[{range.start}]"
     )
-
-
-from dataclasses import dataclass, field
-from typing import List, Optional
 
 
 @dataclass
