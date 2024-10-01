@@ -322,8 +322,8 @@ class OPNode(BNode):
                 child.operation, 0
             ):
                 return f"{child.toString()}"
-            if self.operation == child.operation and self.operation in opAssociativity:
-                return f"{child.toString()}"
+            # if self.operation == child.operation and self.operation in opAssociativity:
+            #     return f"{child.toString()}"
             return f"({child.toString()})"
 
         opName = self.operation.value
