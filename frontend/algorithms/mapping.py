@@ -1,6 +1,6 @@
 from typing import List, Dict
 
-from .cdfg import *
+from .cdfg.cdfg import *
 
 
 def technologyMapping(cdfgOld: CDFGraph) -> CDFGraph:

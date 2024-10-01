@@ -8,8 +8,8 @@ Last Modified by: Hanyu Wang
 Last Modified time: 2024-07-24 01:11:59
 """
 
-from typing import Any
-from dataclasses import dataclass
+from typing import Any, List, Dict, Set, Optional
+from dataclasses import dataclass, field
 from enum import Enum, auto
 
 
@@ -94,6 +94,75 @@ class OPType(Enum):
     ASSIGN = auto()
 
 
+opPrecedence: Dict[OPType, int] = {
+    # Parentheses have the highest precedence
+    # Unary reduction operators (highest precedence)
+    OPType.UNARY_AND: 1,
+    OPType.UNARY_OR: 1,
+    OPType.UNARY_XOR: 1,
+    OPType.UNARY_NAND: 1,
+    OPType.UNARY_NOR: 1,
+    OPType.UNARY_XNOR: 1,
+    # Unary operators
+    OPType.UNARY_POS: 2,
+    OPType.UNARY_NEG: 2,
+    OPType.UNARY_NOT: 2,
+    OPType.UNARY_INV: 2,
+    # Power operator
+    OPType.BINARY_POW: 3,
+    # Arithmetic operators
+    OPType.BINARY_MUL: 4,
+    OPType.BINARY_DIV: 4,
+    OPType.BINARY_MOD: 4,
+    # Addition and subtraction
+    OPType.BINARY_ADD: 5,
+    OPType.BINARY_SUB: 5,
+    # Shift operators
+    OPType.BINARY_RSHIFT: 6,
+    OPType.BINARY_RSHIFT_EXT: 6,
+    OPType.BINARY_LSHIFT: 6,
+    OPType.BINARY_LSHIFT_EXT: 6,
+    # Comparison operators
+    OPType.BINARY_LT: 7,
+    OPType.BINARY_GT: 7,
+    OPType.BINARY_LEQ: 7,
+    OPType.BINARY_GEQ: 7,
+    # Equivalence operators
+    OPType.BINARY_EQ: 8,
+    OPType.BINARY_NEQ: 8,
+    OPType.BINARY_EQ_EXT: 8,
+    OPType.BINARY_NEQ_EXT: 8,
+    # Bitwise operators
+    OPType.BINARY_BITAND: 9,
+    OPType.BINARY_XOR: 9,
+    OPType.BINARY_XNOR: 9,
+    OPType.BINARY_BITOR: 9,
+    # Logical operators
+    OPType.BINARY_AND: 9,
+    OPType.BINARY_OR: 9,
+    # Conditional expression
+    OPType.CONDITIONAL_EXPRESSION: 12,
+    # Function calls
+    OPType.FUNCTION_CALL: 13,
+    # Constants, variables, and assignments (lowest precedence)
+    OPType.VARIABLE: 0,
+    OPType.CONSTANT: 0,
+    OPType.MACRO: 0,
+    OPType.ASSIGN: 0,
+}
+
+opAssociativity: Set = {
+    OPType.BINARY_ADD,  # Addition: (a + b) + c == a + (b + c)
+    OPType.BINARY_MUL,  # Multiplication: (a * b) * c == a * (b * c)
+    OPType.BINARY_BITAND,  # Bitwise AND: (a & b) & c == a & (b & c)
+    OPType.BINARY_BITOR,  # Bitwise OR: (a | b) | c == a | (b | c)
+    OPType.BINARY_XOR,  # Bitwise XOR: (a ^ b) ^ c == a ^ (b ^ c)
+    OPType.BINARY_XNOR,  # Bitwise XNOR: (a ~^ b) ~^ c == a ~^ (b ~^ c)
+    OPType.BINARY_AND,  # Logical AND: (a && b) && c == a && (b && c)
+    OPType.BINARY_OR,  # Logical OR: (a || b) || c == a || (b || c)
+}
+
+
 def getOpType(op: str) -> OPType:
     for opType in OPType:
         if opType.value == op:
@@ -101,22 +170,51 @@ def getOpType(op: str) -> OPType:
     return OPType.UNKNOWN
 
 
+@dataclass
 class Range:
-    def __init__(self, start: Any, end: Any = None):
-        self.start = start
-        self.end = end
+    start: Any
+    end: Optional[Any] = None
 
     def __eq__(self, value: object) -> bool:
         if not isinstance(value, Range):
+            print(f"Expected Range, got {type(value)}")
             return False
         if self.end is None and value.end is not None:
-            return
-        if self.start is None and value.start is not None:
+            print(f"End mismatch: {self.end} != {value.end}")
             return False
-        return self.start == value.start and self.end == value.end
+        if self.start is None and value.start is not None:
+            print(f"Start mismatch: {self.start} != {value.start}")
+            return False
+        if self.start != value.start or self.end != value.end:
+            print(
+                f"Range mismatch: {self.start.toString()} != {value.start.toString()}, {self.end.toString()} != {value.end.toString()}"
+            )
+            return False
+        return True
+
+    def __ne__(self, value: object) -> bool:
+        return not self.__eq__(value)
 
     def __repr__(self) -> str:
         return f"Range({self.start}, {self.end})"
+
+    def toWidth(self) -> int:
+        if not isinstance(self.start, ConstantNode) or not isinstance(
+            self.end, ConstantNode
+        ):
+            raise Exception(
+                f"Expected ConstantNode, got {type(self.start)} and {type(self.end)}"
+            )
+        startVal = int(self.start.variable_name)
+        endVal = int(self.end.variable_name)
+        if endVal != 0:
+            raise Exception(f"Expected 0, got {endVal}")
+        return startVal + 1
+
+
+class BasicRange(Range):
+    def __init__(self, width: int) -> None:
+        super().__init__(ConstantNode(width - 1), ConstantNode(0))
 
 
 def rangeToString(range: Range) -> str:
@@ -128,10 +226,6 @@ def rangeToString(range: Range) -> str:
         if range.end is not None
         else f"[{range.start}]"
     )
-
-
-from dataclasses import dataclass, field
-from typing import List, Optional
 
 
 @dataclass
@@ -162,7 +256,7 @@ class BNode:
         if self.operation != value.operation:
             print(f"Operation mismatch: {self.operation} != {value.operation}")
             return False
-        if self.variable_name != value.variable_name:
+        if str(self.variable_name) != str(value.variable_name):
             print(
                 f"Variable name mismatch: {self.variable_name} != {value.variable_name}"
             )
@@ -223,23 +317,45 @@ class OPNode(BNode):
         self.children = list(items)
 
     def toString(self) -> str:
+        def _childToString(node: OPNode, child: OPNode) -> str:
+            if opPrecedence.get(self.operation, 0) > opPrecedence.get(
+                child.operation, 0
+            ):
+                return f"{child.toString()}"
+            # if self.operation == child.operation and self.operation in opAssociativity:
+            #     return f"{child.toString()}"
+            return f"({child.toString()})"
+
         opName = self.operation.value
+        # Case 1: Binary or unary operation
         if opName.startswith("binary_"):
             assert (
                 len(self.children) == 2
             ), f"Expected 2 children, got {len(self.children)}, op = {opName}, they are {self.children}"
-            return f"({self.children[0].toString()} {self.variable_name} {self.children[1].toString()})"
+
+            # get the child nodes
+            child1 = _childToString(self, self.children[0])
+            child2 = _childToString(self, self.children[1])
+            return f"{child1} {self.variable_name} {child2}"
         if opName.startswith("unary_"):
             assert (
                 len(self.children) == 1
             ), f"Expected 1 child, got {len(self.children)}, op = {opName}, they are {self.children}"
-            return f"({self.variable_name} {self.children[0].toString()})"
+            child = _childToString(self, self.children[0])
+            return f"{self.variable_name}{child}"
+        # Case 2: Array operations
         match self.operation:
             case OPType.ARRAY_CONCAT:
-                return f"{{{', '.join([child.toString() for child in self.children])}}}"
+                return (
+                    "{" + ", ".join([child.toString() for child in self.children]) + "}"
+                )
             case OPType.ARRAY_REPLICATE:
                 return (
-                    f"{{{self.children[0].toString()}{{self.children[1].toString()}}}}"
+                    "{"
+                    + self.children[0].toString()
+                    + "{"
+                    + self.children[1].toString()
+                    + "}}"
                 )
             case OPType.ARRAY_SLICE:
                 return f"{self.children[0].toString()}[{self.children[1].toString()}:{self.children[2].toString()}]"
@@ -252,7 +368,7 @@ class OPNode(BNode):
             case OPType.EVENT_COMB:
                 return "*"
             case OPType.CONDITIONAL_EXPRESSION:
-                return f"({self.children[0].toString()} ? {self.children[1].toString()} : {self.children[2].toString()})"
+                return f"{self.children[0].toString()} ? {self.children[1].toString()} : {self.children[2].toString()}"
             case OPType.FUNCTION_CALL:
                 return f"{self.variable_name}({', '.join([child.toString() for child in self.children])})"
             case OPType.MACRO:
