@@ -18,7 +18,11 @@ def test_00_basic():
 
     fsm = cfg2fsm(graph)
 
-    fsm.write("tmp.dot")
+    assert len(fsm.nodes()) == 7
+    assert len(fsm.edges()) == 7
+
+    module = fsm2module(fsm)
+    print(moduleToString(module))
 
 
 if __name__ == "__main__":

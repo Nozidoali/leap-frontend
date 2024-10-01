@@ -8,6 +8,8 @@ Last Modified by: Hanyu Wang
 Last Modified time: 2024-06-28 13:16:39
 """
 
-from .node import *
-from .graph import *
 from .port import *
+from .node import *
+from .edge import *
+
+from .graph import *

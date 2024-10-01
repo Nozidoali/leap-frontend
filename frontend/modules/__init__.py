@@ -13,5 +13,4 @@ from .frame import *
 from .module import *
 from .netlist import *
 from .dfg import *
-from .cfg import *
 from .statement import *

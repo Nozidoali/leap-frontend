@@ -30,7 +30,7 @@ def assignmentToString(assignment: Assignment):
         condition = condition.toString()
         retString += f"if ({condition}) begin\n\t{assginBody}\nend\n"
     else:
-        retString += f"\t{assginBody}\n"
+        retString += f"{assginBody}\n"
 
     if assignment.event is not None:
         retString += "end\n"
