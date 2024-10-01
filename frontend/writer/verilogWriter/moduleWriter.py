@@ -13,6 +13,7 @@ from .headerWriter import *
 
 
 def assignmentToString(assignment: Assignment):
+    assert isinstance(assignment, Assignment)
     retString = ""
 
     target = assignment.target.toString()

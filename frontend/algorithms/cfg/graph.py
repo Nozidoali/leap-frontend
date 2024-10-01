@@ -88,15 +88,13 @@ def fsm2module(fsm: FSM) -> Module:
     module.addPort(RegPort(nextStateNode, BasicRange(width)))
     module.addPort(WirePort(currStateNode, BasicRange(width)))
 
-    # we define each state as a parameter
     for i, node in enumerate(fsm.nodes()):
+        # we define each state as a parameter
         paramNode = VarNode(node.name + "_label")
         module.addPort(ParameterPort(paramNode, BasicRange(width)))
         module.addAssignment(Assignment(paramNode, ConstantNode(f"3'd{i}")))
 
-    # for each parameter, we need to output a control signal, which is the comparison between the current state and the parameter
-    for i, node in enumerate(fsm.nodes()):
-        paramNode = VarNode(node.name + "_label")
+        # for each parameter, we need to output a control signal, which is the comparison between the current state and the parameter
         compNode = OPNode("==", OPType.BINARY_EQ, currStateNode, paramNode)
         outName = node.name + "_ctrl_out"
         outNode = VarNode(outName)

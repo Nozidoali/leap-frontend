@@ -36,6 +36,7 @@ class Assignment(BNEdge):
         return self
 
     def setEvent(self, event: BNode):
+        assert isinstance(event, BNode)
         self.event = event
         return self
 
@@ -67,6 +68,9 @@ class Assignment(BNEdge):
         return not self.__eq__(value)
 
     def toString(self) -> str:
+        # NOTE: this should not be used for verilog generation
+        # Only for debugging purposes
+        # Use `assignmentToString` instead
         eventStr = self.event.toString() if self.event is not None else ""
         condStr = self.condition.toString() if self.condition is not None else ""
         return f"always @({eventStr}) if ({condStr}) {self.target.toString()} = {self.expression.toString()}"
@@ -74,11 +78,9 @@ class Assignment(BNEdge):
 
 @dataclass
 class BlockingAssignment(Assignment):
-    def __post_init__(self):
-        self.isBlocking = True
+    isBlocking: bool = True
 
 
 @dataclass
 class NonBlockingAssignment(Assignment):
-    def __post_init__(self):
-        self.isBlocking = False
+    isBlocking: bool = False
