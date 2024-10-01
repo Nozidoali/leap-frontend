@@ -9,7 +9,7 @@ Last Modified time: 2024-06-25 23:25:03
 """
 
 from .definitions import *
-from .ports import *
+from .frame import *
 from .module import *
 from .netlist import *
 from .dfg import *

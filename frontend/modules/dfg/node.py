@@ -8,7 +8,7 @@ Last Modified by: Hanyu Wang
 Last Modified time: 2024-07-24 01:11:59
 """
 
-from typing import Any, List, Optional
+from typing import Any, List, Dict, Set, Optional
 from dataclasses import dataclass, field
 from enum import Enum, auto
 
@@ -92,6 +92,75 @@ class OPType(Enum):
 
     # Assignments
     ASSIGN = auto()
+
+
+opPrecedence: Dict[OPType, int] = {
+    # Parentheses have the highest precedence
+    # Unary reduction operators (highest precedence)
+    OPType.UNARY_AND: 1,
+    OPType.UNARY_OR: 1,
+    OPType.UNARY_XOR: 1,
+    OPType.UNARY_NAND: 1,
+    OPType.UNARY_NOR: 1,
+    OPType.UNARY_XNOR: 1,
+    # Unary operators
+    OPType.UNARY_POS: 2,
+    OPType.UNARY_NEG: 2,
+    OPType.UNARY_NOT: 2,
+    OPType.UNARY_INV: 2,
+    # Power operator
+    OPType.BINARY_POW: 3,
+    # Arithmetic operators
+    OPType.BINARY_MUL: 4,
+    OPType.BINARY_DIV: 4,
+    OPType.BINARY_MOD: 4,
+    # Addition and subtraction
+    OPType.BINARY_ADD: 5,
+    OPType.BINARY_SUB: 5,
+    # Shift operators
+    OPType.BINARY_RSHIFT: 6,
+    OPType.BINARY_RSHIFT_EXT: 6,
+    OPType.BINARY_LSHIFT: 6,
+    OPType.BINARY_LSHIFT_EXT: 6,
+    # Comparison operators
+    OPType.BINARY_LT: 7,
+    OPType.BINARY_GT: 7,
+    OPType.BINARY_LEQ: 7,
+    OPType.BINARY_GEQ: 7,
+    # Equivalence operators
+    OPType.BINARY_EQ: 8,
+    OPType.BINARY_NEQ: 8,
+    OPType.BINARY_EQ_EXT: 8,
+    OPType.BINARY_NEQ_EXT: 8,
+    # Bitwise operators
+    OPType.BINARY_BITAND: 9,
+    OPType.BINARY_XOR: 9,
+    OPType.BINARY_XNOR: 9,
+    OPType.BINARY_BITOR: 9,
+    # Logical operators
+    OPType.BINARY_AND: 9,
+    OPType.BINARY_OR: 9,
+    # Conditional expression
+    OPType.CONDITIONAL_EXPRESSION: 12,
+    # Function calls
+    OPType.FUNCTION_CALL: 13,
+    # Constants, variables, and assignments (lowest precedence)
+    OPType.VARIABLE: 0,
+    OPType.CONSTANT: 0,
+    OPType.MACRO: 0,
+    OPType.ASSIGN: 0,
+}
+
+opAssociativity: Set = {
+    OPType.BINARY_ADD,  # Addition: (a + b) + c == a + (b + c)
+    OPType.BINARY_MUL,  # Multiplication: (a * b) * c == a * (b * c)
+    OPType.BINARY_BITAND,  # Bitwise AND: (a & b) & c == a & (b & c)
+    OPType.BINARY_BITOR,  # Bitwise OR: (a | b) | c == a | (b | c)
+    OPType.BINARY_XOR,  # Bitwise XOR: (a ^ b) ^ c == a ^ (b ^ c)
+    OPType.BINARY_XNOR,  # Bitwise XNOR: (a ~^ b) ~^ c == a ~^ (b ~^ c)
+    OPType.BINARY_AND,  # Logical AND: (a && b) && c == a && (b && c)
+    OPType.BINARY_OR,  # Logical OR: (a || b) || c == a || (b || c)
+}
 
 
 def getOpType(op: str) -> OPType:
@@ -248,23 +317,45 @@ class OPNode(BNode):
         self.children = list(items)
 
     def toString(self) -> str:
+        def _childToString(node: OPNode, child: OPNode) -> str:
+            if opPrecedence.get(self.operation, 0) > opPrecedence.get(
+                child.operation, 0
+            ):
+                return f"{child.toString()}"
+            if self.operation == child.operation and self.operation in opAssociativity:
+                return f"{child.toString()}"
+            return f"({child.toString()})"
+
         opName = self.operation.value
+        # Case 1: Binary or unary operation
         if opName.startswith("binary_"):
             assert (
                 len(self.children) == 2
             ), f"Expected 2 children, got {len(self.children)}, op = {opName}, they are {self.children}"
-            return f"({self.children[0].toString()} {self.variable_name} {self.children[1].toString()})"
+
+            # get the child nodes
+            child1 = _childToString(self, self.children[0])
+            child2 = _childToString(self, self.children[1])
+            return f"{child1} {self.variable_name} {child2}"
         if opName.startswith("unary_"):
             assert (
                 len(self.children) == 1
             ), f"Expected 1 child, got {len(self.children)}, op = {opName}, they are {self.children}"
-            return f"({self.variable_name} {self.children[0].toString()})"
+            child = _childToString(self, self.children[0])
+            return f"{self.variable_name}{child}"
+        # Case 2: Array operations
         match self.operation:
             case OPType.ARRAY_CONCAT:
-                return f"{{{', '.join([child.toString() for child in self.children])}}}"
+                return (
+                    "{" + ", ".join([child.toString() for child in self.children]) + "}"
+                )
             case OPType.ARRAY_REPLICATE:
                 return (
-                    f"{{{self.children[0].toString()}{{self.children[1].toString()}}}}"
+                    "{"
+                    + self.children[0].toString()
+                    + "{"
+                    + self.children[1].toString()
+                    + "}}"
                 )
             case OPType.ARRAY_SLICE:
                 return f"{self.children[0].toString()}[{self.children[1].toString()}:{self.children[2].toString()}]"
@@ -277,7 +368,7 @@ class OPNode(BNode):
             case OPType.EVENT_COMB:
                 return "*"
             case OPType.CONDITIONAL_EXPRESSION:
-                return f"({self.children[0].toString()} ? {self.children[1].toString()} : {self.children[2].toString()})"
+                return f"{self.children[0].toString()} ? {self.children[1].toString()} : {self.children[2].toString()}"
             case OPType.FUNCTION_CALL:
                 return f"{self.variable_name}({', '.join([child.toString() for child in self.children])})"
             case OPType.MACRO:

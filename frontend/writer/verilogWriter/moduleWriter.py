@@ -19,18 +19,18 @@ def assignmentToString(assignment: Assignment):
     expression = assignment.expression.toString()
     assignOp = "=" if assignment.isBlocking else "<="
     condition = assignment.condition
+    assignHead = "assign " if assignment.targetType == PortType.WIRE else ""
 
     if assignment.event is not None:
         retString += f"{assignment.event.toString()} begin\n"
 
+    assginBody = f"{assignHead}{target} {assignOp} {expression};"
     # TODO: consider wire/latch/reg
     if condition is not None:
         condition = condition.toString()
-        retString += (
-            f"if ({condition}) begin\n\t{target} {assignOp} {expression};\nend\n"
-        )
+        retString += f"if ({condition}) begin\n\t{assginBody}\nend\n"
     else:
-        retString += f"\t{target} {assignOp} {expression};\n"
+        retString += f"\t{assginBody}\n"
 
     if assignment.event is not None:
         retString += "end\n"
@@ -40,7 +40,7 @@ def assignmentToString(assignment: Assignment):
 
 def writeAssignment(f, assignment: Assignment):
     assignmentString = assignmentToString(assignment)
-    f.write(assignmentString + ";\n")
+    f.write(assignmentString)
 
 
 def writeAssignments(f, module: Module):

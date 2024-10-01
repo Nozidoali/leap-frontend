@@ -875,6 +875,25 @@ endmodule
     assert write_after_read(verilogString)
 
 
+# Test 41
+# Expression with precedence
+def test_41_case():
+    verilogString = """
+module top (
+    input wire a,
+    input wire b,
+    output reg f
+);
+
+always @(*) begin
+    f = (a + b) * a;
+end
+
+endmodule
+"""
+    assert write_after_read(verilogString)
+
+
 if __name__ == "__main__":
     # test_00_write_assignment()
     # test_01_write_assignment()
@@ -884,7 +903,7 @@ if __name__ == "__main__":
     # test_05_write_assignment()
     # test_06_write_assignment()
     # test_07_write_expression()
-    # test_08_binary_operations()
+    test_08_binary_operations()
     # test_09_unary_operations()
     # test_10_shift_operations()
     # test_11_array_concat()
@@ -916,4 +935,5 @@ if __name__ == "__main__":
     # test_37_case()
     # test_38_case()
     # test_39_case()
-    test_40_mixed_event_conditions()
+    # test_40_mixed_event_conditions()
+    # test_41_case()

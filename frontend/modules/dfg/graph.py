@@ -2,6 +2,7 @@ from dataclasses import dataclass, field
 from typing import Optional, Dict, List
 
 from .node import *
+from .port import *
 
 
 @dataclass
@@ -15,11 +16,14 @@ class Assignment:
     - **event** (BNode): the event under which the assignment is valid
     """
 
+    # TODO: decide if we need to change target directly to a Port
     target: BNode
+
     expression: BNode
     condition: Optional[BNode] = None
     event: Optional[BNode] = None
     isBlocking: bool = True
+    targetType: PortType = PortType.WIRE
 
     def addCondition(self, condition: BNode):
         if condition is None:
