@@ -1,3 +1,6 @@
+from typing import List, Optional, Tuple
+from dataclasses import dataclass
+
 from .node import *
 from .port import *
 
@@ -84,3 +87,10 @@ class BlockingAssignment(Assignment):
 @dataclass
 class NonBlockingAssignment(Assignment):
     isBlocking: bool = False
+
+@dataclass
+class CaseAssignment(BNEdge):
+    caseVariable: BNode
+    cases: List[Tuple[BNode, BNode]]
+    isBlocking: bool = True
+    targetType: PortType = PortType.WIRE
