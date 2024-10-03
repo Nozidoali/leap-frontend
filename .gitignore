@@ -167,3 +167,8 @@ tests/*.csv
 !requirements-dev.txt
 
 .DS_Store
+
+# tmporary files
+./*.v
+./*.dot
+tosend

@@ -11,7 +11,7 @@ Last Modified time: 2024-06-25 23:55:15
 from typing import List, Dict
 
 from .dfg import *
-from .ports import *
+from .frame import *
 from .definitions import *
 
 
@@ -112,6 +112,15 @@ class Module(Frame, Macros, ParameterHandler, BNGraph):
         return not self.__eq__(value)
 
     def postProcess(self, params: dict = {}) -> None:
+        # sanity check on the assignments
+        for assignment in self.assignments:
+            if assignment.target.name not in self.getPortNames():
+                raise ValueError(
+                    f"Assignment target {assignment.target.name} not found in module {self.getName()}"
+                )
+            port = self.getPort(assignment.target.name)
+            assignment.targetType = port.getType()
+
         # turn submodules into assignments
         if self.hasInstances:
             # just skip it for now
