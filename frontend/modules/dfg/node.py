@@ -227,6 +227,13 @@ def rangeToString(range: Range) -> str:
     if range is None:
         return ""
     assert isinstance(range, Range), f"Expected Range, got {type(range)}"
+    try:
+        width: int = range.toWidth()
+        if width == 1:
+            # single bit, no need to specify the range
+            return ""
+    except:
+        pass
     return (
         f"[{range.start.toString()}:{range.end.toString()}]"
         if range.end is not None

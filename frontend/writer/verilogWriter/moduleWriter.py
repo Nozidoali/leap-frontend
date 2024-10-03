@@ -8,6 +8,7 @@ Last Modified by: Hanyu Wang
 Last Modified time: 2024-07-23 23:19:24
 """
 
+from typing import List, Dict, Tuple
 from ...modules import *
 from .headerWriter import *
 
@@ -39,7 +40,7 @@ def writeModuleHeader(f, module: Module):
     f.write(headerString)
 
 
-def portDefsToString(portDefs: dict, listParamValues: dict):
+def portDefsToString(portDefs: Dict[str, Port], listParamValues: dict):
     retString = ""
     for _, port in portDefs.items():
         if port.name in listParamValues:
