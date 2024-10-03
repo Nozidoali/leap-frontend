@@ -12,31 +12,9 @@ from ...modules import *
 from .headerWriter import *
 
 
-def assignmentToString(assignment: Assignment):
-    assert isinstance(assignment, Assignment)
-    retString = ""
-
-    target = assignment.target.toString()
-    expression = assignment.expression.toString()
-    assignOp = "=" if assignment.isBlocking else "<="
-    condition = assignment.condition
-    assignHead = "assign " if assignment.targetType == PortType.WIRE else ""
-
-    if assignment.event is not None:
-        retString += f"{assignment.event.toString()} begin\n"
-
-    assginBody = f"{assignHead}{target} {assignOp} {expression};"
-    # TODO: consider wire/latch/reg
-    if condition is not None:
-        condition = condition.toString()
-        retString += f"if ({condition}) begin\n\t{assginBody}\nend\n"
-    else:
-        retString += f"{assginBody}\n"
-
-    if assignment.event is not None:
-        retString += "end\n"
-
-    return retString
+def assignmentToString(assignment: BNEdge):
+    assert isinstance(assignment, BNEdge)
+    return assignment.toString()
 
 
 def writeAssignment(f, assignment: Assignment):

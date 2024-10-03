@@ -37,6 +37,21 @@ def test_02_case_assignment():
     print(assignment.toString())
 
 
+# Test 03
+# conditional assignment
+def test_03_conditional_assignment():
+    a = VarNode("a")
+    b = VarNode("b")
+
+    assignment = ConditionalAssignment(a, isBlocking=True)
+    # assert assignment.isBlocking == False
+
+    assignment.addBranch(ConstantNode(1), Assignment(a, ConstantNode(1)))
+    assignment.addBranch(ConstantNode(0), Assignment(a, ConstantNode(0)))
+    print(assignment.toString())
+
+
 if __name__ == "__main__":
-    test_00_assignment()
-    test_02_case_assignment()
+    # test_00_assignment()
+    # test_02_case_assignment()
+    test_03_conditional_assignment()

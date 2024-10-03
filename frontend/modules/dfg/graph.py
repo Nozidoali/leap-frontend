@@ -8,14 +8,11 @@ from .edge import *
 
 class BNGraph:
     def __init__(self):
-        self.assignments: List[Assignment] = []
+        self.assignments: List[BNEdge] = []
         self.var2assigns: Dict[str, List[int]] = {}
 
-    def addAssignment(self, assignment: Assignment) -> None:
+    def addAssignment(self, assignment: BNEdge) -> None:
         self.assignments.append(assignment)
-        assert isinstance(
-            assignment.target, BNode
-        ), f"Expected BNode, got {assignment.target}, {type(assignment.target)}"
         variableName = assignment.target.name
         if variableName not in self.var2assigns:
             self.var2assigns[variableName] = []

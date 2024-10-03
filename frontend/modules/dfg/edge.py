@@ -1,5 +1,6 @@
 from typing import List, Optional, Tuple
 from dataclasses import dataclass
+from abc import ABC, abstractmethod
 
 from .node import *
 from .port import *
@@ -8,6 +9,10 @@ from .port import *
 @dataclass
 class BNEdge:
     target: BNode
+
+    @abstractmethod
+    def toString(self) -> str:
+        pass
 
 
 @dataclass
@@ -85,13 +90,13 @@ class Assignment(BNEdge):
         if self.event is not None:
             retString += f"{self.event.toString()} begin\n"
 
-        assginBody = f"{assignHead}{target} {assignOp} {expression};"
+        assignBody = f"{assignHead}{target} {assignOp} {expression};"
         # TODO: consider wire/latch/reg
         if condition is not None:
             condition = condition.toString()
-            retString += f"if ({condition}) begin\n\t{assginBody}\nend\n"
+            retString += f"if ({condition}) begin\n\t{assignBody}\nend\n"
         else:
-            retString += f"{assginBody}\n"
+            retString += f"{assignBody}\n"
 
         if self.event is not None:
             retString += "end\n"
@@ -112,24 +117,61 @@ class NonBlockingAssignment(Assignment):
 @dataclass
 class CaseAssignment(BNEdge):
     caseVariable: BNode
-    cases: List[Tuple[BNode, Assignment]] = field(default_factory=list)
+    cases: List[Tuple[BNode, BNEdge]] = field(default_factory=list)
     isBlocking: bool = True
     targetType: PortType = PortType.WIRE
+    event: BNode = None
 
-    def addCase(self, caseValue: BNode, expression: Assignment):
+    def addCase(self, caseValue: BNode, expression: BNEdge):
         # assert isinstance(caseValue, BNode), f"Expected BNode, got {type(caseValue)}"
         assert isinstance(
-            expression, Assignment
-        ), f"Expected Assignment, got {type(expression)}"
+            expression, BNEdge
+        ), f"Expected BNEdge, got {type(expression)}"
         self.cases.append((caseValue, expression))
         return self
 
     def toString(self) -> str:
-        caseStr = f"case ({self.caseVariable.toString()})"
+        caseStr = ""
+        if self.event is not None:
+            caseStr += f"{self.event.toString()} begin\n"
+        caseStr += f"case ({self.caseVariable.toString()})"
         for caseValue, expression in self.cases:
             if caseValue is None:
                 caseStr += f"\ndefault:\n{expression.toString()}"
                 continue
             caseStr += f"\n{caseValue.toString()}:\n{expression.toString()}"
-        caseStr += "\nendcase"
+        caseStr += "\nendcase\n"
+        if self.event is not None:
+            caseStr += "end\n"
         return caseStr
+
+
+@dataclass
+class ConditionalAssignment(BNEdge):
+    """
+    These conditions are order sensitive.
+    The first is the highest priority (i.e. the first condition that is true is executed)
+    The last could be a default condition (None)
+    """
+
+    conditions: List[Tuple[BNode, Assignment]] = field(default_factory=list)
+    isBlocking: bool = True
+    targetType: PortType = PortType.WIRE
+
+    def addBranch(self, condition: BNode, expression: Assignment):
+        assert isinstance(
+            expression, Assignment
+        ), f"Expected Assignment, got {type(expression)}"
+        self.conditions.append((condition, expression))
+        return self
+
+    def toString(self) -> str:
+        retString = ""
+        for i, (condition, expression) in enumerate(self.conditions):
+            if i != 0:
+                retString += "else "
+            if condition is None:
+                retString += f"{expression.toString()}"
+                continue
+            retString += f"if ({condition.toString()}) {expression.toString()}"
+        return retString
