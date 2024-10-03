@@ -154,7 +154,7 @@ def getParamValues(module: Module):
     return defaultParamsValues
 
 
-def moduleToString(module: Module, inblockVar: bool = False):
+def moduleToString(module: Module, groupAssignments: bool = False):
     moduleString = ""
     moduleString += moduleHeaderToString(module)
     moduleString += module.getMacroString()
@@ -164,7 +164,7 @@ def moduleToString(module: Module, inblockVar: bool = False):
     for _, moduleInst in module.submodules.items():
         moduleString += moduleInstToString(moduleInst)
 
-    if inblockVar:
+    if groupAssignments:
         # write assignments to the same variable in the same always block
         for var in module.var2assigns:
             assignments = []
