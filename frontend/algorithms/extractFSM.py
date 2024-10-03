@@ -42,6 +42,10 @@ def isEdgeCond(src: pgv.Node, dst: pgv.Node, graph: pgv.AGraph, module: Module):
                 if isExprCondition(expr):
                     return True
                 break
+    for  target, expression, condition  in module.node2assignment.keys():
+        if target == dst.get_name() and condition == src.get_name():
+            return True
+
     return False
 
 
@@ -253,6 +257,18 @@ def isVarNode(node: pgv.Node):
     return node.attr["shape"] == "box"
 
 
+def getAssignStatement(module: Module, target: str, expression: str, condition: str):
+    targetIsNone = target is None
+    expressionIsNone = expression is None
+    conditionIsNone = condition is None
+    assert not (targetIsNone and expressionIsNone) or not (targetIsNone and conditionIsNone), "Invalid arguments"
+    for tmpTarget, tmpExpression, tmpCondition in module.node2assignment.keys():
+        if expressionIsNone and tmpTarget == target and tmpCondition == condition:
+            return module.node2assignment[(tmpTarget, tmpExpression, tmpCondition)]
+        if targetIsNone and tmpExpression == expression and tmpCondition == condition:
+            return module.node2assignment[(tmpTarget, tmpExpression, tmpCondition)]
+    return None
+
 def getArrivalState_rec(
     CFG: pgv.AGraph,
     node: pgv.Node,
@@ -264,8 +280,6 @@ def getArrivalState_rec(
     if node in visited:
         return None
     visited.add(node)
-    if node in FSM.nodes():
-        return node
     if node.attr["label"] in end_nodes:
         return node
     for src, dst in CFG.out_edges(node):
@@ -273,6 +287,19 @@ def getArrivalState_rec(
             op_value = dst.attr["label"]
             if op_value == "~":
                 continue
+        elif isVarNode(dst):
+            if( isEdgeCond(src, dst, CFG, module) ):
+                assign = getAssignStatement(module, dst, None, src)
+                assert assign is not None, "Assignment statement not found"
+                if assign.expression.isConstant():
+                    value = assign.expression.toString()
+                    if value == "1'b0" or value == "0" or value == "1'd0":
+                        continue
+                else:
+                    expression = assign.expression.toString()
+                    if expression in FSM.nodes():
+                        return expression
+
         dstNode = getArrivalState_rec(
             CFG, dst, visited, module, end_nodes, FSM
         )
@@ -330,7 +357,6 @@ def buildOriginalCDFG(graph: pgv.AGraph, module: Module, FSM: pgv.AGraph, end_no
             CDFG.add_node(dstNode.get_name())
             outCtrlInDataWire.append((srcNode, dstNode))
 
-    print(inCtrlOutDataWire, "AAAAAA")
 
     for node in CDFG.nodes():
         name = graph.get_node(node).attr["label"]
@@ -349,5 +375,7 @@ def buildOriginalCDFG(graph: pgv.AGraph, module: Module, FSM: pgv.AGraph, end_no
             #CDFG.add_edge(dataNode, arrivalState, color="green", style="dashed")
         else:
             assert False, "Arrival state not found"
+
+
 
     return CDFG
