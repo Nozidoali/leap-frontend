@@ -11,6 +11,58 @@ Last Modified time: 2024-07-23 23:19:24
 from ...modules import *
 from .headerWriter import *
 
+def assignmentsToString(assignments: List[Assignment]):
+    retString = ""
+    if len(assignments) == 0:
+        return retString
+    if len(assignments) == 1:
+        return assignmentToString(assignments[0])
+    eventTmp = None
+    noConditionAssign = None
+    for assign in assignments:
+        if assign.condition is None:
+            if noConditionAssign is not None:
+                assert False, "Multiple assignments with and without conditions are not supported"    
+            else:
+                noConditionAssign = assign
+
+        if assign.event is None:
+            continue
+        if eventTmp == None:
+            eventTmp = assign.event
+        elif eventTmp != assign.event:
+            assert False, "Multiple events in the same assignment list are not supported"
+
+    # reordering the assignments
+    if noConditionAssign is not None:
+        assignments.remove(noConditionAssign)
+        assignments.append(noConditionAssign)
+
+    if eventTmp is not None:
+        retString += f"{eventTmp.toString()} begin\n"
+
+    lenAssignments = len(assignments)
+    for iAssign in range(lenAssignments):
+        assign = assignments[iAssign]
+        if assign.condition is not None:
+            condition = assign.condition.toString()
+        else:
+            condition = None
+        target = assign.target.toString()
+        expression = assign.expression.toString()
+        assignOp = "=" if assign.isBlocking else "<="
+        if iAssign == 0:
+            retString += f"\tif ({condition}) begin\n\t\t{target} {assignOp} {expression};\n\tend\n"
+        elif iAssign == lenAssignments - 1 and noConditionAssign is not None:
+            retString += f"\telse begin\n\t\t{target} {assignOp} {expression};\n\tend\n"
+        else:
+            retString += f"\telse if ({condition}) begin\n\t\t{target} {assignOp} {expression};\n\tend\n"
+
+    if eventTmp is not None:
+        retString += "end\n"
+    
+    return retString
+
 
 def assignmentToString(assignment: Assignment):
     retString = ""
