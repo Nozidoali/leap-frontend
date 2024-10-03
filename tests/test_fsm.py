@@ -8,7 +8,7 @@ def test_00_basic():
     graph = CFGraph()
     graph.addBB("A", 1, isStart=True)
     graph.addBB("B", 4)
-    graph.addBB("C", 2)
+    graph.addBB("C", 2, isFinish=True)
 
     graph.addFlow("A", "B")
 

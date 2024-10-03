@@ -15,14 +15,30 @@ class CFGraph(pgv.AGraph):
             return None
         return node.attr["II"]
 
-    def addBB(self, name: str, latency: int, II: int = None, isStart: bool = False):
+    def addBB(
+        self,
+        name: str,
+        latency: int,
+        II: int = None,
+        isStart: bool = False,
+        isFinish: bool = False,
+    ):
         self.add_node(
             name,
             shape="box",
             latency=latency,
             II=II,
             isStart="true" if isStart else "false",
+            isFinish="true" if isFinish else "false",
         )
 
     def addFlow(self, src: str, dst: str):
         self.add_edge(src, dst)
+
+    @staticmethod
+    def isStart(node: pgv.Node):
+        return node.attr["isStart"] == "true"
+
+    @staticmethod
+    def isFinish(node: pgv.Node):
+        return node.attr["isFinish"] == "true"

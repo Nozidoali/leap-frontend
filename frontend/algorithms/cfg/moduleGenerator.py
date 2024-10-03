@@ -1,5 +1,5 @@
 import math
-from .graph import *
+from .cfg import *
 from .fsm import *
 from ...modules import *
 
@@ -121,6 +121,18 @@ def _fsmStateTransitionGeneration(
     module.addAssignment(assignment)
 
 
+def _fsmExitGeneration(fsm: FSM, module: Module, currStateNode: VarNode):
+    finishNode = VarNode("finish")
+    finalStateParam = fsm.getParamAtNode(fsm.getFinalState())
+    finishAssignment = ConditionalAssignment(finishNode, event=seqEventNode())
+    finishAssignment.addBranch(
+        OPNode("==", OPType.BINARY_EQ, currStateNode, finalStateParam),
+        RegAssignment(finishNode, ConstantNode("1'b1")),
+    )
+    finishAssignment.addDefaultBranch(RegAssignment(finishNode, ConstantNode("1'b0")))
+    module.addAssignment(finishAssignment)
+
+
 def _fsmInterfaceGeneration(
     fsm: FSM, module: Module, nextStateNode: VarNode, currStateNode: VarNode
 ):
@@ -149,7 +161,7 @@ def _fsmInterfaceGeneration(
     startNode = VarNode("start")
     finishNode = VarNode("finish")
     module.addPort(InputPort(startNode, BasicRange(1)))
-    module.addPort(OutputPort(finishNode, BasicRange(1)))
+    module.addPort(OutputRegPort(finishNode, BasicRange(1)))
 
 
 def fsm2module(fsm: FSM) -> Module:
@@ -158,4 +170,5 @@ def fsm2module(fsm: FSM) -> Module:
     _fsmStateTransitionGeneration(fsm, module, nextStateNode, currStateNode)
     _fsmCurrentStateAssignment(fsm, module, nextStateNode, currStateNode)
     _fsmInterfaceGeneration(fsm, module, nextStateNode, currStateNode)
+    _fsmExitGeneration(fsm, module, currStateNode)
     return module

@@ -1,7 +1,7 @@
 import pygraphviz as pgv
 from typing import List, Dict
 
-from .graph import *
+from .cfg import *
 
 
 class FSM(pgv.AGraph):
@@ -15,8 +15,9 @@ class FSM(pgv.AGraph):
 
         # this is the idle state
         self._initialState: pgv.Node = None
+        self._finalState: pgv.Node = None
 
-    def addBB(self, bb: pgv.Node, isStart: bool = False):
+    def addBB(self, bb: pgv.Node, isStart: bool = False, isFinish: bool = False):
         bbName = bb.name
         self.bbs.append(bbName)
         self.bbToNodes[bbName] = []
@@ -39,8 +40,15 @@ class FSM(pgv.AGraph):
             assert self._initialState is None, "Multiple initial states"
             self._initialState = self.get_node(self.bbToNodes[bbName][0])
 
+        if isFinish:
+            assert self._finalState is None, "Multiple final states"
+            self._finalState = self.get_node(self.bbToNodes[bbName][-1])
+
     def getIdleState(self) -> pgv.Node:
         return self._initialState
+
+    def getFinalState(self) -> pgv.Node:
+        return self._finalState
 
     def addFlow(self, src: pgv.Node, dst: pgv.Node):
         """
@@ -75,7 +83,7 @@ def cfg2fsm(cfgraph: CFGraph) -> FSM:
     fsm = FSM(strict=False, directed=True)
     # Add basic blocks to FSM
     for node in cfgraph.nodes():
-        fsm.addBB(node, isStart=node.attr["isStart"] == "true")
+        fsm.addBB(node, isStart=CFGraph.isStart(node), isFinish=CFGraph.isFinish(node))
     # Add flows between basic blocks in FSM
     for edge in cfgraph.edges():
         src = edge[0]

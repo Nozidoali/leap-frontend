@@ -138,6 +138,13 @@ class OutputPort(Port):
 
 
 @dataclass
+class OutputRegPort(Port):
+    # NOTE: not recommended, but sometimes convenient
+    direction: PortDirection = PortDirection.OUTPUT
+    type: PortType = PortType.REG
+
+
+@dataclass
 class InputPort(Port):
     direction: PortDirection = PortDirection.INPUT
 
