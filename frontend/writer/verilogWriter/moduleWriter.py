@@ -174,7 +174,7 @@ def getParamValues(module: Module):
     return defaultParamsValues
 
 
-def moduleToString(module: Module):
+def moduleToString(module: Module, inblockVar: bool = False):
     moduleString = ""
     moduleString += moduleHeaderToString(module)
     moduleString += module.getMacroString()
@@ -184,19 +184,31 @@ def moduleToString(module: Module):
     for _, moduleInst in module.submodules.items():
         moduleString += moduleInstToString(moduleInst)
 
-    for var in module.var2assigns:
-        for assign in module.getAssignmentsOf(var):
-            # TODO: consider the wire/latch/reg
-            # skip the assignment if it's a parameter or localparam and it's a constant expression without condition
-            skipAssignment = (
-                assign.target.toString() in module.getPortsByType(PortType.PARAMETER)
-                or assign.target.toString()
-                in module.getPortsByType(PortType.LOCALPARAM)
-                and assign.expression.isConstant()
-                and assign.condition is None
-            )
-            if not skipAssignment:
-                moduleString += assignmentToString(assign)
+    if inblockVar:
+        # write assignments to the same variable in the same always block
+        for var in module.var2assigns:
+            assignments = []
+            for assign in module.getAssignmentsOf(var):
+                # TODO: consider the wire/latch/reg
+                # skip the assignment if it's a parameter or localparam and it's a constant expression without condition
+                skipAssignment =  assign.target.toString() in module.getPortsByType(PortType.PARAMETER) or assign.target.toString() in module.getPortsByType(PortType.LOCALPARAM) and assign.expression.isConstant() and assign.condition is None
+                if not skipAssignment:
+                    assignments.append(assign)
+            moduleString += assignmentsToString(assignments)
+    else:
+        for var in module.var2assigns:
+            for assign in module.getAssignmentsOf(var):
+                # TODO: consider the wire/latch/reg
+                # skip the assignment if it's a parameter or localparam and it's a constant expression without condition
+                skipAssignment = (
+                    assign.target.toString() in module.getPortsByType(PortType.PARAMETER)
+                    or assign.target.toString()
+                    in module.getPortsByType(PortType.LOCALPARAM)
+                    and assign.expression.isConstant()
+                    and assign.condition is None
+                )
+                if not skipAssignment:
+                    moduleString += assignmentToString(assign)
     moduleString += "endmodule\n"
     return moduleString
 
