@@ -1,6 +1,5 @@
 import pygraphviz as pgv
 from typing import List, Dict
-import math
 
 from ...modules import *
 
@@ -103,89 +102,3 @@ def cfg2fsm(cfgraph: CFGraph) -> FSM:
         dst = edge[1]
         fsm.addFlow(src, dst)
     return fsm
-
-
-def fsm2module(fsm: FSM) -> Module:
-    module = Module()
-
-    assert len(fsm.nodes()) > 0, "FSM is empty"
-    width: int = math.ceil(math.log2(len(fsm.nodes())))
-
-    nextStateNode = VarNode("next_state")
-    currStateNode = VarNode("curr_state")
-    module.addPort(RegPort(nextStateNode, BasicRange(width)))
-    module.addPort(WirePort(currStateNode, BasicRange(width)))
-
-    for i, node in enumerate(fsm.nodes()):
-        # we define each state as a parameter
-        paramNode = fsm.getParamAtNode(node)
-        module.addPort(ParameterPort(paramNode, BasicRange(width)))
-        module.addAssignment(Assignment(paramNode, ConstantNode(f"3'd{i}")))
-
-        # for each parameter, we need to output a control signal, which is the comparison between the current state and the parameter
-        compNode = OPNode("==", OPType.BINARY_EQ, currStateNode, paramNode)
-        outName = node.name + "_ctrl_out"
-        outNode = VarNode(outName)
-        module.addPort(OutputPort(outNode, BasicRange(1)))
-        module.addAssignment(Assignment(outNode, compNode))
-
-    # for each bb with more than one successor, we need an input port
-    for bb in fsm.bbs:
-        for i in range(fsm.numSuccessors(bb) - 1):
-            inputNode = fsm.getControlSignalAtBB(bb, i)
-            module.addPort(InputPort(inputNode, BasicRange(1)))
-
-    # for each state transition, we need to update the next state
-    event = OPNode("always", OPType.EVENT_ALWAYS, OPNode("*", OPType.EVENT_COMB))
-    assignment = CaseAssignment(nextStateNode, currStateNode, event=event)
-    for i, node in enumerate(fsm.nodes()):
-        currParamNode = fsm.getParamAtNode(node)
-        if len(fsm.successors(node)) == 0:
-            continue
-        elif len(fsm.successors(node)) == 1:
-            succ = fsm.successors(node)[0]
-            nextParamNode = fsm.getParamAtNode(succ)
-            nextStateAssignment = Assignment(
-                nextStateNode, nextParamNode, targetType=PortType.REG, isBlocking=True
-            )
-        else:
-            conditionalAssignment = ConditionalAssignment(nextStateNode)
-            for j, succ in enumerate(fsm.successors(node)[:-1]):
-                controlNode = fsm.getControlSignalAtNode(succ, j)
-                nextParamNode = fsm.getParamAtNode(succ)
-                conditionalAssignment.addBranch(
-                    controlNode,
-                    Assignment(
-                        nextStateNode,
-                        nextParamNode,
-                        targetType=PortType.REG,
-                        isBlocking=True,
-                    ),
-                )
-            # add a default case to the conditional assignment
-            nextParamNode = fsm.getParamAtNode(fsm.successors(node)[-1])
-            conditionalAssignment.addBranch(
-                None,
-                Assignment(
-                    nextStateNode,
-                    nextParamNode,
-                    targetType=PortType.REG,
-                    isBlocking=True,
-                ),
-            )
-            nextStateAssignment = conditionalAssignment
-        assignment.addCase(currParamNode, nextStateAssignment)
-    # add a default case to the current state
-    assert fsm.initialState is not None, "FSM has no initial state"
-    initialStateNode = VarNode(fsm.initialState.name + "_label")
-    assignment.addCase(
-        None,
-        Assignment(
-            nextStateNode, initialStateNode, targetType=PortType.REG, isBlocking=True
-        ),
-    )
-
-    # add the case assignment to the module
-    module.addAssignment(assignment)
-
-    return module
