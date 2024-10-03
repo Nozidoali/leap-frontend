@@ -134,7 +134,7 @@ class WireAssignment(Assignment):
 @dataclass
 class LatchAssignment(Assignment):
     targetType: PortType = PortType.REG
-    isBlocking: bool = False
+    isBlocking: bool = True
 
 
 @dataclass

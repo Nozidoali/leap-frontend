@@ -4,13 +4,17 @@ from .fsm import *
 from ...modules import *
 
 
+def _stateTransitionAssignment(nextStateNode: VarNode, succNode: VarNode) -> BNEdge:
+    return LatchAssignment(nextStateNode, succNode)
+
+
 def _fsmStateGeneration(fsm: FSM, module: Module):
     assert len(fsm.nodes()) > 0, "FSM is empty"
     width: int = math.ceil(math.log2(len(fsm.nodes())))
 
     nextStateNode = VarNode("next_state")
     currStateNode = VarNode("curr_state")
-    module.addPort(WirePort(nextStateNode, BasicRange(width)))
+    module.addPort(RegPort(nextStateNode, BasicRange(width)))
     module.addPort(RegPort(currStateNode, BasicRange(width)))
     for i, node in enumerate(fsm.nodes()):
         # we define each state as a parameter
@@ -26,7 +30,7 @@ def _getNextStateAssignment(fsm: FSM, node: VarNode, nextStateNode: VarNode) -> 
     if len(fsm.successors(node)) == 1:
         succ = fsm.successors(node)[0]
         nextParamNode = fsm.getParamAtNode(succ)
-        return WireAssignment(nextStateNode, nextParamNode, isProcedural=True)
+        return _stateTransitionAssignment(nextStateNode, nextParamNode)
     else:
         conditionalAssignment = ConditionalAssignment(nextStateNode)
         for j, succ in enumerate(fsm.successors(node)[:-1]):
@@ -34,16 +38,12 @@ def _getNextStateAssignment(fsm: FSM, node: VarNode, nextStateNode: VarNode) -> 
             nextParamNode = fsm.getParamAtNode(succ)
             conditionalAssignment.addBranch(
                 controlNode,
-                WireAssignment(
-                    nextStateNode,
-                    nextParamNode,
-                    isProcedural=True,
-                ),
+                _stateTransitionAssignment(nextStateNode, nextParamNode),
             )
         # add a default case to the conditional assignment
         nextParamNode = fsm.getParamAtNode(fsm.successors(node)[-1])
         conditionalAssignment.addDefaultBranch(
-            WireAssignment(nextStateNode, nextParamNode, isProcedural=True)
+            _stateTransitionAssignment(nextStateNode, nextParamNode),
         )
         return conditionalAssignment
 
@@ -76,10 +76,10 @@ def _getIdleStateAssignment(
     nextStateAssignment = ConditionalAssignment(nextStateNode)
     startNode = VarNode("start")
     nextStateAssignment.addBranch(
-        startNode, WireAssignment(nextStateNode, nextParamNode, isProcedural=True)
+        startNode, _stateTransitionAssignment(nextStateNode, nextParamNode)
     )
     nextStateAssignment.addDefaultBranch(
-        WireAssignment(nextStateNode, currStateNode, isProcedural=True)
+        _stateTransitionAssignment(nextStateNode, currStateNode)
     )
     return nextStateAssignment
 
