@@ -136,7 +136,7 @@ def test_06_basic():
     # Check the module
     print(moduleToString(module))
     assert module.numInouts == 0
-    assert module.numInputs == 2
+    assert module.numInputs == 2, f"expected 2, got {module.numInputs}"
     assert module.numOutputs == 1
 
     # Check the ranges

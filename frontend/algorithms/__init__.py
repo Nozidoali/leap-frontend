@@ -1,6 +1,6 @@
 # the common graph representation to store the information
 from .cdfg import *
-
+from .cfg import *
 
 from .extractGraph import *
 from .elaborateAssignment import *

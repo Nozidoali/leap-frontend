@@ -8,6 +8,7 @@ Last Modified by: Hanyu Wang
 Last Modified time: 2024-07-23 23:19:24
 """
 
+from typing import List, Dict, Tuple
 from ...modules import *
 from .headerWriter import *
 
@@ -64,30 +65,9 @@ def assignmentsToString(assignments: List[Assignment]):
     return retString
 
 
-def assignmentToString(assignment: Assignment):
-    retString = ""
-
-    target = assignment.target.toString()
-    expression = assignment.expression.toString()
-    assignOp = "=" if assignment.isBlocking else "<="
-    condition = assignment.condition
-    assignHead = "assign " if assignment.targetType == PortType.WIRE else ""
-
-    if assignment.event is not None:
-        retString += f"{assignment.event.toString()} begin\n"
-
-    assginBody = f"{assignHead}{target} {assignOp} {expression};"
-    # TODO: consider wire/latch/reg
-    if condition is not None:
-        condition = condition.toString()
-        retString += f"if ({condition}) begin\n\t{assginBody}\nend\n"
-    else:
-        retString += f"\t{assginBody}\n"
-
-    if assignment.event is not None:
-        retString += "end\n"
-
-    return retString
+def assignmentToString(assignment: BNEdge):
+    assert isinstance(assignment, BNEdge)
+    return assignment.toString()
 
 
 def writeAssignment(f, assignment: Assignment):
@@ -112,7 +92,7 @@ def writeModuleHeader(f, module: Module):
     f.write(headerString)
 
 
-def portDefsToString(portDefs: dict, listParamValues: dict):
+def portDefsToString(portDefs: Dict[str, Port], listParamValues: dict):
     retString = ""
     for _, port in portDefs.items():
         if port.name in listParamValues:

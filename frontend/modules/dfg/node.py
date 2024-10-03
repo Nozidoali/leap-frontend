@@ -108,6 +108,9 @@ opPrecedence: Dict[OPType, int] = {
     OPType.UNARY_NEG: 2,
     OPType.UNARY_NOT: 2,
     OPType.UNARY_INV: 2,
+    # Event edges
+    OPType.UNARY_POSEDGE: 2,
+    OPType.UNARY_NEGEDGE: 2,
     # Power operator
     OPType.BINARY_POW: 3,
     # Arithmetic operators
@@ -140,6 +143,9 @@ opPrecedence: Dict[OPType, int] = {
     # Logical operators
     OPType.BINARY_AND: 9,
     OPType.BINARY_OR: 9,
+    # Event operators
+    OPType.BINARY_EVENT_AND: 9,
+    OPType.BINARY_EVENT_OR: 9,
     # Conditional expression
     OPType.CONDITIONAL_EXPRESSION: 12,
     # Function calls
@@ -221,6 +227,13 @@ def rangeToString(range: Range) -> str:
     if range is None:
         return ""
     assert isinstance(range, Range), f"Expected Range, got {type(range)}"
+    try:
+        width: int = range.toWidth()
+        if width == 1:
+            # single bit, no need to specify the range
+            return ""
+    except:
+        pass
     return (
         f"[{range.start.toString()}:{range.end.toString()}]"
         if range.end is not None
@@ -342,7 +355,7 @@ class OPNode(BNode):
                 len(self.children) == 1
             ), f"Expected 1 child, got {len(self.children)}, op = {opName}, they are {self.children}"
             child = _childToString(self, self.children[0])
-            return f"{self.variable_name}{child}"
+            return f"{self.variable_name} {child}"
         # Case 2: Array operations
         match self.operation:
             case OPType.ARRAY_CONCAT:
@@ -423,3 +436,31 @@ class UndefinedNode(BNode):
 @dataclass
 class BlackBoxNode(BNode):
     operation: OPType = OPType.BLACKBOX
+
+
+def combEventNode():
+    return OPNode("always", OPType.EVENT_ALWAYS, OPNode("*", OPType.EVENT_COMB))
+
+
+def seqEventNode(
+    useNegEdge: bool = False,
+    customClk: Optional[BNode] = None,
+    useReset: bool = False,
+    customReset: Optional[BNode] = None,
+):
+    clkNode = customClk or VarNode("clk")
+    if useNegEdge:
+        eventNode = OPNode("negedge", OPType.UNARY_NEGEDGE, clkNode)
+    else:
+        eventNode = OPNode("posedge", OPType.UNARY_POSEDGE, clkNode)
+
+    # this is important for the reset signal to be considered
+    # NOTE: will not work if we don't add this, because the simulator might not capture the reset signal
+    if useReset:
+        resetNode = customReset or VarNode("reset")
+        if useNegEdge:
+            resetNode = OPNode("negedge", OPType.UNARY_NEGEDGE, resetNode)
+        else:
+            resetNode = OPNode("posedge", OPType.UNARY_POSEDGE, resetNode)
+        eventNode = OPNode("or", OPType.BINARY_EVENT_OR, eventNode, resetNode)
+    return OPNode("always", OPType.EVENT_ALWAYS, eventNode)
