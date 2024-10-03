@@ -278,15 +278,34 @@ endmodule
     assert module.getPort("a").getType() == PortType.WIRE
 
 
+# Test 12:
+# Define the port type in the module interface
+def test_12_port_type():
+    module = Module()
+
+    a = VarNode("a")
+    b = VarNode("b")
+
+    module.addPort(InputPort(a, BasicRange(1)))
+    module.addPort(OutputPort(b, BasicRange(1)))
+
+    assert module.getPort("a").getType() == PortType.WIRE
+    assert module.getPort("b").getType() == PortType.WIRE
+    assert module.getPort("a").getDirection() == PortDirection.INPUT
+    assert module.getPort("b").getDirection() == PortDirection.OUTPUT
+
+
 if __name__ == "__main__":
-    test_00_basic()
-    test_01_cornercases()
-    test_02_case()
-    test_03_case()
-    test_04_case()
-    test_05_port_type()
-    test_06_port_type()
-    test_07_port_type()
-    test_08_port_type()
-    test_09_port_type()
-    test_10_port_type()
+    # test_00_basic()
+    # test_01_cornercases()
+    # test_02_case()
+    # test_03_case()
+    # test_04_case()
+    # test_05_port_type()
+    # test_06_port_type()
+    # test_07_port_type()
+    # test_08_port_type()
+    # test_09_port_type()
+    # test_10_port_type()
+
+    test_12_port_type()

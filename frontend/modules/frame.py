@@ -1,15 +1,3 @@
-#!/usr/bin/env python
-# -*- encoding=utf8 -*-
-
-"""
-Author: Hanyu Wang
-Created time: 2024-06-25 21:29:47
-Last Modified by: Hanyu Wang
-Last Modified time: 2024-06-25 23:58:04
-"""
-
-from enum import Enum
-
 from dataclasses import dataclass
 from typing import Optional, Dict, Set
 from .dfg import *
@@ -122,10 +110,6 @@ class Port:
     def name(self):
         return self.variable.name
 
-    @name.setter
-    def name(self, name: str):
-        pass
-
     @property
     def isPi(self):
         return self.direction == PortDirection.INPUT
@@ -149,30 +133,40 @@ def portToString(port: Port):
 
 
 @dataclass
-class BasicPort(Port):
-    name: str
-    direction: PortDirection
+class OutputPort(Port):
+    direction: PortDirection = PortDirection.OUTPUT
+
+
+@dataclass
+class OutputRegPort(Port):
+    # NOTE: not recommended, but sometimes convenient
+    direction: PortDirection = PortDirection.OUTPUT
+    type: PortType = PortType.REG
+
+
+@dataclass
+class InputPort(Port):
+    direction: PortDirection = PortDirection.INPUT
+
+
+@dataclass
+class InoutPort(Port):
+    direction: PortDirection = PortDirection.INOUT
+
+
+@dataclass
+class ParameterPort(Port):
+    type: PortType = PortType.PARAMETER
+
+
+@dataclass
+class WirePort(Port):
     type: PortType = PortType.WIRE
-    range: Optional[Range] = None
-
-    def __post_init__(self):
-        self.setDirection(self.direction)
-        self.setType(self.type)
-        self.setRange(self.range)
 
 
 @dataclass
-class OutputPort(BasicPort):
-    def __post_init__(self):
-        self.direction = PortDirection.OUTPUT
-        super().__post_init__()
-
-
-@dataclass
-class InputPort(BasicPort):
-    def __post_init__(self):
-        self.direction = PortDirection.INPUT
-        super().__post_init__()
+class RegPort(Port):
+    type: PortType = PortType.REG
 
 
 class Frame:
