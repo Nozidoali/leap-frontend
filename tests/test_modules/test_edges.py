@@ -22,5 +22,21 @@ def test_01_assignment():
     assert assignment.isBlocking == False
 
 
+# Test 02
+# case assignment
+def test_02_case_assignment():
+    a = VarNode("a")
+    b = VarNode("b")
+
+    assignment = CaseAssignment(a, b, isBlocking=True)
+    # assert assignment.isBlocking == False
+
+    assignment.addCase(ConstantNode(1), Assignment(a, ConstantNode(1)))
+    assignment.addCase(ConstantNode(0), Assignment(a, ConstantNode(0)))
+    assignment.addCase(None, Assignment(a, ConstantNode(0)))
+    print(assignment.toString())
+
+
 if __name__ == "__main__":
     test_00_assignment()
+    test_02_case_assignment()
