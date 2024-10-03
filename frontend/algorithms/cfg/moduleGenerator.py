@@ -22,6 +22,7 @@ def _fsmStateGeneration(fsm: FSM, module: Module):
 
 def _getNextStateAssignment(fsm: FSM, node: VarNode, nextStateNode: VarNode) -> BNEdge:
     assert len(fsm.successors(node)) >= 1, "Node has no successors"
+
     if len(fsm.successors(node)) == 1:
         succ = fsm.successors(node)[0]
         nextParamNode = fsm.getParamAtNode(succ)
@@ -63,6 +64,26 @@ def _fsmCurrentStateAssignment(
     module.addAssignment(assignment)
 
 
+def _getIdleStateAssignment(
+    fsm: FSM, nextStateNode: VarNode, currStateNode: VarNode
+) -> BNEdge:
+    idleState = fsm.getIdleState()
+    assert (
+        len(fsm.successors(idleState)) == 1
+    ), "Idle state has more than one successors"
+    succ = fsm.successors(idleState)[0]
+    nextParamNode = fsm.getParamAtNode(succ)
+    nextStateAssignment = ConditionalAssignment(nextStateNode)
+    startNode = VarNode("start")
+    nextStateAssignment.addBranch(
+        startNode, WireAssignment(nextStateNode, nextParamNode, isProcedural=True)
+    )
+    nextStateAssignment.addDefaultBranch(
+        WireAssignment(nextStateNode, currStateNode, isProcedural=True)
+    )
+    return nextStateAssignment
+
+
 def _fsmStateTransitionGeneration(
     fsm: FSM, module: Module, nextStateNode: VarNode, currStateNode: VarNode
 ):
@@ -78,15 +99,19 @@ def _fsmStateTransitionGeneration(
     assignment = CaseAssignment(nextStateNode, currStateNode, event=combEventNode())
 
     # add the state transition to enter the fsm using an input port start
-    startNode = VarNode("start")
-    module.addPort(InputPort(startNode, BasicRange(1)))
     assert fsm.getIdleState() is not None, "FSM has no initial state"
 
     for node in fsm.nodes():
         currParamNode = fsm.getParamAtNode(node)
         if len(fsm.successors(node)) == 0:
             continue
-        nextStateAssignment = _getNextStateAssignment(fsm, node, nextStateNode)
+        if node == fsm.getIdleState():
+            # add the idle state
+            nextStateAssignment = _getIdleStateAssignment(
+                fsm, nextStateNode, currStateNode
+            )
+        else:
+            nextStateAssignment = _getNextStateAssignment(fsm, node, nextStateNode)
         assignment.addCase(currParamNode, nextStateAssignment)
     # add a default case to the current state
     assignment.addDefaultCase(
@@ -119,6 +144,12 @@ def _fsmInterfaceGeneration(
     resetNode = VarNode("reset")
     module.addPort(InputPort(clkNode, BasicRange(1)))
     module.addPort(InputPort(resetNode, BasicRange(1)))
+
+    # generate the start and finish ports
+    startNode = VarNode("start")
+    finishNode = VarNode("finish")
+    module.addPort(InputPort(startNode, BasicRange(1)))
+    module.addPort(OutputPort(finishNode, BasicRange(1)))
 
 
 def fsm2module(fsm: FSM) -> Module:

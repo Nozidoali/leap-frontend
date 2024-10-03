@@ -1,15 +1,3 @@
-#!/usr/bin/env python
-# -*- encoding=utf8 -*-
-
-"""
-Author: Hanyu Wang
-Created time: 2024-06-25 21:29:47
-Last Modified by: Hanyu Wang
-Last Modified time: 2024-06-25 23:58:04
-"""
-
-from enum import Enum
-
 from dataclasses import dataclass
 from typing import Optional, Dict, Set
 from .dfg import *
