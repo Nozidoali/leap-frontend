@@ -286,7 +286,7 @@ def _detectFrame(graph: CDFGraph) -> Frame:
     )
     frame.addPorts([InputPort(CDFGraph.toNode(x), graph.toRange(x)) for x in graph.pis])
     frame.addPorts(
-        [BasicPort(CDFGraph.toNode(x), graph.toRange(x)) for x in graph.internalNodes]
+        [Port(CDFGraph.toNode(x), graph.toRange(x)) for x in graph.internalNodes]
     )
     return frame
 
