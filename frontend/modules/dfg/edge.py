@@ -32,6 +32,7 @@ class Assignment(BNEdge):
     event: Optional[BNode] = None
     isBlocking: bool = True
     targetType: PortType = PortType.WIRE
+    isProcedural: bool = False
 
     def addCondition(self, condition: BNode):
         if condition is None:
@@ -85,7 +86,11 @@ class Assignment(BNEdge):
         expression = self.expression.toString()
         assignOp = "=" if self.isBlocking else "<="
         condition = self.condition
-        assignHead = "assign " if self.targetType == PortType.WIRE else ""
+        assignHead = (
+            "assign "
+            if self.targetType == PortType.WIRE and not self.isProcedural
+            else ""
+        )
 
         if self.event is not None:
             retString += f"{self.event.toString()} begin\n"
@@ -115,6 +120,24 @@ class NonBlockingAssignment(Assignment):
 
 
 @dataclass
+class RegAssignment(Assignment):
+    targetType: PortType = PortType.REG
+    isBlocking: bool = False
+
+
+@dataclass
+class WireAssignment(Assignment):
+    targetType: PortType = PortType.WIRE
+    isBlocking: bool = True
+
+
+@dataclass
+class LatchAssignment(Assignment):
+    targetType: PortType = PortType.REG
+    isBlocking: bool = False
+
+
+@dataclass
 class CaseAssignment(BNEdge):
     caseVariable: BNode
     cases: List[Tuple[BNode, BNEdge]] = field(default_factory=list)
@@ -128,6 +151,10 @@ class CaseAssignment(BNEdge):
             expression, BNEdge
         ), f"Expected BNEdge, got {type(expression)}"
         self.cases.append((caseValue, expression))
+        return self
+
+    def addDefaultCase(self, expression: BNEdge):
+        self.addCase(None, expression)
         return self
 
     def toString(self) -> str:
@@ -157,16 +184,25 @@ class ConditionalAssignment(BNEdge):
     conditions: List[Tuple[BNode, Assignment]] = field(default_factory=list)
     isBlocking: bool = True
     targetType: PortType = PortType.WIRE
+    event: BNode = None
 
-    def addBranch(self, condition: BNode, expression: Assignment):
+    def addBranch(
+        self, condition: BNode, expression: Assignment
+    ) -> "ConditionalAssignment":
         assert isinstance(
             expression, Assignment
         ), f"Expected Assignment, got {type(expression)}"
         self.conditions.append((condition, expression))
         return self
 
+    def addDefaultBranch(self, expression: Assignment) -> "ConditionalAssignment":
+        self.addBranch(None, expression)
+        return self
+
     def toString(self) -> str:
         retString = ""
+        if self.event is not None:
+            retString += f"{self.event.toString()} begin\n"
         for i, (condition, expression) in enumerate(self.conditions):
             if i != 0:
                 retString += "else "
@@ -174,4 +210,6 @@ class ConditionalAssignment(BNEdge):
                 retString += f"{expression.toString()}"
                 continue
             retString += f"if ({condition.toString()}) {expression.toString()}"
+        if self.event is not None:
+            retString += "end\n"
         return retString

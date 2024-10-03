@@ -423,3 +423,27 @@ class UndefinedNode(BNode):
 @dataclass
 class BlackBoxNode(BNode):
     operation: OPType = OPType.BLACKBOX
+
+
+def combEventNode():
+    return OPNode("always", OPType.EVENT_ALWAYS, OPNode("*", OPType.EVENT_COMB))
+
+
+def seqEventNode(
+    useNegEdge: bool = False,
+    customClk: Optional[BNode] = None,
+    useReset: bool = False,
+    customReset: Optional[BNode] = None,
+):
+    clkNode = customClk or VarNode("clk")
+    if useNegEdge:
+        eventNode = OPNode("negedge", OPType.UNARY_NEGEDGE, clkNode)
+    else:
+        eventNode = OPNode("posedge", OPType.UNARY_POSEDGE, clkNode)
+
+    # this is important for the reset signal to be considered
+    # NOTE: will not work if we don't add this, because the simulator might not capture the reset signal
+    if useReset:
+        resetNode = customReset or VarNode("reset")
+        eventNode = OPNode("or", OPType.BINARY_EVENT_OR, eventNode, resetNode)
+    return OPNode("always", OPType.EVENT_ALWAYS, eventNode)
