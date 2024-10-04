@@ -37,8 +37,34 @@ class BNGraph:
                 self.var2assigns[variableName] = []
             self.var2assigns[variableName].append(idx)
 
+    def substituteAssignments(
+        self, old: List[int], new: List[BNEdge], lazyUpdate: bool = True
+    ) -> None:
+        for idx in old:
+            self.assignments[idx] = None
+        for assignment in new:
+            self.addAssignment(assignment)
+        if not lazyUpdate:
+            self._reindex()
+
+    def _reindex(self) -> None:
+        self.var2assigns = {}
+        newAssignments = []
+        for idx, assignment in enumerate(self.assignments):
+            if assignment is None:
+                continue
+            variableName = assignment.target.name
+            if variableName not in self.var2assigns:
+                self.var2assigns[variableName] = []
+            self.var2assigns[variableName].append(len(newAssignments))
+            newAssignments.append(assignment)
+        self.assignments = newAssignments
+
     def isDefined(self, variableName: str) -> bool:
         return variableName in self.var2assigns
+
+    def getAssignments(self) -> List[BNEdge]:
+        return [assignment for assignment in self.assignments if assignment is not None]
 
     def getAssignmentsOf(self, variableName: str) -> List[Assignment]:
         if variableName not in self.var2assigns:

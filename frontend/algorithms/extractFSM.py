@@ -217,7 +217,7 @@ def extractFSMGraph(module: Module, graph: pgv.AGraph):
     states += module.getPortsByType(PortType.PARAMETER)
 
     statesVar = []
-    for assign in module.assignments:
+    for assign in module.getAssignments():
         if assign.expression.toString() in states:
             if assign.target.toString() not in statesVar:
                 statesVar.append(assign.target.toString())

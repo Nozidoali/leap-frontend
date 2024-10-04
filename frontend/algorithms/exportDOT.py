@@ -155,7 +155,7 @@ def exportDOT(module: Module, params: dict = {}) -> pgv.AGraph:
     skipSignals = params.get("skipSignals", ["reset", "rst", "ap_rst", "ap_reset"])
 
     assignment: Assignment
-    for i, assignment in enumerate(module.assignments):
+    for i, assignment in enumerate(module.getAssignments()):
         if (
             skipConstants
             and assignment.expression.isConstant()

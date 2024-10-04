@@ -113,7 +113,7 @@ class Module(Frame, Macros, ParameterHandler, BNGraph):
 
     def postProcess(self, params: dict = {}) -> None:
         # sanity check on the assignments
-        for assignment in self.assignments:
+        for assignment in self.getAssignments():
             if assignment.target.name not in self.getPortNames():
                 raise ValueError(
                     f"Assignment target {assignment.target.name} not found in module {self.getName()}"

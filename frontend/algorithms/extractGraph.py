@@ -40,7 +40,7 @@ def extractGraph(graph: BNGraph, inputs: list, outputs: list, params: dict = {})
 
         # remove the register assignments
         assignment: Assignment
-        for assignment in newGraph.assignments:
+        for assignment in newGraph.getAssignments():
             regVar = assignment.target.name
 
             # we consider the following two cases:
@@ -60,7 +60,7 @@ def extractGraph(graph: BNGraph, inputs: list, outputs: list, params: dict = {})
             new = findNewVar(new)
             if old != new:
                 # replace the old with the new
-                for assignment in newGraph.assignments:
+                for assignment in newGraph.getAssignments():
                     if assignment is None:
                         continue
                     assignment.replaceVariable(old, new)
