@@ -38,5 +38,16 @@ if __name__ == "__main__":
     FSM = extractFSMGraph(module, graph)
     FSM.write("{}_FSM.dot".format(outputDot))
 
-    CDFG = buildOriginalCDFG(graph, module, FSM, ["finish", "ap_done"])
+    # keywords for memory ports
+    
+    memory_keywords = {}
+    memory_keywords["regex_memory"] = [r"main_0_(?P<memory_name>[a-zA-Z0-9_]+)_address_(?P<memory_id>[a-z])"]
+    memory_keywords["outAddress"] = ["main_0_MEMORY_NAME_address_MEMORY_ID"]
+    memory_keywords["inAddress"] = ["arg_MEMORY_NAME"]
+    memory_keywords["outMemory"] = ["main_0_MEMORY_NAME_out_MEMORY_ID"]
+    memory_keywords["inMemory"] = ["main_0_MEMORY_NAME_in_MEMORY_ID"]
+    memory_keywords["writeEnable"] = ["main_0_MEMORY_NAME_write_enable_MEMORY_ID"]
+    memory_keywords["enable"] = ["main_0_MEMORY_NAME_enable_MEMORY_ID"]
+
+    CDFG = buildOriginalCDFG(graph, module, FSM, ["finish", "ap_done"], memory_keywords)
     CDFG.write("{}_CDFG.dot".format(outputDot))
