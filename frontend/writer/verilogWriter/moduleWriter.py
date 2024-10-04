@@ -46,7 +46,7 @@ def writeAssignment(f, assignment: Assignment):
 
 
 def writeAssignments(f, module: Module):
-    for var in module.var2assigns:
+    for var in module.getVariables():
         for assign in module.getAssignmentsOf(var):
             writeAssignment(f, assign)
 
@@ -112,7 +112,7 @@ def _getParamValues(module: Module):
     listLocalParams = module.getPortsByType(PortType.LOCALPARAM)
     listParams += listLocalParams
     defaultParamsValues = {}
-    for var in module.var2assigns:
+    for var in module.getVariables():
         for assign in module.getAssignmentsOf(var):
             if assign.target.toString() in listParams:
                 assert (
@@ -135,7 +135,7 @@ def moduleToString(module: Module):
         moduleString += moduleInstToString(moduleInst)
 
     # write assignments to the same variable in the same always block
-    for var in module.var2assigns:
+    for var in module.getVariables():
         # print some comments for the variable
         assignments = []
         for assign in module.getAssignmentsOf(var):

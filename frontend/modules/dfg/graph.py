@@ -8,68 +8,73 @@ from .edge import *
 
 class BNGraph:
     def __init__(self):
-        self.assignments: List[BNEdge] = []
-        self.var2assigns: Dict[str, List[int]] = {}
+        self._assignments: List[BNEdge] = []
+        self._var2assigns: Dict[str, List[int]] = {}
 
     def addAssignment(self, assignment: BNEdge) -> None:
-        self.assignments.append(assignment)
+        self._assignments.append(assignment)
         variableName = assignment.target.name
-        if variableName not in self.var2assigns:
-            self.var2assigns[variableName] = []
-        self.var2assigns[variableName].append(len(self.assignments) - 1)
+        if variableName not in self._var2assigns:
+            self._var2assigns[variableName] = []
+        self._var2assigns[variableName].append(len(self._assignments) - 1)
 
     def removeAssignment(self, idx: int) -> None:
-        self.assignments[idx] = None
+        self._assignments[idx] = None
 
     def removeVariable(self, variableName: str):
-        for idx in self.var2assigns[variableName]:
+        for idx in self._var2assigns[variableName]:
             self.removeAssignment(idx)
-        del self.var2assigns[variableName]
+        del self._var2assigns[variableName]
 
     def updateAssignments(self) -> None:
-        self.assignments = [
-            assignment for assignment in self.assignments if assignment is not None
+        self._assignments = [
+            assignment for assignment in self._assignments if assignment is not None
         ]
-        self.var2assigns = {}
-        for idx, assignment in enumerate(self.assignments):
+        self._var2assigns = {}
+        for idx, assignment in enumerate(self._assignments):
             variableName = assignment.target.name
-            if variableName not in self.var2assigns:
-                self.var2assigns[variableName] = []
-            self.var2assigns[variableName].append(idx)
+            if variableName not in self._var2assigns:
+                self._var2assigns[variableName] = []
+            self._var2assigns[variableName].append(idx)
 
     def substituteAssignments(
         self, old: List[int], new: List[BNEdge], lazyUpdate: bool = True
     ) -> None:
         for idx in old:
-            self.assignments[idx] = None
+            self._assignments[idx] = None
         for assignment in new:
             self.addAssignment(assignment)
         if not lazyUpdate:
             self._reindex()
 
     def _reindex(self) -> None:
-        self.var2assigns = {}
+        self._var2assigns = {}
         newAssignments = []
-        for idx, assignment in enumerate(self.assignments):
+        for idx, assignment in enumerate(self._assignments):
             if assignment is None:
                 continue
             variableName = assignment.target.name
-            if variableName not in self.var2assigns:
-                self.var2assigns[variableName] = []
-            self.var2assigns[variableName].append(len(newAssignments))
+            if variableName not in self._var2assigns:
+                self._var2assigns[variableName] = []
+            self._var2assigns[variableName].append(len(newAssignments))
             newAssignments.append(assignment)
-        self.assignments = newAssignments
+        self._assignments = newAssignments
+
+    def getVariables(self) -> List[str]:
+        return list(self._var2assigns.keys())
 
     def isDefined(self, variableName: str) -> bool:
-        return variableName in self.var2assigns
+        return variableName in self._var2assigns
 
     def getAssignments(self) -> List[BNEdge]:
-        return [assignment for assignment in self.assignments if assignment is not None]
+        return [
+            assignment for assignment in self._assignments if assignment is not None
+        ]
 
     def getAssignmentsOf(self, variableName: str) -> List[Assignment]:
-        if variableName not in self.var2assigns:
+        if variableName not in self._var2assigns:
             return []
-        return [self.assignments[idx] for idx in self.var2assigns[variableName]]
+        return [self._assignments[idx] for idx in self._var2assigns[variableName]]
 
     def getAssignNode(self, variableName: str) -> Optional[BNode]:
         # get the node corresponding to the variable
@@ -101,7 +106,7 @@ class BNGraph:
     def expandAssignment(self) -> None:
         # extract the assignment of the variable, merge the predecessors
         # until we reach the inputs
-        for assignment in self.assignments:
+        for assignment in self._assignments:
             root = assignment.expression
             newNode = self._expandAssignmentRec(root)
             assignment.expression = newNode
@@ -124,7 +129,7 @@ class BNGraph:
 
     def traverseAndApply(self, func: callable, postOrder: bool = True) -> None:
         visited = set()
-        for assignment in self.assignments:
+        for assignment in self._assignments:
             root = assignment.expression
             self._traverseAndApplyRec(root, func, visited, postOrder)
 
@@ -154,12 +159,12 @@ class BNGraph:
             func(node)
 
     def getVariableNames(self) -> List[str]:
-        return list(self.var2assigns.keys())
+        return list(self._var2assigns.keys())
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, BNGraph):
             return False
-        # compare assignments
+        # compare _assignments
         for var in self.getVariableNames():
             if var not in other.getVariableNames():
                 print(f"Variable {var} not found in other")
