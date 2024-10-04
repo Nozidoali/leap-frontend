@@ -526,6 +526,7 @@ def insertPipelineGraphs(graph: pgv.AGraph, FSM: pgv.AGraph, pipelineGraphs: dic
 # function to extract the departure states of the ctrl data CFG
 def getDepartureStates(graph: pgv.AGraph, controlPaths: list, module: Module, FSM: pgv.AGraph, end_nodes: list):
     departureStates = {}
+    departureStates2Ctrl = {}
     Ctrl2Data = {}
     list_ctrlOuts = []
     for ctrlNode, dataNode in controlPaths:
@@ -542,6 +543,7 @@ def getDepartureStates(graph: pgv.AGraph, controlPaths: list, module: Module, FS
     pipelineGraphs = {}
     for state in FSM.nodes():
         departureStates[state] = []
+        departureStates2Ctrl[state] = []
         for assign in module.assignments:
             if assign.condition is None:
                 continue
@@ -586,18 +588,22 @@ def getDepartureStates(graph: pgv.AGraph, controlPaths: list, module: Module, FS
                         if driverCtrl in pipelineGraph.nodes():
                             if not driverCtrl in departureStates.keys():
                                 departureStates[driverCtrl] = []
+                                departureStates2Ctrl[driverCtrl] = []
                             departureStates[driverCtrl].append(dataEndPoint)
+                            departureStates2Ctrl[driverCtrl].append(ctrl)
                         else:
                             departureStates[state].append(dataEndPoint)
+                            departureStates2Ctrl[state].append(ctrl)
                     else:
                         departureStates[state].append(dataEndPoint)
+                        departureStates2Ctrl[state].append(ctrl)
 
     insertPipelineGraphs(graph, FSM , pipelineGraphs)
 
-    return departureStates
+    return departureStates, departureStates2Ctrl
 
 # function to get the memory operations associated with a state
-def getStatesMem(module: Module, enablePort: str, state2node: dict):
+def getStatesMem(module: Module, graph: pgv.AGraph , enablePort: str, state2node: dict):
     assert module.isDefined(enablePort), "Output address port not found"
     numOps = 0
     statesMem = []
@@ -607,40 +613,43 @@ def getStatesMem(module: Module, enablePort: str, state2node: dict):
         if value == "1'b0" or value == "0" or value == "1'd0":
             continue
         numOps += 1
-        # TODO: find general solution for finding right state
         target, expression, condition = getAssignToNode(module, assign)
         foundState = None
         for state in state2node.keys():
-            if enablePort in state2node[state]:
-                foundState = state
-                break
+            for ctrlNode in state2node[state]:
+                driverCtrl = graph.in_edges(ctrlNode)[0][0]
+                if driverCtrl == condition:
+                    foundState = state        
+                    break
         assert foundState is not None, "State not found"
         statesMem.append(foundState)
     if numOps == 0:
         return None
     return statesMem
 
-# function to get memory operation types associated with a state
-def getMemOpState(module: Module, writeEnablePort: str, state2node: dict):
+# function to get the states in which there is a write
+def getMemWriteOpState(module: Module, graph: pgv.AGraph, writeEnablePort: str, state2node: dict):
     assert module.isDefined(writeEnablePort), "Write enable port not found"
-    stateToOp = {}
+    stateWriteOp = []
     for assign in module.getAssignmentsOf(writeEnablePort):
         assert assign.expression.isConstant(), "Write enable port is not a constant"
         value = assign.expression.toString()
         if value == "1'b0" or value == "0" or value == "1'd0":
             continue
+        target, expression, condition = getAssignToNode(module, assign)
         foundState = None
-        # TODO: find general solution for finding right state
         for state in state2node.keys():
-            if writeEnablePort in state2node[state]:
-                foundState = state
-                break
+            for ctrlNode in state2node[state]:
+                driverCtrl = graph.in_edges(ctrlNode)[0][0]
+                if driverCtrl == condition:
+                    foundState = state        
+                    break
         assert foundState is not None, "State not found"
-        stateToOp[foundState] = value
-    return stateToOp
+        stateWriteOp.append(foundState)
+    return stateWriteOp
 
 # function to merge memory ports of the CDFG
-def memory_merge(module: Module, CDFG: pgv.AGraph, state2node: dict, memory_keywords: dict):
+def memory_merge(module: Module, CDFG: pgv.AGraph, graph: pgv.AGraph , state2node: dict, memory_keywords: dict):
 
     regex_memory = memory_keywords["regex_memory"]
 
@@ -659,7 +668,6 @@ def memory_merge(module: Module, CDFG: pgv.AGraph, state2node: dict, memory_keyw
         if len(memories) > 0:
             idMemReg = _idMemReg
             break
-    print(memories)
     assert len(memories) > 0, "No memory ports found"
     for memory_name in memories.keys():
         for memory_id in memories[memory_name]:
@@ -671,16 +679,19 @@ def memory_merge(module: Module, CDFG: pgv.AGraph, state2node: dict, memory_keyw
                         assert keyword not in memoryNodes.keys(), "Memory node already exists"
                         memoryNodes[keyword] = node
             # assert that memory nodes and memory keywords have the same length apart from the regex
-            assert len(memoryNodes) < len(memory_keywords) - 2, "Memory nodes not found"
-            statesMem = getStatesMem(module, memoryNodes["enable"], state2node)
+            assert len(memoryNodes) >= len(memory_keywords) - 2, "Memory nodes not found"
+            statesMem = getStatesMem(module, graph , memoryNodes["enable"], state2node)
             if statesMem is None:
                 continue
-            stateToOp = getMemOpState(module, memoryNodes["writeEnable"], state2node)
+            # identify the states in which there is a write operation, the remaining states in statesMem are read operations
+            statesWriteOp = getMemWriteOpState(module, graph, memoryNodes["writeEnable"], state2node)
+            statesReadOp = [state for state in statesMem if state not in statesWriteOp]
+            
 
     # remove the nodes still existing in the CDFG and all the nodes connected to them
 
 # function to merge consecutive pipeline states
-def mergeConsecutivePipelineStates(FSM: pgv.AGraph, departureStates: dict, arrivalStates: list):
+def mergeConsecutivePipelineStates(FSM: pgv.AGraph, departureStates: dict, departureStates2Ctrl , arrivalStates: list):
 
     mergedStates = {}
     for edge in FSM.edges():
@@ -703,6 +714,9 @@ def mergeConsecutivePipelineStates(FSM: pgv.AGraph, departureStates: dict, arriv
         list2move = departureStates[dst]
         departureStates[src].extend(list2move)
         del departureStates[dst]
+        list2move = departureStates2Ctrl[dst]
+        departureStates2Ctrl[src].extend(list2move)
+        del departureStates2Ctrl[dst]
         copy_arrival = arrivalStates.copy()
         for dataSrcNode, arrivalState in copy_arrival:
             if arrivalState == dst:
@@ -743,7 +757,7 @@ def buildOriginalCDFG(graph: pgv.AGraph, module: Module, FSM: pgv.AGraph, end_no
         CDFG.get_node(node).attr["shape"] = shape
 
     # departure states should be computed first since they identify potential pipeline graphs and insert them in the FSM
-    departureStates = getDepartureStates(graph, outCtrlInDataWire, module, FSM, end_nodes)
+    departureStates, departureStates2Ctrl = getDepartureStates(graph, outCtrlInDataWire, module, FSM, end_nodes)
     arrivalStates = getArrivalStates(graph, inCtrlOutDataWire, module, end_nodes, FSM)
     for dataSrcNode, arrivalState in arrivalStates:
         assert arrivalState in departureStates.keys(), "Arrival state not found"
@@ -752,7 +766,7 @@ def buildOriginalCDFG(graph: pgv.AGraph, module: Module, FSM: pgv.AGraph, end_no
             CDFG.add_edge(dataSrcNode.get_name(), dataDstNode, color="red", style="dashed")
         #print(f"Data node {dataSrcNode.get_name()} -> {dataDstNodes}")
     # the pipeline states with no registers across them should be merged since do not represent real states
-    mergeConsecutivePipelineStates(FSM, departureStates, arrivalStates)
-    memory_merge(module, CDFG, departureStates, memory_keywords)
+    mergeConsecutivePipelineStates(FSM, departureStates, departureStates2Ctrl , arrivalStates)
+    memory_merge(module, CDFG, graph, departureStates2Ctrl, memory_keywords)
 
     return CDFG
