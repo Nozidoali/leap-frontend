@@ -2,7 +2,7 @@ from ..modules import *
 from .highlight import *
 import pygraphviz as pgv
 from collections import deque
-
+import re
 
 def _extractDataFlowNodesRec(module:Module, graph: pgv.AGraph, node: pgv.Node, visited: set, revTraversal: bool):
     if node in visited:
@@ -234,7 +234,7 @@ def extractFSMGraph(module: Module, graph: pgv.AGraph):
     
     for state in states:
         FSM.add_node(state, shape="ellipse", color="green")
-        FSM.get_node(state).attr["info"] = "Curr_state: " + currStateVar + "\nNext_state: " + nextStateVar
+        FSM.get_node(state).attr["info"] = "Curr_state: " + currStateVar + "|||Next_state: " + nextStateVar
 
     for assign in module.getAssignmentsOf(nextStateVar):
         if assign.condition is None:
@@ -254,14 +254,14 @@ def extractFSMGraph(module: Module, graph: pgv.AGraph):
 def getCurrStateVar(FSM: pgv.AGraph):
     for node in FSM.nodes():
         if "Curr_state" in FSM.get_node(node).attr["info"]:
-            curr_state = FSM.get_node(node).attr["info"].split("\n")[0].split(":")[1].strip()
+            curr_state = FSM.get_node(node).attr["info"].split("|||")[0].split(":")[1].strip()
             return curr_state
     return None
 
 def getNextStateVar(FSM: pgv.AGraph):
     for node in FSM.nodes():
         if "Next_state" in FSM.get_node(node).attr["info"]:
-            next_state = FSM.get_node(node).attr["info"].split("\n")[1].split(":")[1].strip()
+            next_state = FSM.get_node(node).attr["info"].split("|||")[1].split(":")[1].strip()
             return next_state
     return None
 
@@ -596,9 +596,123 @@ def getDepartureStates(graph: pgv.AGraph, controlPaths: list, module: Module, FS
 
     return departureStates
 
+# function to get the memory operations associated with a state
+def getStatesMem(module: Module, enablePort: str, state2node: dict):
+    assert module.isDefined(enablePort), "Output address port not found"
+    numOps = 0
+    statesMem = []
+    for assign in module.getAssignmentsOf(enablePort):
+        assert assign.expression.isConstant(), "Enable port is not a constant"
+        value = assign.expression.toString()
+        if value == "1'b0" or value == "0" or value == "1'd0":
+            continue
+        numOps += 1
+        # TODO: find general solution for finding right state
+        target, expression, condition = getAssignToNode(module, assign)
+        foundState = None
+        for state in state2node.keys():
+            if enablePort in state2node[state]:
+                foundState = state
+                break
+        assert foundState is not None, "State not found"
+        statesMem.append(foundState)
+    if numOps == 0:
+        return None
+    return statesMem
+
+# function to get memory operation types associated with a state
+def getMemOpState(module: Module, writeEnablePort: str, state2node: dict):
+    assert module.isDefined(writeEnablePort), "Write enable port not found"
+    stateToOp = {}
+    for assign in module.getAssignmentsOf(writeEnablePort):
+        assert assign.expression.isConstant(), "Write enable port is not a constant"
+        value = assign.expression.toString()
+        if value == "1'b0" or value == "0" or value == "1'd0":
+            continue
+        foundState = None
+        # TODO: find general solution for finding right state
+        for state in state2node.keys():
+            if writeEnablePort in state2node[state]:
+                foundState = state
+                break
+        assert foundState is not None, "State not found"
+        stateToOp[foundState] = value
+    return stateToOp
+
+# function to merge memory ports of the CDFG
+def memory_merge(module: Module, CDFG: pgv.AGraph, state2node: dict, memory_keywords: dict):
+
+    regex_memory = memory_keywords["regex_memory"]
+
+    for _idMemReg in range(len(regex_memory)):
+        regOutAddress = regex_memory[_idMemReg]
+        memories = {}
+        for node in CDFG.nodes():
+            if re.match(regOutAddress, node):
+                match = re.search(regOutAddress, node)
+                memory_name = match.group("memory_name")
+                memory_id = match.group("memory_id")
+                if memory_name not in memories.keys():
+                    memories[memory_name] = []
+                if memory_id not in memories[memory_name]:
+                    memories[memory_name].append(memory_id)
+        if len(memories) > 0:
+            idMemReg = _idMemReg
+            break
+    print(memories)
+    assert len(memories) > 0, "No memory ports found"
+    for memory_name in memories.keys():
+        for memory_id in memories[memory_name]:
+            memoryNodes = {}
+            for node in CDFG.nodes():
+                for keyword in memory_keywords.keys():
+                    memoryNode = memory_keywords[keyword][0].replace("MEMORY_NAME", memory_name).replace("MEMORY_ID", memory_id)
+                    if memoryNode == node.get_name():
+                        assert keyword not in memoryNodes.keys(), "Memory node already exists"
+                        memoryNodes[keyword] = node
+            # assert that memory nodes and memory keywords have the same length apart from the regex
+            assert len(memoryNodes) < len(memory_keywords) - 2, "Memory nodes not found"
+            statesMem = getStatesMem(module, memoryNodes["enable"], state2node)
+            if statesMem is None:
+                continue
+            stateToOp = getMemOpState(module, memoryNodes["writeEnable"], state2node)
+
+    # remove the nodes still existing in the CDFG and all the nodes connected to them
+
+# function to merge consecutive pipeline states
+def mergeConsecutivePipelineStates(FSM: pgv.AGraph, departureStates: dict, arrivalStates: list):
+
+    mergedStates = {}
+    for edge in FSM.edges():
+        if "info" in FSM.get_edge(edge[0], edge[1]).attr.keys():
+            info = FSM.get_edge(edge[0], edge[1]).attr["info"]
+            if "NumRegs" in info:
+                numRegs = int(info.split("=")[1])
+                if numRegs == 0:
+                    mergedStates[edge[0]] = edge[1] 
+    for src, dst in mergedStates.items():
+        # remove dst state
+        FSM.remove_edge(src, dst)
+        for out in FSM.out_edges(dst):
+            FSM.add_edge(src, out[1], color="blue", style="dashed")
+            if "info" in FSM.get_edge(dst, out[1]).attr.keys():
+                FSM.get_edge(src, out[1]).attr["info"] = FSM.get_edge(dst, out[1]).attr["info"]
+            FSM.remove_edge(dst, out[1])
+        FSM.remove_node(dst)
+
+        list2move = departureStates[dst]
+        departureStates[src].extend(list2move)
+        del departureStates[dst]
+        copy_arrival = arrivalStates.copy()
+        for dataSrcNode, arrivalState in copy_arrival:
+            if arrivalState == dst:
+                arrivalStates.remove((dataSrcNode, arrivalState))
+                arrivalStates.append((dataSrcNode, src))
+
+    FSM.write("FSM_merged.dot")
 
 # function to build the original CDFG with the extracted data flow
-def buildOriginalCDFG(graph: pgv.AGraph, module: Module, FSM: pgv.AGraph, end_nodes: list):
+def buildOriginalCDFG(graph: pgv.AGraph, module: Module, FSM: pgv.AGraph, end_nodes: list, memory_keywords: dict):
     CDFG = pgv.AGraph(strict=False, directed=True)
     CDFG.graph_attr["splines"] = "ortho"
     CDFG.graph_attr["rankdir"] = "TB"  # Top-to-bottom layout
@@ -635,7 +749,10 @@ def buildOriginalCDFG(graph: pgv.AGraph, module: Module, FSM: pgv.AGraph, end_no
         assert arrivalState in departureStates.keys(), "Arrival state not found"
         dataDstNodes = departureStates[arrivalState]
         for dataDstNode in dataDstNodes:
-            CDFG.add_edge(dataSrcNode.get_name(), dataDstNode, color="blue", style="dashed")
+            CDFG.add_edge(dataSrcNode.get_name(), dataDstNode, color="red", style="dashed")
         #print(f"Data node {dataSrcNode.get_name()} -> {dataDstNodes}")
+    # the pipeline states with no registers across them should be merged since do not represent real states
+    mergeConsecutivePipelineStates(FSM, departureStates, arrivalStates)
+    memory_merge(module, CDFG, departureStates, memory_keywords)
 
     return CDFG
