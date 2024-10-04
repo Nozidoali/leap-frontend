@@ -1,6 +1,7 @@
 from ..modules import *
 from .highlight import *
 import pygraphviz as pgv
+from collections import deque
 
 
 def _extractDataFlowNodesRec(module:Module, graph: pgv.AGraph, node: pgv.Node, visited: set, revTraversal: bool):
@@ -233,6 +234,7 @@ def extractFSMGraph(module: Module, graph: pgv.AGraph):
     
     for state in states:
         FSM.add_node(state, shape="ellipse", color="green")
+        FSM.get_node(state).attr["info"] = "Curr_state: " + currStateVar + "\nNext_state: " + nextStateVar
 
     for assign in module.getAssignmentsOf(nextStateVar):
         if assign.condition is None:
@@ -248,6 +250,20 @@ def extractFSMGraph(module: Module, graph: pgv.AGraph):
         FSM.add_edge(stateSrc, stateDst, color="red")
 
     return FSM
+
+def getCurrStateVar(FSM: pgv.AGraph):
+    for node in FSM.nodes():
+        if "Curr_state" in FSM.get_node(node).attr["info"]:
+            curr_state = FSM.get_node(node).attr["info"].split("\n")[0].split(":")[1].strip()
+            return curr_state
+    return None
+
+def getNextStateVar(FSM: pgv.AGraph):
+    for node in FSM.nodes():
+        if "Next_state" in FSM.get_node(node).attr["info"]:
+            next_state = FSM.get_node(node).attr["info"].split("\n")[1].split(":")[1].strip()
+            return next_state
+    return None
 
 def isOpNode(node: pgv.Node):
     return node.attr["shape"] == "ellipse"
@@ -323,13 +339,220 @@ def getArrivalStates(
         arrivalStates.append((dataNode, dstState))
     return arrivalStates
 
+def getDepartureStates_rec(
+    CFG: pgv.AGraph,
+    node: pgv.Node,
+    visited: set,
+    module: Module,
+    nodes2reach: list,
+    terminateTravNodes: list,
+):
+    if node in visited:
+        return None
+    if node in terminateTravNodes:
+        return None
+    if node in nodes2reach:
+        nodes2reach.remove(node)
+        return None
+    visited.add(node)
+    for src, dst in CFG.out_edges(node):
+        if isOpNode(dst):
+            op_value = dst.attr["label"]
+            if op_value == "~":
+                continue
+        elif isVarNode(dst):
+            if( isEdgeCond(src, dst, CFG, module) ):
+                assign = getAssignStatement(module, dst, None, src)
+                assert assign is not None, "Assignment statement not found"
+                if assign.expression.isConstant():
+                    value = assign.expression.toString()
+                    if value == "1'b0" or value == "0" or value == "1'd0":
+                        continue
+                else:
+                    target = assign.target.toString()
+                    if target in nodes2reach:
+                        nodes2reach.remove(target)
+                        continue
+
+        if dst in terminateTravNodes:
+            continue
+        dstNode = getDepartureStates_rec(
+            CFG, dst, visited, module, nodes2reach, terminateTravNodes, 
+        )
+        if dstNode is not None:
+            return dstNode
+    return None
+
+def isPatternPresent(node: BNode, lhs: str, rhs: str, op: str):
+    if node.isOperation() and node.variable_name == op:
+        if node.children[1].variable_name == rhs and node.children[0].variable_name == lhs:
+            return True
+    for child in node.children:
+        if isPatternPresent(child, lhs, rhs, op):
+            return True
+    return False
+
+def getAssignToNode(module: Module, assign: Assignment):
+    for target, expression, condition in module.node2assignment.keys():
+        if assign == module.node2assignment[(target, expression, condition)]:
+            return target, expression, condition
+
+def findPredecessor_DFS(graph: pgv.AGraph, node: pgv.Node, target: list, visited: set, path: list):
+    
+    path.append(node)
+    if node in visited:
+        return None
+    visited.add(node)
+    if node in target:
+        return path
+    for src, dst in graph.in_edges(node):
+        if isOpNode(src):
+            op_value = src.attr["label"]
+            if op_value == "~":
+                continue
+        if src in ["reset", "rst", "ap_rst", "ap_reset"]:
+            continue
+        res = findPredecessor_DFS(graph, src, target, visited, path)
+        if res is not None:
+            return res
+        path.pop()
+    return None
+
+def findPredecessor_BFS(module: Module, graph: pgv.AGraph, node: pgv.Node, target: list, visited: set):
+    if module.isDefined(node) and module.getPort(node).getType() == PortType.REG:
+        assignment = module.getAssignmentsOf(node)[0]
+        event = assignment.event.toString()
+        if "clk" in event or "clock" in event:
+            numRegs = 1
+        else:
+            numRegs = 0
+    else:
+        numRegs = 0
+    queue = deque([(node, [node], numRegs)])
+    visited.add(node)
+
+    while queue:
+        current_node, current_path, numRegs = queue.popleft()
+        if current_node in target:
+            if module.isDefined(current_node) and module.getPort(current_node).getType() == PortType.REG:
+                event = module.getAssignmentsOf(current_node)[0].event.toString()
+                if "clk" in event or "clock" in event:
+                    numRegs -= 1 # remove the register count for the src node
+            return current_path, numRegs
+
+        for src, dst in graph.in_edges(current_node):
+            if isOpNode(src):
+                op_value = src.attr["label"]
+                if op_value == "~":
+                    continue
+            if src in ["reset", "rst", "ap_rst", "ap_reset"]:
+                continue
+            if src not in visited:
+                visited.add(src)
+                if module.isDefined(src) and module.getPort(src).getType() == PortType.REG:
+                    event = module.getAssignmentsOf(src)[0].event.toString()
+                    if "clk" in event or "clock" in event:
+                        numRegs += 1
+                queue.append((src, current_path + [src], numRegs))
+
+    return None
+
+# function to return if the control path is a pipeline
+def checkPipeline(candidateCouts: list, currStateVar: str, nextStateVar: str, graph: pgv.AGraph, module: Module):
+    pipelineGraph = None
+    for ctrl in candidateCouts:
+        targets = [currStateVar, nextStateVar]
+        targets.extend(candidateCouts)
+        targets.remove(ctrl)
+        path, numRegs = findPredecessor_BFS(module, graph, ctrl, targets, set())
+        #path = findPredecessor_DFS(graph, ctrl, targets, set(), [])
+        assert path is not None, "Path not found"
+        srcPipelineState = None
+        for node in path:
+            if node != ctrl and node in candidateCouts:
+                srcPipelineState = node 
+                dstPipelineState = ctrl
+                break
+        if srcPipelineState is not None:
+            if pipelineGraph is None:
+                pipelineGraph = pgv.AGraph(strict=False, directed=True)
+                pipelineGraph.graph_attr["splines"] = "ortho"
+                pipelineGraph.graph_attr["rankdir"] = "TB"
+            pipelineGraph.add_edge(srcPipelineState, dstPipelineState, color="red", info="NumRegs=" + str(numRegs))
+
+    return pipelineGraph
+
+
 # function to extract the departure states of the ctrl data CFG
-def getDepartureStates(graph: pgv.AGraph, controlPaths: list, module: Module, FSM: pgv.AGraph):
-    departureStates = []
+def getDepartureStates(graph: pgv.AGraph, controlPaths: list, module: Module, FSM: pgv.AGraph, end_nodes: list):
+    departureStates = {}
+    Ctrl2Data = {}
+    list_ctrlOuts = []
+    for ctrlNode, dataNode in controlPaths:
+        Ctrl2Data[ctrlNode] = dataNode
+        if not ctrlNode in list_ctrlOuts:
+            list_ctrlOuts.append(ctrlNode)
+    for end_node in end_nodes:
+        list_ctrlOuts.append(end_node)
+
+    currStateVar = getCurrStateVar(FSM)
+    nextStateVar = getNextStateVar(FSM)
+    terminateTravNodes = [ currStateVar, nextStateVar ]
+    terminateTravNodes.extend(FSM.nodes())
+    pipelineGraphs = {}
+    for state in FSM.nodes():
+        departureStates[state] = []
+        for assign in module.assignments:
+            if assign.condition is None:
+                continue
+            if assign.expression.toString() in FSM.nodes() or assign.expression.toString() == currStateVar:
+                continue
+            if assign.target.toString() == nextStateVar:
+                continue
+            if isPatternPresent(assign.condition, currStateVar, state, "=="):
+                if assign.expression.isConstant():
+                    value = assign.expression.toString()
+                    if value == "1'b0" or value == "0" or value == "1'd0":
+                        continue
+                targ, expr, cond = getAssignToNode(module, assign)
+                ctrlOuts = list_ctrlOuts.copy()
+                getDepartureStates_rec(
+                    graph, targ, set(), module, ctrlOuts, terminateTravNodes,
+                )
+                candidateCouts = []
+                for cOut in list_ctrlOuts:
+                    if cOut not in ctrlOuts:
+                        candidateCouts.append(cOut)
+                CFG_outNode = {}
+                list_outNodes = []
+                for cOut in candidateCouts:
+                    driverCtrl = graph.in_edges(cOut)[0][0]
+                    CFG_outNode[cOut] = driverCtrl
+                    if not driverCtrl in list_outNodes:
+                        list_outNodes.append(driverCtrl)
+                if len(list_outNodes) > 1:
+                    pipelineGraph = checkPipeline(list_outNodes, currStateVar, nextStateVar, graph, module)
+                    if pipelineGraph is not None:
+                        assert state not in pipelineGraphs.keys(), "Pipeline graph already exists, there cannot be two pipeline graphs for the same state"
+                        pipelineGraphs[state] = pipelineGraph
+                for driverCtrl, ctrl in CFG_outNode.items():
+                    if ctrl in Ctrl2Data.keys():
+                        dataEndPoint = Ctrl2Data[ctrl]
+                    elif ctrl in end_nodes:
+                        dataEndPoint = "finish"
+                    else:
+                        assert False, "Data end point associate to ctrl node not found"
+                    if pipelineGraph is not None and driverCtrl in pipelineGraph.nodes():
+                        if driverCtrl in pipelineGraph.nodes():
+                            departureStates[driverCtrl].append(dataEndPoint)
+                        else:
+                            departureStates[state].append(dataEndPoint)
+                    else:
+                        departureStates[state].append(dataEndPoint)
+
     for ctrlNode, dataNode in controlPaths:
         assert len(graph.in_edges(ctrlNode)) == 1
         controlOutputNode = graph.in_edges(ctrlNode)[0][0]
-        print(controlOutputNode.get_name(), module.getDependencies(controlOutputNode.get_name()))
     return departureStates
 
 
@@ -365,8 +588,7 @@ def buildOriginalCDFG(graph: pgv.AGraph, module: Module, FSM: pgv.AGraph, end_no
         CDFG.get_node(node).attr["shape"] = shape
 
     arrivalStates = getArrivalStates(graph, inCtrlOutDataWire, module, end_nodes, FSM)
-    departureStates = {}
-    #departureStates = getDepartureStates(graph, outCtrlInDataWire, module, FSM)
+    departureStates = getDepartureStates(graph, outCtrlInDataWire, module, FSM, end_nodes)
     for dataNode, arrivalState in arrivalStates:
         if arrivalState in end_nodes:
             CDFG.add_edge(dataNode.get_name(), arrivalState.get_name(), color="red", style="dashed")
