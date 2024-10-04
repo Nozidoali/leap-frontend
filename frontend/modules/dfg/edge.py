@@ -45,7 +45,8 @@ class Assignment(BNEdge):
         return self
 
     def setEvent(self, event: BNode):
-        assert isinstance(event, BNode)
+        if event:
+            assert isinstance(event, BNode)
         self.event = event
         return self
 

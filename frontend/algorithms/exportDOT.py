@@ -88,7 +88,7 @@ def graphToBNGraph(module: Module, _graph: pgv.AGraph, subgraph: str = None) -> 
             isParameter = True
         else:
             isParameter = False
-        #if cond == None and assignment.expression.isConstant() and not isParameter:
+        # if cond == None and assignment.expression.isConstant() and not isParameter:
         #    continue
         srcCtrl, dstCtrl = foundCtrl(_graph, border_conn, target, cond)
         if not target in all_nodes and (dstCtrl == None or not "ctrl_" in dstCtrl):
