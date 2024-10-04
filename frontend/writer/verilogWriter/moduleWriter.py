@@ -136,6 +136,9 @@ def moduleToString(module: Module):
 
     # write assignments to the same variable in the same always block
     for var in module.var2assigns:
+        # print some comments for the variable
+        moduleString += f"\n/* Variable {var} */\n"
+        
         assignments = []
         for assign in module.getAssignmentsOf(var):
             # TODO: consider the wire/latch/reg
