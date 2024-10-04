@@ -15,7 +15,7 @@ from enum import Enum, auto
 
 class OPType(Enum):
     # Automatically generate lowercase value for each enum member
-    def _generate_next_value_(name, *_):
+    def _generate_next_value_(name: str, *_):
         return name.lower()
 
     # Binary operations
@@ -178,8 +178,8 @@ def getOpType(op: str) -> OPType:
 
 @dataclass
 class Range:
-    start: Any
-    end: Optional[Any] = None
+    start: "BNode"
+    end: Optional["BNode"] = None
 
     def __eq__(self, value: object) -> bool:
         if not isinstance(value, Range):
@@ -217,6 +217,11 @@ class Range:
             raise Exception(f"Expected 0, got {endVal}")
         return startVal + 1
 
+    def copy(self) -> "Range":
+        return Range(
+            self.start.copy(), self.end.copy() if self.end is not None else None
+        )
+
 
 class BasicRange(Range):
     def __init__(self, width: int) -> None:
@@ -243,8 +248,9 @@ def rangeToString(range: Range) -> str:
 
 @dataclass
 class BNode:
-    variable_name: str = str(field(default_factory=str))
+    variable_name: Optional[str] = None
     range: Optional[Range] = None
+    operation: OPType = OPType.UNKNOWN
     children: List["BNode"] = field(default_factory=list)
 
     def isVariable(self) -> bool:
@@ -263,7 +269,7 @@ class BNode:
         return self.variable_name
 
     def __eq__(self, value: object) -> bool:
-        if not isinstance(value, BNode):
+        if not isinstance(value, type(self)):
             print(f"Expected BNode, got {type(value)}")
             return False
         if self.operation != value.operation:
@@ -289,7 +295,7 @@ class BNode:
         return True
 
     def __ne__(self, value: object) -> bool:
-        return not self.__eq__(value)
+        return not BNode.__eq__(self, value)
 
     @property
     def name(self) -> str:
@@ -310,22 +316,25 @@ class BNode:
             child.replaceVariable(old, new)
 
     def copy(self) -> "BNode":
-        node = BNode(self.variable_name)
+        # create a node with the same class
+        node = self.__class__()
+        node.variable_name = self.variable_name
         node.operation = self.operation
-        node.range = self.range
+        node.range = self.range.copy() if self.range is not None else None
         node.children = [child.copy() for child in self.children]
         return node
 
 
 @dataclass
 class OPNode(BNode):
-    operation: OPType = OPType.UNKNOWN
-    children: List[BNode] = field(default_factory=list)
 
-    def __init__(self, op: str, operation: OPType, *items) -> None:
+    def __init__(
+        self, op: str = "", operation: OPType = OPType.UNKNOWN, *items
+    ) -> None:
         # Initialize the parent class with the operation name
-        super().__init__(str(op))
+        self.variable_name = op
         assert operation is not None, f"Operation is None, op = {op}"
+        assert isinstance(operation, OPType), f"Expected OPType, got {type(operation)}"
         self.operation = operation
         self.children = list(items)
 
@@ -339,7 +348,7 @@ class OPNode(BNode):
             #     return f"{child.toString()}"
             return f"({child.toString()})"
 
-        opName = self.operation.value
+        opName: str = self.operation.value
         # Case 1: Binary or unary operation
         if opName.startswith("binary_"):
             assert (
@@ -391,6 +400,10 @@ class OPNode(BNode):
             case _:
                 return super().toString()
 
+    @property
+    def needsParentheses(self) -> bool:
+        return True
+
 
 @dataclass
 class VarNode(BNode):
@@ -408,8 +421,10 @@ class VarNode(BNode):
 class ConstantNode(BNode):
     operation: OPType = OPType.CONSTANT
 
-    def __init__(self, value: Any):
-        super().__init__(str(value))
+    def ___init___(self, value: Any = None) -> None:
+        BNode.__init__(self)
+        assert value is not None, "Value is None"
+        self.variable_name = str(value)
 
 
 @dataclass

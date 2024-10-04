@@ -77,29 +77,28 @@ class Assignment(BNEdge):
     def __ne__(self, value: object) -> bool:
         return not self.__eq__(value)
 
-    def toString(self) -> str:
-        # NOTE: this should not be used for verilog generation
-        # Only for debugging purposes
-        # Use `assignmentToString` instead
-        retString = ""
+    def _getEventString(self) -> str:
+        if self.event is not None:
+            return f"{self.event.toString()} begin\n"
+        return ""
 
+    def _getAssignBody(self) -> str:
+        assignOp = "=" if self.isBlocking else "<="
         target = self.target.toString()
         expression = self.expression.toString()
-        assignOp = "=" if self.isBlocking else "<="
-        condition = self.condition
         assignHead = (
             "assign "
             if self.targetType == PortType.WIRE and not self.isProcedural
             else ""
         )
+        return f"{assignHead}{target} {assignOp} {expression};"
 
-        if self.event is not None:
-            retString += f"{self.event.toString()} begin\n"
+    def toString(self) -> str:
+        retString = self._getEventString()
+        assignBody = self._getAssignBody()
 
-        assignBody = f"{assignHead}{target} {assignOp} {expression};"
-        # TODO: consider wire/latch/reg
-        if condition is not None:
-            condition = condition.toString()
+        if self.condition is not None:
+            condition = self.condition.toString()
             retString += f"if ({condition}) begin\n\t{assignBody}\nend\n"
         else:
             retString += f"{assignBody}\n"
@@ -108,6 +107,17 @@ class Assignment(BNEdge):
             retString += "end\n"
 
         return retString
+
+    def copy(self) -> "Assignment":
+        return Assignment(
+            self.target.copy(),
+            self.expression.copy(),
+            self.condition.copy() if self.condition is not None else None,
+            self.event.copy() if self.event is not None else None,
+            self.isBlocking,
+            self.targetType,
+            self.isProcedural,
+        )
 
 
 @dataclass
@@ -158,6 +168,12 @@ class CaseAssignment(BNEdge):
         self.addCase(None, expression)
         return self
 
+    def setEvent(self, event: BNode):
+        if event:
+            assert isinstance(event, BNode)
+        self.event = event
+        return self
+
     def toString(self) -> str:
         caseStr = ""
         if self.event is not None:
@@ -172,6 +188,18 @@ class CaseAssignment(BNEdge):
         if self.event is not None:
             caseStr += "end\n"
         return caseStr
+
+    def copy(self) -> "CaseAssignment":
+        newAssignment = CaseAssignment(self.target.copy(), self.caseVariable.copy())
+        newAssignment.isBlocking = self.isBlocking
+        newAssignment.targetType = self.targetType
+        newAssignment.event = self.event.copy() if self.event is not None else None
+        for caseValue, expression in self.cases:
+            if caseValue is None:
+                newAssignment.addDefaultCase(expression.copy())
+            else:
+                newAssignment.addCase(caseValue.copy(), expression.copy())
+        return newAssignment
 
 
 @dataclass
@@ -200,6 +228,12 @@ class ConditionalAssignment(BNEdge):
         self.addBranch(None, expression)
         return self
 
+    def setEvent(self, event: BNode):
+        if event:
+            assert isinstance(event, BNode)
+        self.event = event
+        return self
+
     def toString(self) -> str:
         retString = ""
         if self.event is not None:
@@ -214,3 +248,15 @@ class ConditionalAssignment(BNEdge):
         if self.event is not None:
             retString += "end\n"
         return retString
+
+    def copy(self) -> "ConditionalAssignment":
+        newAssignment = ConditionalAssignment(self.target.copy())
+        newAssignment.isBlocking = self.isBlocking
+        newAssignment.targetType = self.targetType
+        newAssignment.event = self.event.copy() if self.event is not None else None
+        for condition, expression in self.conditions:
+            if condition is None:
+                newAssignment.addDefaultBranch(expression.copy())
+            else:
+                newAssignment.addBranch(condition.copy(), expression.copy())
+        return newAssignment

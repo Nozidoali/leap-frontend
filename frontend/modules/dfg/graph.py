@@ -146,7 +146,7 @@ class BNGraph:
             for i in range(len(assignments1)):
                 if assignments1[i] != assignments2[i]:
                     print(
-                        f"Assignment {i} is not equal, \n{assignments1[i]} \n!=\n {assignments2[i]}"
+                        f"Assignment {i} is not equal, \n{assignments1[i].toString()} \n!=\n {assignments2[i].toString()}"
                     )
                     return False
         return True

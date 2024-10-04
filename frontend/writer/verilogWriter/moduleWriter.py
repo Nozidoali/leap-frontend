@@ -1,40 +1,34 @@
-#!/usr/bin/env python
-# -*- encoding=utf8 -*-
-
-"""
-Author: Hanyu Wang
-Created time: 2024-07-23 22:33:09
-Last Modified by: Hanyu Wang
-Last Modified time: 2024-07-23 23:19:24
-"""
-
-from typing import List, Dict, Tuple
+from typing import List, Dict
 from ...modules import *
-from .headerWriter import *
 
 
-def _extractEvent(assignment: List[Assignment]) -> BNode:
+def _extractEvent(assignment: List[Assignment]) -> Tuple[BNode, List[Assignment]]:
     event = None
+    newAssignments: List[Assignment] = []
     for assign in assignment:
-        if assign.event is not None:
-            if event is None:
-                event = assign.event
-            elif event != assign.event:
-                assert (
-                    False
-                ), "Multiple events in the same assignment list are not supported"
-        assign.setEvent(None)
-    return event
+        if event is None and assign.event is not None:
+            event = assign.event
+        if event and assign.event != event:
+            print(f"event: {event.toString()}, assign.event: {assign.event.toString()}")
+            assert (
+                False
+            ), "Multiple events in the same assignment list are not supported"
+        newAssignments.append(assign.copy().setEvent(None))
+    return event, newAssignments
 
 
 def assignmentsToString(assignments: List[Assignment]):
     retString = ""
     if len(assignments) == 0:
         return retString
-    event = _extractEvent(assignments)
+    try:
+        event, newAssignments = _extractEvent(assignments)
+    except AssertionError as e:
+        event = None
+        newAssignments = assignments
     if event is not None:
         retString += f"{event.toString()} begin\n"
-    for assignment in assignments:
+    for assignment in newAssignments:
         retString += assignmentToString(assignment)
     if event is not None:
         retString += "end\n"
@@ -81,7 +75,7 @@ def portDefsToString(portDefs: Dict[str, Port], listParamValues: dict):
 def writePortDefinitions(f, module: Module):
     portDefs: dict = module.getPorts()
     if len(portDefs) > 0:
-        f.write(portDefsToString(portDefs, getParamValues(module)))
+        f.write(portDefsToString(portDefs, _getParamValues(module)))
 
 
 def moduleInstToString(moduleInst: ModuleInst):
@@ -113,9 +107,9 @@ def writeModuleInst(f, moduleInst: ModuleInst):
 
 
 # function to extract the default values of the parameters
-def getParamValues(module: Module):
-    listParams = [port for port in module.getPortsByType(PortType.PARAMETER)]
-    listLocalParams = [port for port in module.getPortsByType(PortType.LOCALPARAM)]
+def _getParamValues(module: Module):
+    listParams = module.getPortsByType(PortType.PARAMETER)
+    listLocalParams = module.getPortsByType(PortType.LOCALPARAM)
     listParams += listLocalParams
     defaultParamsValues = {}
     for var in module.var2assigns:
@@ -134,7 +128,7 @@ def moduleToString(module: Module):
     moduleString = ""
     moduleString += moduleHeaderToString(module)
     moduleString += module.getMacroString()
-    moduleString += portDefsToString(module.getPorts(), getParamValues(module))
+    moduleString += portDefsToString(module.getPorts(), _getParamValues(module))
     moduleString += "\n"
 
     for _, moduleInst in module.submodules.items():
