@@ -482,6 +482,46 @@ def checkPipeline(candidateCouts: list, currStateVar: str, nextStateVar: str, gr
 
     return pipelineGraph
 
+def findTopNode(graph: pgv.AGraph):
+    for node in graph.nodes():
+        if graph.in_edges(node) == []:
+            return node
+    return None
+def findBottomNode(graph: pgv.AGraph, topNode: pgv.Node):
+    visited = set()
+    queue = deque([topNode])
+    while queue:
+        node = queue.popleft()
+        visited.add(node)
+        for src, dst in graph.out_edges(node):
+            if dst not in visited:
+                queue.append(dst)
+        if len(queue) == 0:
+            return node
+    return None
+        
+# function to insert the pipeline graphs into the FSM graph
+def insertPipelineGraphs(graph: pgv.AGraph, FSM: pgv.AGraph, pipelineGraphs: dict):
+    for state, pipelineGraph in pipelineGraphs.items():
+        assert state in FSM.nodes(), "State not found in FSM"
+        assert len(FSM.out_edges(state)) <= 1, "More than one edge found"
+        topNode = findTopNode(pipelineGraph) 
+        assert topNode is not None, "Top node not found"
+        bottomNode = findBottomNode(pipelineGraph, topNode)
+        assert bottomNode is not None, "Bottom node not found"
+        for node in pipelineGraph.nodes():
+            FSM.add_node(node)
+            FSM.get_node(node).attr["label"] = graph.get_node(node).attr["label"]
+            FSM.get_node(node).attr["shape"] = graph.get_node(node).attr["shape"]
+        for src, dst in pipelineGraph.edges():
+            FSM.add_edge(src, dst, color="red", info=pipelineGraph.get_edge(src, dst).attr["info"])
+        dstState = FSM.out_edges(state)[0][1]
+        FSM.remove_edge(state, dstState)
+        FSM.add_edge(state, topNode, color="red", style="dashed")
+        FSM.add_edge(bottomNode, dstState, color="red", style="dashed")
+        print("Pipeline graph inserted for state: {0}. Exporting new FSM graph FSM_{0}.dot".format(state))
+        FSM.write("FSM_{}.dot".format(state))
+
 
 # function to extract the departure states of the ctrl data CFG
 def getDepartureStates(graph: pgv.AGraph, controlPaths: list, module: Module, FSM: pgv.AGraph, end_nodes: list):
@@ -552,6 +592,8 @@ def getDepartureStates(graph: pgv.AGraph, controlPaths: list, module: Module, FS
                     else:
                         departureStates[state].append(dataEndPoint)
 
+    insertPipelineGraphs(graph, FSM , pipelineGraphs)
+
     return departureStates
 
 
@@ -593,6 +635,6 @@ def buildOriginalCDFG(graph: pgv.AGraph, module: Module, FSM: pgv.AGraph, end_no
         dataDstNodes = departureStates[arrivalState]
         for dataDstNode in dataDstNodes:
             CDFG.add_edge(dataSrcNode.get_name(), dataDstNode, color="blue", style="dashed")
-        print(f"Data node {dataSrcNode.get_name()} -> {dataDstNodes}")
+        #print(f"Data node {dataSrcNode.get_name()} -> {dataDstNodes}")
 
     return CDFG
