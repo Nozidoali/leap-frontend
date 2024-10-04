@@ -535,7 +535,7 @@ def getDepartureStates(graph: pgv.AGraph, controlPaths: list, module: Module, FS
                     if pipelineGraph is not None:
                         assert state not in pipelineGraphs.keys(), "Pipeline graph already exists, there cannot be two pipeline graphs for the same state"
                         pipelineGraphs[state] = pipelineGraph
-                for driverCtrl, ctrl in CFG_outNode.items():
+                for ctrl, driverCtrl in CFG_outNode.items():
                     if ctrl in Ctrl2Data.keys():
                         dataEndPoint = Ctrl2Data[ctrl]
                     elif ctrl in end_nodes:
@@ -544,15 +544,14 @@ def getDepartureStates(graph: pgv.AGraph, controlPaths: list, module: Module, FS
                         assert False, "Data end point associate to ctrl node not found"
                     if pipelineGraph is not None and driverCtrl in pipelineGraph.nodes():
                         if driverCtrl in pipelineGraph.nodes():
+                            if not driverCtrl in departureStates.keys():
+                                departureStates[driverCtrl] = []
                             departureStates[driverCtrl].append(dataEndPoint)
                         else:
                             departureStates[state].append(dataEndPoint)
                     else:
                         departureStates[state].append(dataEndPoint)
 
-    for ctrlNode, dataNode in controlPaths:
-        assert len(graph.in_edges(ctrlNode)) == 1
-        controlOutputNode = graph.in_edges(ctrlNode)[0][0]
     return departureStates
 
 
@@ -589,15 +588,11 @@ def buildOriginalCDFG(graph: pgv.AGraph, module: Module, FSM: pgv.AGraph, end_no
 
     arrivalStates = getArrivalStates(graph, inCtrlOutDataWire, module, end_nodes, FSM)
     departureStates = getDepartureStates(graph, outCtrlInDataWire, module, FSM, end_nodes)
-    for dataNode, arrivalState in arrivalStates:
-        if arrivalState in end_nodes:
-            CDFG.add_edge(dataNode.get_name(), arrivalState.get_name(), color="red", style="dashed")
-        elif arrivalState in departureStates.keys():
-            pass
-            #CDFG.add_edge(dataNode, arrivalState, color="green", style="dashed")
-        else:
-            assert False, "Arrival state not found"
-
-
+    for dataSrcNode, arrivalState in arrivalStates:
+        assert arrivalState in departureStates.keys(), "Arrival state not found"
+        dataDstNodes = departureStates[arrivalState]
+        for dataDstNode in dataDstNodes:
+            CDFG.add_edge(dataSrcNode.get_name(), dataDstNode, color="blue", style="dashed")
+        print(f"Data node {dataSrcNode.get_name()} -> {dataDstNodes}")
 
     return CDFG
