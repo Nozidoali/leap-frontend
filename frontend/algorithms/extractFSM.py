@@ -628,8 +628,9 @@ def buildOriginalCDFG(graph: pgv.AGraph, module: Module, FSM: pgv.AGraph, end_no
         shape = graph.get_node(node).attr["shape"]
         CDFG.get_node(node).attr["shape"] = shape
 
-    arrivalStates = getArrivalStates(graph, inCtrlOutDataWire, module, end_nodes, FSM)
+    # departure states should be computed first since they identify potential pipeline graphs and insert them in the FSM
     departureStates = getDepartureStates(graph, outCtrlInDataWire, module, FSM, end_nodes)
+    arrivalStates = getArrivalStates(graph, inCtrlOutDataWire, module, end_nodes, FSM)
     for dataSrcNode, arrivalState in arrivalStates:
         assert arrivalState in departureStates.keys(), "Arrival state not found"
         dataDstNodes = departureStates[arrivalState]
