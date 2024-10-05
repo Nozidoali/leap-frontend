@@ -703,6 +703,15 @@ def addLoadOps(CDFG: pgv.AGraph, graph: pgv.AGraph, module: Module, state2node: 
         CDFG.remove_edge(portFromMemory, infoFromMemory)        
 
 
+# functio to remove the memory nodes from the CDFG
+def removeMemNodes(CDFG: pgv.AGraph, memoryNodes: dict):
+    for keyword, node in memoryNodes.items():
+        if keyword != "regex_memory" and keyword != "inAddress":
+            for src, dst in CDFG.in_edges(node):
+                CDFG.remove_edge(src, dst)
+                CDFG.remove_node(src)
+            CDFG.remove_node(node)
+
 # function to merge memory ports of the CDFG
 def memory_merge(module: Module, CDFG: pgv.AGraph, graph: pgv.AGraph , state2node: dict, memory_keywords: dict):
 
@@ -737,6 +746,7 @@ def memory_merge(module: Module, CDFG: pgv.AGraph, graph: pgv.AGraph , state2nod
             assert len(memoryNodes) >= len(memory_keywords) - 2, "Memory nodes not found"
             statesMem = getStatesMem(module, graph , memoryNodes["enable"], state2node)
             if statesMem is None:
+                removeMemNodes(CDFG, memoryNodes)
                 continue
             # identify the states in which there is a write operation, the remaining states in statesMem are read operations
             statesWriteOp = getMemWriteOpState(module, graph, memoryNodes["writeEnable"], state2node)
@@ -747,8 +757,18 @@ def memory_merge(module: Module, CDFG: pgv.AGraph, graph: pgv.AGraph , state2nod
             if len(statesReadOp) > 0:
                 addLoadOps(CDFG, graph, module, state2node, statesReadOp, memoryNodes["outAddress"], memoryNodes["outMemory"], "load_{0}_{1}".format(memory_name, memory_id))
 
+            # remove the nodes still existing in the CDFG and all the nodes connected to them
+            removeMemNodes(CDFG, memoryNodes)
 
-    # remove the nodes still existing in the CDFG and all the nodes connected to them
+    # remove byteena node if present
+    allNodes = CDFG.nodes()
+    for node in allNodes:
+        if "byteena" in node:
+            for src, dst in CDFG.in_edges(node):
+                CDFG.remove_edge(src, dst)
+                CDFG.remove_node(src)
+            CDFG.remove_node(node)
+
 
 # function to merge consecutive pipeline states
 def mergeConsecutivePipelineStates(FSM: pgv.AGraph, departureStates: dict, departureStates2Ctrl , arrivalStates: list):
