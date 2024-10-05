@@ -558,7 +558,6 @@ def getDepartureStates(graph: pgv.AGraph, controlPaths: list, module: Module, FS
                         continue
                 targ, expr, cond = getAssignToNode(module, assign)
                 ctrlOuts = list_ctrlOuts.copy()
-                print("Starting for state: {0} from node {1}".format(state, targ))
                 # check if the target of the condition is already in the datapath nodes
                 if targ in graph.get_subgraph("cluster_data_flow").nodes():
                     dataEndPoint = targ
@@ -850,7 +849,6 @@ def mergeConsecutivePipelineStates(FSM: pgv.AGraph, departureStates: dict, depar
 
     for src, dst in reorderedMergedStates:
         # remove dst state
-        print("Merging states {1} into {0}".format(src, dst))
         FSM.remove_edge(src, dst)
         for out in FSM.out_edges(dst):
             FSM.add_edge(src, out[1], color="blue", style="dashed")
@@ -872,6 +870,22 @@ def mergeConsecutivePipelineStates(FSM: pgv.AGraph, departureStates: dict, depar
                 arrivalStates.append((dataSrcNode, src))
 
     FSM.write("FSM_merged.dot")
+
+# function to remove duplicate variables in the CDFG
+def removeDuplicateVars(CDFG: pgv.AGraph):
+    nodes = CDFG.nodes()
+    for node in nodes:
+        out_nodes = []
+        for src, dst in CDFG.out_edges(node):
+            if dst not in out_nodes:
+                out_nodes.append(dst)
+        if len(CDFG.out_edges(node)) >= 1 and len(out_nodes) == 1:
+            if isVarNode(CDFG.get_node(node)) and isVarNode(CDFG.get_node(out_nodes[0])):
+                src = node
+                dst = out_nodes[0]
+                for src2, dst2 in CDFG.in_edges(src):
+                    CDFG.add_edge(src2, dst, color=CDFG.get_edge(src2, src).attr["color"], style=CDFG.get_edge(src2, src).attr["style"])
+                CDFG.remove_node(src)
 
 # function to build the original CDFG with the extracted data flow
 def buildOriginalCDFG(graph: pgv.AGraph, module: Module, FSM: pgv.AGraph, end_nodes: list, memory_keywords: dict):
@@ -917,6 +931,7 @@ def buildOriginalCDFG(graph: pgv.AGraph, module: Module, FSM: pgv.AGraph, end_no
     mergeConsecutivePipelineStates(FSM, departureStates, departureStates2Ctrl , arrivalStates)
     memory_merge(module, CDFG, graph, departureStates2Ctrl, memory_keywords)
 
+    removeDuplicateVars(CDFG)
     replaceMuxes(CDFG, module, graph, departureStates2Ctrl)
 
     return CDFG
