@@ -887,8 +887,8 @@ def removeDuplicateVars(CDFG: pgv.AGraph):
                     CDFG.add_edge(src2, dst, color=CDFG.get_edge(src2, src).attr["color"], style=CDFG.get_edge(src2, src).attr["style"])
                 CDFG.remove_node(src)
 
-# function to merge the multiplication inputs and outputs in the CDFG
-def mult_merge(CDFG: pgv.AGraph):
+# function to connect the multiplication inputs and outputs in the CDFG
+def mult_connect(CDFG: pgv.AGraph):
     nodes = CDFG.nodes()
     foundMult = False
     for node in nodes:
@@ -900,22 +900,25 @@ def mult_merge(CDFG: pgv.AGraph):
     multNames = []
     for node in nodes:
         if "mult" in node and "_datab" in node:
-            multNames.append("mult_"+node.split("_")[2])
+            multName = node.replace("_datab", "")
+            multNames.append(multName)
     for multName in multNames:
         inputA = None
         inputB = None
         output = None
         for node in nodes:
-            if "mult" in node:
-                if multName in node:
-                    if "_datab" in node:
-                        inputB = node
-                    elif "_dataa" in node:
-                        inputA = node
-                    elif "_result" in node:
-                        assert output is None, "Output already found"
-                        output = node
+            if multName in node:
+                if "_datab" in node:
+                    inputB = node
+                elif "_dataa" in node:
+                    inputA = node
+                elif "_result" in node:
+                    assert output is None, "Output already found"
+                    output = node
 
+        assert inputA is not None, "Input A not found"
+        assert inputB is not None, "Input B not found"
+        assert output is not None, "Output not found"
         CDFG.add_edge(inputA, output, color="red")
         CDFG.add_edge(inputB, output, color="red")
 
@@ -963,7 +966,6 @@ def buildOriginalCDFG(graph: pgv.AGraph, module: Module, FSM: pgv.AGraph, end_no
     mergeConsecutivePipelineStates(FSM, departureStates, departureStates2Ctrl , arrivalStates)
     memory_merge(module, CDFG, graph, departureStates2Ctrl, memory_keywords)
 
-    mult_merge(CDFG)
     removeDuplicateVars(CDFG)
     replaceMuxes(CDFG, module, graph, departureStates2Ctrl)
 

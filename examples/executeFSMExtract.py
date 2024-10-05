@@ -15,6 +15,8 @@ if __name__ == "__main__":
         module, params={"skipConstants": False, "skipSignals": []}
     )
 
+    mult_connect(graph)
+
     ctrl_output_names = ["ap_done", "ap_idle", "ap_ready", "finish", "ap_start"]
     ctrl_input_names = ["start", "memory_controller_waitrequest", "clk", "clk2x", "clk1x_follower", "reset", "rst", "ap_rst", "ap_reset"]
     outputsNames = [
@@ -43,7 +45,7 @@ if __name__ == "__main__":
     memory_keywords = {}
     memory_keywords["regex_memory"] = [r"main_0_(?P<memory_name>[a-zA-Z0-9_]+)_address_(?P<memory_id>[a-z])"]
     memory_keywords["outAddress"] = ["main_0_MEMORY_NAME_address_MEMORY_ID"]
-    memory_keywords["inAddress"] = ["arg_MEMORY_NAME"]
+    #memory_keywords["inAddress"] = ["arg_MEMORY_NAME"]
     memory_keywords["outMemory"] = ["main_0_MEMORY_NAME_out_MEMORY_ID"]
     memory_keywords["inMemory"] = ["main_0_MEMORY_NAME_in_MEMORY_ID"]
     memory_keywords["writeEnable"] = ["main_0_MEMORY_NAME_write_enable_MEMORY_ID"]
