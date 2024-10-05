@@ -602,6 +602,19 @@ def getDepartureStates(graph: pgv.AGraph, controlPaths: list, module: Module, FS
 
     return departureStates, departureStates2Ctrl
 
+def findDrivingState(state2node: dict, module: Module, graph: pgv.AGraph, assign: Assignment):
+
+    target, expression, condition = getAssignToNode(module, assign)
+    foundState = None
+    for state in state2node.keys():
+        for ctrlNode in state2node[state]:
+            driverCtrl = graph.in_edges(ctrlNode)[0][0]
+            if driverCtrl == condition:
+                foundState = state        
+                break
+    assert foundState is not None, "State not found"
+    return foundState
+
 # function to get the memory operations associated with a state
 def getStatesMem(module: Module, graph: pgv.AGraph , enablePort: str, state2node: dict):
     assert module.isDefined(enablePort), "Output address port not found"
@@ -613,15 +626,7 @@ def getStatesMem(module: Module, graph: pgv.AGraph , enablePort: str, state2node
         if value == "1'b0" or value == "0" or value == "1'd0":
             continue
         numOps += 1
-        target, expression, condition = getAssignToNode(module, assign)
-        foundState = None
-        for state in state2node.keys():
-            for ctrlNode in state2node[state]:
-                driverCtrl = graph.in_edges(ctrlNode)[0][0]
-                if driverCtrl == condition:
-                    foundState = state        
-                    break
-        assert foundState is not None, "State not found"
+        foundState = findDrivingState(state2node, module, graph, assign)
         statesMem.append(foundState)
     if numOps == 0:
         return None
@@ -636,17 +641,67 @@ def getMemWriteOpState(module: Module, graph: pgv.AGraph, writeEnablePort: str, 
         value = assign.expression.toString()
         if value == "1'b0" or value == "0" or value == "1'd0":
             continue
-        target, expression, condition = getAssignToNode(module, assign)
-        foundState = None
-        for state in state2node.keys():
-            for ctrlNode in state2node[state]:
-                driverCtrl = graph.in_edges(ctrlNode)[0][0]
-                if driverCtrl == condition:
-                    foundState = state        
-                    break
-        assert foundState is not None, "State not found"
+        foundState = findDrivingState(state2node, module, graph, assign)
         stateWriteOp.append(foundState)
     return stateWriteOp
+
+# function to add a store operation to the CDFG
+def addStoreOps(CDFG: pgv.AGraph, graph: pgv.AGraph, module: Module, state2node: dict, statesWriteOp: list, portOutAddress: str, portToMemory: str, node_name_template: str):
+    state2addr = {}
+    state2data = {}
+    for assignment in module.getAssignmentsOf(portOutAddress):
+        if assignment.condition is None:
+            continue
+        state = findDrivingState(state2node, module, graph, assignment)
+        if state not in statesWriteOp:
+            continue
+        target, expression, condition = getAssignToNode(module, assignment)
+        state2addr[state] = expression
+    for assignment in module.getAssignmentsOf(portToMemory):
+        if assignment.condition is None:
+            continue
+        state = findDrivingState(state2node, module, graph, assignment)
+        if state not in statesWriteOp:
+            continue
+        target, expression, condition = getAssignToNode(module, assignment)
+        state2data[state] = expression
+    idOp = 0
+    for state in statesWriteOp:
+        node_name = node_name_template + "_" + str(idOp)
+        assert state in state2addr.keys(), "Address not found"
+        assert state in state2data.keys(), "Data not found"
+        addr = state2addr[state]
+        data = state2data[state]
+
+        CDFG.remove_edge(addr, portOutAddress)
+        CDFG.remove_edge(data, portToMemory)
+        CDFG.add_edge(addr, node_name, color="red")
+        CDFG.add_edge(data, node_name, color="red")
+
+# function to add a load operation to the CDFG
+def addLoadOps(CDFG: pgv.AGraph, graph: pgv.AGraph, module: Module, state2node: dict, statesReadOp: list, portOutAddress: str, portFromMemory: str, node_name_template: str):
+    state2addr = {}
+    state2data = {}
+    for assignment in module.getAssignmentsOf(portOutAddress):
+        if assignment.condition is None:
+            continue
+        state = findDrivingState(state2node, module, graph, assignment)
+        if state not in statesReadOp:
+            continue
+        target, expression, condition = getAssignToNode(module, assignment)
+        state2addr[state] = expression
+    
+    idOp = 0
+    for state in statesReadOp:
+        node_name = node_name_template + "_" + str(idOp)
+        assert state in state2addr.keys(), "Address not found"
+        addr = state2addr[state]
+        CDFG.remove_edge(addr, portOutAddress)
+        CDFG.add_edge(addr, node_name, color="red")
+        infoFromMemory = CDFG.out_edges(portFromMemory)[0][1]
+        CDFG.add_edge(node_name, infoFromMemory, color="red")
+        CDFG.remove_edge(portFromMemory, infoFromMemory)        
+
 
 # function to merge memory ports of the CDFG
 def memory_merge(module: Module, CDFG: pgv.AGraph, graph: pgv.AGraph , state2node: dict, memory_keywords: dict):
@@ -686,7 +741,12 @@ def memory_merge(module: Module, CDFG: pgv.AGraph, graph: pgv.AGraph , state2nod
             # identify the states in which there is a write operation, the remaining states in statesMem are read operations
             statesWriteOp = getMemWriteOpState(module, graph, memoryNodes["writeEnable"], state2node)
             statesReadOp = [state for state in statesMem if state not in statesWriteOp]
-            
+
+            if len(statesWriteOp) > 0:
+                addStoreOps(CDFG, graph, module, state2node, statesWriteOp, memoryNodes["outAddress"], memoryNodes["inMemory"], "store_{0}_{1}".format(memory_name, memory_id))
+            if len(statesReadOp) > 0:
+                addLoadOps(CDFG, graph, module, state2node, statesReadOp, memoryNodes["outAddress"], memoryNodes["outMemory"], "load_{0}_{1}".format(memory_name, memory_id))
+
 
     # remove the nodes still existing in the CDFG and all the nodes connected to them
 
