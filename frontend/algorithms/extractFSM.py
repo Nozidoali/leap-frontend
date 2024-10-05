@@ -887,6 +887,38 @@ def removeDuplicateVars(CDFG: pgv.AGraph):
                     CDFG.add_edge(src2, dst, color=CDFG.get_edge(src2, src).attr["color"], style=CDFG.get_edge(src2, src).attr["style"])
                 CDFG.remove_node(src)
 
+# function to merge the multiplication inputs and outputs in the CDFG
+def mult_merge(CDFG: pgv.AGraph):
+    nodes = CDFG.nodes()
+    foundMult = False
+    for node in nodes:
+        if "mult" in node:
+            foundMult = True
+            break
+    if not foundMult:
+        return
+    multNames = []
+    for node in nodes:
+        if "mult" in node and "_datab" in node:
+            multNames.append("mult_"+node.split("_")[2])
+    for multName in multNames:
+        inputA = None
+        inputB = None
+        output = None
+        for node in nodes:
+            if "mult" in node:
+                if multName in node:
+                    if "_datab" in node:
+                        inputB = node
+                    elif "_dataa" in node:
+                        inputA = node
+                    elif "_result" in node:
+                        assert output is None, "Output already found"
+                        output = node
+                        
+        CDFG.add_edge(inputA, output, color="red")
+        CDFG.add_edge(inputB, output, color="red")
+
 # function to build the original CDFG with the extracted data flow
 def buildOriginalCDFG(graph: pgv.AGraph, module: Module, FSM: pgv.AGraph, end_nodes: list, memory_keywords: dict):
     CDFG = pgv.AGraph(strict=False, directed=True)
@@ -931,6 +963,7 @@ def buildOriginalCDFG(graph: pgv.AGraph, module: Module, FSM: pgv.AGraph, end_no
     mergeConsecutivePipelineStates(FSM, departureStates, departureStates2Ctrl , arrivalStates)
     memory_merge(module, CDFG, graph, departureStates2Ctrl, memory_keywords)
 
+    mult_merge(CDFG)
     removeDuplicateVars(CDFG)
     replaceMuxes(CDFG, module, graph, departureStates2Ctrl)
 
