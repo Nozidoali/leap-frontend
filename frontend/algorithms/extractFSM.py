@@ -564,7 +564,7 @@ def getDepartureStates(graph: pgv.AGraph, controlPaths: list, module: Module, FS
                     departureStates[state].append(dataEndPoint)
                     ctrlFound = False
                     for ctrl in Ctrl2Data.keys():
-                        if Ctrl2Data[ctrl] == dataEndPoint:
+                        if Ctrl2Data[ctrl] == dataEndPoint and graph.in_edges(ctrl)[0][0] == cond:
                             departureStates2Ctrl[state].append(ctrl)
                             ctrlFound = True
                             break
@@ -915,7 +915,7 @@ def mult_merge(CDFG: pgv.AGraph):
                     elif "_result" in node:
                         assert output is None, "Output already found"
                         output = node
-                        
+
         CDFG.add_edge(inputA, output, color="red")
         CDFG.add_edge(inputB, output, color="red")
 
