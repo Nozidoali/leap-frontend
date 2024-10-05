@@ -558,6 +558,26 @@ def getDepartureStates(graph: pgv.AGraph, controlPaths: list, module: Module, FS
                         continue
                 targ, expr, cond = getAssignToNode(module, assign)
                 ctrlOuts = list_ctrlOuts.copy()
+                print("Starting for state: {0} from node {1}".format(state, targ))
+                # check if the target of the condition is already in the datapath nodes
+                if targ in graph.get_subgraph("cluster_data_flow").nodes():
+                    dataEndPoint = targ
+                    departureStates[state].append(dataEndPoint)
+                    ctrlFound = False
+                    for ctrl in Ctrl2Data.keys():
+                        if Ctrl2Data[ctrl] == dataEndPoint:
+                            departureStates2Ctrl[state].append(ctrl)
+                            ctrlFound = True
+                            break
+                    assert ctrlFound, "Control node not found"
+                    continue
+                # check if the target of the condition is an end node
+                if targ in end_nodes:
+                    dataEndPoint = "endCircuit"
+                    departureStates[state].append(dataEndPoint)
+                    departureStates2Ctrl[state].append(targ)
+                    continue
+                # if this is not the case identify the control nodes that are reachable from the target node
                 getDepartureStates_rec(
                     graph, targ, set(), module, ctrlOuts, terminateTravNodes,
                 )
@@ -778,6 +798,42 @@ def replaceMuxes(CDFG: pgv.AGraph, module: Module, graph: pgv.AGraph, state2node
                 CDFG.get_node(node).attr["shape"] = "diamond"
                 CDFG.get_node(node).attr["label"] = "PHI"                  
 
+# function to reorder the states to merge in the FSM
+def reorderStates2Merge( states2merge: dict ):
+    graph = {}
+    indegree = {}
+
+    # Initialize the graph and indegree count for each node
+    nodes = set(states2merge.keys()).union(set(states2merge.values()))
+    for node in nodes:
+        indegree[node] = 0
+        graph[node] = []
+    
+    for src, dst in states2merge.items():
+        graph[dst].append(src)
+        indegree[src] += 1
+
+    sorted_nodes = []    
+    # Initialize the queue with the nodes with indegree 0
+    queue = deque([node for node in indegree.keys() if indegree[node] == 0])
+    while queue:
+        node = queue.popleft()
+        sorted_nodes.append(node)
+        for dst in graph[node]:
+            indegree[dst] -= 1
+            if indegree[dst] == 0:
+                queue.append(dst)
+    
+    assert len(sorted_nodes) == len(nodes), "Cycle found in the graph"
+
+    result = []
+    for node in sorted_nodes:
+        for key, value in states2merge.items():
+            if value == node:
+                result.append((key, value))
+
+    return result
+
 # function to merge consecutive pipeline states
 def mergeConsecutivePipelineStates(FSM: pgv.AGraph, departureStates: dict, departureStates2Ctrl , arrivalStates: list):
 
@@ -789,8 +845,12 @@ def mergeConsecutivePipelineStates(FSM: pgv.AGraph, departureStates: dict, depar
                 numRegs = int(info.split("=")[1])
                 if numRegs == 0:
                     mergedStates[edge[0]] = edge[1] 
-    for src, dst in mergedStates.items():
+
+    reorderedMergedStates = reorderStates2Merge(mergedStates)
+
+    for src, dst in reorderedMergedStates:
         # remove dst state
+        print("Merging states {1} into {0}".format(src, dst))
         FSM.remove_edge(src, dst)
         for out in FSM.out_edges(dst):
             FSM.add_edge(src, out[1], color="blue", style="dashed")
