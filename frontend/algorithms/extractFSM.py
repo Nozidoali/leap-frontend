@@ -581,7 +581,7 @@ def getDepartureStates(graph: pgv.AGraph, controlPaths: list, module: Module, FS
                     if ctrl in Ctrl2Data.keys():
                         dataEndPoint = Ctrl2Data[ctrl]
                     elif ctrl in end_nodes:
-                        dataEndPoint = "finish"
+                        dataEndPoint = "endCircuit"
                     else:
                         assert False, "Data end point associate to ctrl node not found"
                     if pipelineGraph is not None and driverCtrl in pipelineGraph.nodes():
@@ -769,6 +769,14 @@ def memory_merge(module: Module, CDFG: pgv.AGraph, graph: pgv.AGraph , state2nod
                 CDFG.remove_node(src)
             CDFG.remove_node(node)
 
+# function to replace the muxes in the CDFG with phis
+def replaceMuxes(CDFG: pgv.AGraph, module: Module, graph: pgv.AGraph, state2node: dict):
+    for node in CDFG.nodes():
+        if module.isDefined(node):
+            assignemnts = module.getAssignmentsOf(node)
+            if len(assignemnts) > 1:
+                CDFG.get_node(node).attr["shape"] = "diamond"
+                CDFG.get_node(node).attr["label"] = "PHI"                  
 
 # function to merge consecutive pipeline states
 def mergeConsecutivePipelineStates(FSM: pgv.AGraph, departureStates: dict, departureStates2Ctrl , arrivalStates: list):
@@ -848,5 +856,7 @@ def buildOriginalCDFG(graph: pgv.AGraph, module: Module, FSM: pgv.AGraph, end_no
     # the pipeline states with no registers across them should be merged since do not represent real states
     mergeConsecutivePipelineStates(FSM, departureStates, departureStates2Ctrl , arrivalStates)
     memory_merge(module, CDFG, graph, departureStates2Ctrl, memory_keywords)
+
+    replaceMuxes(CDFG, module, graph, departureStates2Ctrl)
 
     return CDFG
