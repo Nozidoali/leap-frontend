@@ -6,7 +6,8 @@ if __name__ == "__main__":
     from frontend import *
     import pygraphviz as pgv
 
-    network: Netlist = readVerilog("examples/verilogs/external/legup.v")
+    outputDot = "gaussian"
+    network: Netlist = readVerilog("examples/verilogs/external/legup/{}.v".format(outputDot))
     # network: Netlist = readVerilog("examples/verilogs/external/vitis.v")
     module = network.getModuleAt(0)
     # graph: pgv.AGraph = exportDOT(module)
@@ -28,7 +29,6 @@ if __name__ == "__main__":
         if port not in ctrl_input_names
     ]
 
-    outputDot = "toy"
     extractDataFlowControlFlow(module, graph, outputsNames, inputsNames)
     graph.write("{}.dot".format(outputDot))
 
