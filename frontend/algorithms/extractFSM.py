@@ -1584,10 +1584,10 @@ def breakLoopsPhis(CDFG: pgv.AGraph, module: Module, cip_dependencies: list):
 def addPhisEnable(CDFG: pgv.AGraph, module: Module):
 
     additionalPIs = {}
+    additionalPOs = {}
     nodes = CDFG.nodes()
     for node in nodes:
         if "PHI" in CDFG.get_node(node).attr["label"]:
-            inputs = []
             srcEnable = None
             assert len(CDFG.in_edges(node)) > 1, "PHI node should have at least 2 inputs"
             for src, dst in CDFG.in_edges(node):
@@ -1598,8 +1598,19 @@ def addPhisEnable(CDFG: pgv.AGraph, module: Module):
                 srcEnable = node + "_enable"
                 additionalPIs[srcEnable] = 1
                 CDFG.add_node(srcEnable, shape="box")
-                CDFG.add_edge(srcEnable, node, color="red")
-    return additionalPIs        
+                CDFG.add_edge(srcEnable, node, color="red", style="dashed")
+            else:
+                assert CDFG.get_edge(srcEnable, node).attr["color"] == "red" and CDFG.get_edge(srcEnable, node).attr["style"] == "dashed", "Not correct enable"
+                ctrlOut = srcEnable + "_ctrlOut"
+                additionalPOs[ctrlOut] = 1
+                CDFG.add_node(ctrlOut, shape="box")
+                CDFG.add_edge(srcEnable, ctrlOut, color="red", style="dashed")
+                newSrcEnable = node + "_enable"
+                additionalPIs[newSrcEnable] = 1
+                CDFG.add_node(newSrcEnable, shape="box")
+                CDFG.add_edge(newSrcEnable, node, color="red", style="dashed")
+
+    return additionalPIs, additionalPOs  
 
 # function to invert source and destination in cip_dependencies if there is II in the latency
 def invertII_Constraints(cip_dependencies: list):
@@ -1642,8 +1653,9 @@ def CDFGToVerilog(_CDFG: pgv.AGraph, module: Module, verilogFilePath: str, jsonF
     PIs.update(multilatencyPIs)
     POs.update(multilatencyPOs)
 
-    phisPIs = addPhisEnable(CDFG, module)
+    phisPIs, cltrOuts = addPhisEnable(CDFG, module)
     PIs.update(phisPIs)
+    POs.update(cltrOuts)
 
     variables = extractVariables(CDFG, module, PIs.keys(), POs.keys())
 
