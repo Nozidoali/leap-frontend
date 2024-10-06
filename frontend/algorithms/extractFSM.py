@@ -1565,7 +1565,7 @@ def breakLoopsPhis(CDFG: pgv.AGraph, module: Module, cip_dependencies: list):
             phi = loop[idxPhi]
             nxGraph.remove_edge(driverPhi, phi)
             CDFG.remove_edge(driverPhi, phi)
-            newPO = driverPhi + "_po"
+            newPO = "n" + driverPhi + "_po"
             CDFG.add_node(newPO, shape="box")
             additionalPOs[newPO] = getWidth(phi, module)
             CDFG.add_edge(driverPhi, newPO, color="red")
@@ -1581,7 +1581,7 @@ def breakLoopsPhis(CDFG: pgv.AGraph, module: Module, cip_dependencies: list):
     return additionalPIs, additionalPOs
 
 # function to add phis enable in the PIs
-def addPhisEnable(CDFG: pgv.AGraph, module: Module):
+def addPhisEnable(CDFG: pgv.AGraph, module: Module, cip_dependencies: list):
 
     additionalPIs = {}
     additionalPOs = {}
@@ -1601,7 +1601,7 @@ def addPhisEnable(CDFG: pgv.AGraph, module: Module):
                 CDFG.add_edge(srcEnable, node, color="red", style="dashed")
             else:
                 assert CDFG.get_edge(srcEnable, node).attr["color"] == "red" and CDFG.get_edge(srcEnable, node).attr["style"] == "dashed", "Not correct enable"
-                ctrlOut = srcEnable + "_ctrlOut"
+                ctrlOut = "n" + srcEnable + "_ctrlOut"
                 additionalPOs[ctrlOut] = 1
                 CDFG.add_node(ctrlOut, shape="box")
                 CDFG.add_edge(srcEnable, ctrlOut, color="red", style="dashed")
@@ -1609,6 +1609,8 @@ def addPhisEnable(CDFG: pgv.AGraph, module: Module):
                 additionalPIs[newSrcEnable] = 1
                 CDFG.add_node(newSrcEnable, shape="box")
                 CDFG.add_edge(newSrcEnable, node, color="red", style="dashed")
+                CDFG.remove_edge(srcEnable, node)
+                cip_dependencies.append((newSrcEnable, ctrlOut, 0))
 
     return additionalPIs, additionalPOs  
 
@@ -1641,6 +1643,10 @@ def CDFGToVerilog(_CDFG: pgv.AGraph, module: Module, verilogFilePath: str, jsonF
     PIs = getPIs(CDFG, module)
     POs = getPOs(CDFG, module)
 
+    phisPIs, cltrOuts = addPhisEnable(CDFG, module, cip_dependencies)
+    PIs.update(phisPIs)
+    POs.update(cltrOuts)
+
     additionalPIs, additionalPOs = breakLoopsPhis(CDFG, module, cip_dependencies)
     PIs.update(additionalPIs)
     POs.update(additionalPOs)
@@ -1653,9 +1659,6 @@ def CDFGToVerilog(_CDFG: pgv.AGraph, module: Module, verilogFilePath: str, jsonF
     PIs.update(multilatencyPIs)
     POs.update(multilatencyPOs)
 
-    phisPIs, cltrOuts = addPhisEnable(CDFG, module)
-    PIs.update(phisPIs)
-    POs.update(cltrOuts)
 
     variables = extractVariables(CDFG, module, PIs.keys(), POs.keys())
 
