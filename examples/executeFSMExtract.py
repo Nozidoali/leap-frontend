@@ -53,3 +53,7 @@ if __name__ == "__main__":
 
     CDFG = buildOriginalCDFG(graph, module, FSM, ["finish", "ap_done"], memory_keywords)
     CDFG.write("{}_CDFG.dot".format(outputDot))
+
+    jsonFile = "{}.json".format(outputDot)
+    verilogFile = "{}_CDFG.v".format(outputDot)
+    CDFGToVerilog(CDFG, module, verilogFile, jsonFile, memory_keywords)
