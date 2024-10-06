@@ -1,7 +1,3 @@
-`define MEMORY_CONTROLLER_ADDR_SIZE 32
-`define MEMORY_CONTROLLER_DATA_SIZE 64
-// Number of RAM elements: 2
-`define MEMORY_CONTROLLER_TAG_SIZE 9
 `timescale 1 ns / 1 ns
 module gaussian
 (
@@ -57,8 +53,8 @@ input  reset;
 input  memory_controller_waitrequest;
 input  start;
 output reg  finish;
-input [`MEMORY_CONTROLLER_ADDR_SIZE-1:0] arg_c;
-input [`MEMORY_CONTROLLER_ADDR_SIZE-1:0] arg_A;
+input [31:0] arg_c;
+input [31:0] arg_A;
 output reg  main_0_A_write_enable_a;
 output reg [31:0] main_0_A_in_a;
 output  main_0_A_byteena_a;
@@ -85,8 +81,8 @@ output [3:0] main_0_c_address_b;
 input [31:0] main_0_c_out_b;
 reg [3:0] cur_state;
 reg [3:0] next_state;
-reg [`MEMORY_CONTROLLER_ADDR_SIZE-1:0] arg_c_reg;
-reg [`MEMORY_CONTROLLER_ADDR_SIZE-1:0] arg_A_reg;
+reg [31:0] arg_c_reg;
+reg [31:0] arg_A_reg;
 reg  fsm_stall;
 reg [3:0] gaussian_loopexitloopexit_1;
 reg [3:0] gaussian_loopexitloopexit_1_reg;
@@ -100,8 +96,8 @@ reg [9:0] gaussian_loopexitloopexit_6;
 reg [9:0] gaussian_loopexitloopexit_6_reg;
 reg [4:0] gaussian_loopexitloopexit_7;
 reg [4:0] gaussian_loopexitloopexit_7_reg;
-reg [`MEMORY_CONTROLLER_ADDR_SIZE-1:0] gaussian_loopexitloopexit_scevgep11;
-reg [`MEMORY_CONTROLLER_ADDR_SIZE-1:0] gaussian_loopexitloopexit_scevgep11_reg;
+reg [31:0] gaussian_loopexitloopexit_scevgep11;
+reg [31:0] gaussian_loopexitloopexit_scevgep11_reg;
 reg [4:0] gaussian_loopexitloopexit_8;
 reg [4:0] gaussian_loopexitloopexit_8_reg;
 reg  gaussian_loopexitloopexit_exitcond;
@@ -112,9 +108,9 @@ reg [31:0] gaussian_lrph_9;
 reg [31:0] gaussian_lrph_10;
 reg [31:0] gaussian_lrph_10_reg;
 reg [31:0] gaussian_11_12;
-reg [`MEMORY_CONTROLLER_ADDR_SIZE-1:0] gaussian_11_scevgep6;
+reg [31:0] gaussian_11_scevgep6;
 reg [31:0] gaussian_11_13;
-reg [`MEMORY_CONTROLLER_ADDR_SIZE-1:0] gaussian_11_scevgep;
+reg [31:0] gaussian_11_scevgep;
 reg [31:0] gaussian_11_14;
 reg [31:0] gaussian_11_15;
 reg [31:0] gaussian_11_16;
@@ -145,7 +141,7 @@ reg [1:0] LOOP22_1_II_counter;
 reg  LOOP22_1_start;
 reg  LOOP22_1_activate_pipeline;
 reg [31:0] gaussian_11_12_reg_stage0;
-reg [`MEMORY_CONTROLLER_ADDR_SIZE-1:0] gaussian_11_scevgep6_reg_stage1;
+reg [31:0] gaussian_11_scevgep6_reg_stage1;
 reg [31:0] gaussian_11_13_reg_stage0;
 reg [31:0] gaussian_11_15_reg_stage1;
 reg  LOOP22_1_pipeline_exit_cond;
