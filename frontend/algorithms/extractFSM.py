@@ -1034,7 +1034,11 @@ def removeDuplicateVars(CDFG: pgv.AGraph):
                 src = node
                 dst = out_nodes[0]
                 for src2, dst2 in CDFG.in_edges(src):
-                    CDFG.add_edge(src2, dst, color=CDFG.get_edge(src2, src).attr["color"], style=CDFG.get_edge(src2, src).attr["style"])
+                    if (src2, dst) not in CDFG.edges():
+                        CDFG.add_edge(src2, dst, color=CDFG.get_edge(src2, src).attr["color"], style=CDFG.get_edge(src2, src).attr["style"])
+                    else:
+                        #print("Skipped {0} -> {1}".format(src2, dst))
+                        pass
                 CDFG.remove_node(src)
 
 # function to connect the multiplication inputs and outputs in the CDFG
