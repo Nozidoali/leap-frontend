@@ -183,7 +183,31 @@ def findCondVar(node: BNode, op: str , var: str):
             return res
     return None
 
-def extractFSMGraph(module: Module, graph: pgv.AGraph):
+# function to set top state in the FSM graph
+def setFSMTopState(FSM: pgv.AGraph, module: Module, currStateVar: str, resetSignals: list):
+
+    resetSignal = None
+    for signal in resetSignals:
+        if signal in module.getPorts():
+            resetSignal = signal
+            break
+    assert resetSignal is not None, "Reset signal not found"
+    startState = None
+    for assign in module.getAssignmentsOf(currStateVar):
+        if assign.condition.isVariable() and assign.condition.toString() == resetSignal:
+            startState = assign.expression.toString()
+            break
+        elif assign.condition.isOperation() and assign.condition.variable_name == "==":
+            if assign.condition.children[0].toString() == resetSignal and (assign.condition.children[1].toString() == "1'b1" or assign.condition.children[1].toString() == "1"):
+                startState = assign.expression.toString()
+                break
+    assert startState is not None, "Start state not found"
+    assert startState in FSM.nodes(), "Start state not found in FSM"
+    topNode = FSM.get_node(startState)
+    topNode.attr["comment"] = "Start"
+    return FSM
+
+def extractFSMGraph(module: Module, graph: pgv.AGraph, resetSignals: list):
     CFG = graph.get_subgraph("cluster_control_flow")
     FSM = pgv.AGraph(strict=False, directed=True)
     FSM.graph_attr["splines"] = "ortho"
@@ -250,6 +274,8 @@ def extractFSMGraph(module: Module, graph: pgv.AGraph):
         assert condCurrStateExpr in states, "The condition is not a state variable"
         stateSrc = condCurrStateExpr
         FSM.add_edge(stateSrc, stateDst, color="red")
+
+    setFSMTopState(FSM, module, currStateVar ,resetSignals)
 
     return FSM
 
@@ -687,6 +713,7 @@ def addStoreOps(CDFG: pgv.AGraph, graph: pgv.AGraph, module: Module, state2node:
         target, expression, condition = getAssignToNode(module, assignment)
         state2data[state] = expression
     idOp = 0
+    storeOpsNames = []
     for state in statesWriteOp:
         node_name = node_name_template + "_" + str(idOp)
         assert state in state2addr.keys(), "Address not found"
@@ -698,6 +725,11 @@ def addStoreOps(CDFG: pgv.AGraph, graph: pgv.AGraph, module: Module, state2node:
         CDFG.remove_edge(data, portToMemory)
         CDFG.add_edge(addr, node_name, color="red")
         CDFG.add_edge(data, node_name, color="red")
+
+        storeOpsNames.append(node_name)
+        idOp += 1
+
+    return storeOpsNames
 
 # function to add a load operation to the CDFG
 def addLoadOps(CDFG: pgv.AGraph, graph: pgv.AGraph, module: Module, state2node: dict, statesReadOp: list, portOutAddress: str, portFromMemory: str, node_name_template: str):
@@ -713,6 +745,7 @@ def addLoadOps(CDFG: pgv.AGraph, graph: pgv.AGraph, module: Module, state2node: 
         state2addr[state] = expression
     
     idOp = 0
+    loadOpNames = []
     for state in statesReadOp:
         node_name = node_name_template + "_" + str(idOp)
         assert state in state2addr.keys(), "Address not found"
@@ -723,8 +756,12 @@ def addLoadOps(CDFG: pgv.AGraph, graph: pgv.AGraph, module: Module, state2node: 
         CDFG.add_edge(node_name, infoFromMemory, color="red")
         CDFG.remove_edge(portFromMemory, infoFromMemory)        
 
+        loadOpNames.append(node_name)
+        idOp += 1
 
-# functio to remove the memory nodes from the CDFG
+    return loadOpNames
+
+# function to remove the memory nodes from the CDFG
 def removeMemNodes(CDFG: pgv.AGraph, memoryNodes: dict):
     for keyword, node in memoryNodes.items():
         if keyword != "regex_memory" and keyword != "inAddress":
@@ -733,8 +770,111 @@ def removeMemNodes(CDFG: pgv.AGraph, memoryNodes: dict):
                 CDFG.remove_node(src)
             CDFG.remove_node(node)
 
+# function to get the conversion from the state name to the distance from the start state
+def getStateNameToStateDistance(FSM: pgv.AGraph):
+    startState = None
+    for state in FSM.nodes():
+        if "comment" in FSM.get_node(state).attr.keys() and FSM.get_node(state).attr["comment"] == "Start":
+            startState = state
+            break
+    assert startState is not None, "Start state not found"
+    visited = set()
+    queue1 = deque([startState])
+    distance = 0
+    stateName2Distance = { startState: 0 }
+    while queue1:
+        queue2 = queue1.copy()
+        while queue2:
+            current_state = queue2.popleft()
+            queue1.popleft()
+            visited.add(current_state)
+            for src, dst in FSM.out_edges(current_state):
+                if dst not in visited:
+                    queue1.append(dst)
+                    stateName2Distance[dst] = distance + 1
+        distance += 1
+    return stateName2Distance
+
+# function to add the dependencies between the memory operations
+def addInterMemoryDep(CDFG: pgv.AGraph, FSM: pgv.AGraph ,statesWriteOp: list, storeOps: list, statesReadOp: list, loadOps: list):
+    stateName2Distance = getStateNameToStateDistance(FSM)
+    tmpStatesWriteOp = []
+    for state in statesWriteOp:
+        tmpStatesWriteOp.append(stateName2Distance[state])
+    tmpStatesReadOp = []
+    for state in statesReadOp:
+        tmpStatesReadOp.append(stateName2Distance[state])
+    idStoreOp = 0
+    idLoadOp = 0
+    lastOps = []
+    while len(tmpStatesWriteOp) > 0 or len(tmpStatesReadOp) > 0:
+        if len(tmpStatesReadOp) == 0:
+            tmpStatesWriteOp.pop(0)
+            storeOp = storeOps[idStoreOp]
+            idStoreOp += 1
+            if len(lastOps) > 0:
+                for lastOp in lastOps:
+                    CDFG.add_edge(lastOp, storeOp, color="red", style="dashed")
+                    # in order to avoid any overlapping also the loopback with the II has to be added 
+                    CDFG.add_edge(storeOp, lastOp, color="red", style="dashed", comment="II - 1")
+            lastOps = [storeOp]
+            continue
+        elif len(tmpStatesWriteOp) == 0:
+            tmpStatesReadOp.pop(0)
+            loadOp = loadOps[idLoadOp]
+            idLoadOp += 1
+            if len(lastOps) > 0:
+                for lastOp in lastOps:
+                    CDFG.add_edge(lastOp, loadOp, color="red", style="dashed")
+                    # in order to avoid any overlapping also the loopback with the II has to be added 
+                    CDFG.add_edge(loadOp, lastOp, color="red", style="dashed", comment="II - 1")
+            lastOps = [loadOp]
+            continue
+        if tmpStatesWriteOp[0] == tmpStatesReadOp[0]:
+            tmpStatesWriteOp.pop(0)
+            tmpStatesReadOp.pop(0)
+            if len(lastOps) > 0:
+                storeOp = storeOps[idStoreOp]
+                loadOp = loadOps[idLoadOp]
+                for lastOp in lastOps:
+                    CDFG.add_edge(lastOp, storeOp, color="red", style="dashed")
+                    CDFG.add_edge(lastOp, loadOp, color="red", style="dashed")
+                    # in order to avoid any overlapping also the loopback with the II has to be added 
+                    CDFG.add_edge(storeOp, lastOp, color="red", style="dashed", comment="II - 1")
+                    CDFG.add_edge(loadOp, lastOp, color="red", style="dashed", comment="II - 1")
+            lastOps = [storeOp, loadOp]
+            idStoreOp += 1
+            idLoadOp += 1
+            continue
+        if tmpStatesWriteOp[0] < tmpStatesReadOp[0]:
+            tmpStatesWriteOp.pop(0)
+            storeOp = storeOps[idStoreOp]
+            idStoreOp += 1
+            if len(lastOps) > 0:
+                for lastOp in lastOps:
+                    CDFG.add_edge(lastOp, storeOp, color="red", style="dashed")
+                    # in order to avoid any overlapping also the loopback with the II has to be added 
+                    CDFG.add_edge(storeOp, lastOp, color="red", style="dashed", comment="II - 1")
+            lastOps = [storeOp]
+            continue
+        if tmpStatesWriteOp[0] > tmpStatesReadOp[0]:
+            tmpStatesReadOp.pop(0)
+            loadOp = loadOps[idLoadOp]
+            idLoadOp += 1
+            if len(lastOps) > 0:
+                for lastOp in lastOps:
+                    CDFG.add_edge(lastOp, loadOp, color="red", style="dashed")
+                    # in order to avoid any overlapping also the loopback with the II has to be added
+                    CDFG.add_edge(loadOp, lastOp, color="red", style="dashed", comment="II - 1")
+            lastOps = [loadOp]
+            continue
+
+        assert False, "Error in the memory operations"
+    
+    return
+
 # function to merge memory ports of the CDFG
-def memory_merge(module: Module, CDFG: pgv.AGraph, graph: pgv.AGraph , state2node: dict, memory_keywords: dict):
+def memory_merge(module: Module, CDFG: pgv.AGraph, FSM: pgv.AGraph, graph: pgv.AGraph , state2node: dict, memory_keywords: dict):
 
     regex_memory = memory_keywords["regex_memory"]
 
@@ -774,9 +914,13 @@ def memory_merge(module: Module, CDFG: pgv.AGraph, graph: pgv.AGraph , state2nod
             statesReadOp = [state for state in statesMem if state not in statesWriteOp]
 
             if len(statesWriteOp) > 0:
-                addStoreOps(CDFG, graph, module, state2node, statesWriteOp, memoryNodes["outAddress"], memoryNodes["inMemory"], "store_{0}_{1}".format(memory_name, memory_id))
+                newStoreOps = addStoreOps(CDFG, graph, module, state2node, statesWriteOp, memoryNodes["outAddress"], memoryNodes["inMemory"], "store_{0}_{1}".format(memory_name, memory_id))
             if len(statesReadOp) > 0:
-                addLoadOps(CDFG, graph, module, state2node, statesReadOp, memoryNodes["outAddress"], memoryNodes["outMemory"], "load_{0}_{1}".format(memory_name, memory_id))
+                newLoadOps = addLoadOps(CDFG, graph, module, state2node, statesReadOp, memoryNodes["outAddress"], memoryNodes["outMemory"], "load_{0}_{1}".format(memory_name, memory_id))
+
+            # add edges for dependencies across the memory operations
+            if len(statesWriteOp) > 0 and len(statesReadOp) > 0:
+                addInterMemoryDep(CDFG, FSM, statesWriteOp, newStoreOps, statesReadOp, newLoadOps)
 
             # remove the nodes still existing in the CDFG and all the nodes connected to them
             removeMemNodes(CDFG, memoryNodes)
@@ -969,7 +1113,7 @@ def buildOriginalCDFG(graph: pgv.AGraph, module: Module, FSM: pgv.AGraph, end_no
         #print(f"Data node {dataSrcNode.get_name()} -> {dataDstNodes}")
     # the pipeline states with no registers across them should be merged since do not represent real states
     mergeConsecutivePipelineStates(FSM, departureStates, departureStates2Ctrl , arrivalStates)
-    memory_merge(module, CDFG, graph, departureStates2Ctrl, memory_keywords)
+    memory_merge(module, CDFG, FSM, graph, departureStates2Ctrl, memory_keywords)
 
     removeDuplicateVars(CDFG)
     replaceMuxes(CDFG, module, graph, departureStates2Ctrl)
@@ -1082,7 +1226,11 @@ def generateAssigns(CDFG: pgv.AGraph, module: Module):
     for node in CDFG.nodes():
         if CDFG.get_node(node).attr["shape"] != "ellipse":
             isPhi = CDFG.get_node(node).attr["label"] == "PHI"
-            assert len(CDFG.in_edges(node)) <= 1 or isPhi, "Node should have one input"
+            numDataEdges = 0
+            for src, dst in CDFG.in_edges(node):
+                if CDFG.get_edge(src, dst).attr["color"] != "red" and CDFG.get_edge(src, dst).attr["style"] != "dashed":
+                    numDataEdges += 1
+            assert numDataEdges <= 1 or isPhi, "Node should have one input"
             if CDFG.in_edges(node) == []:
                 continue
             assignment = getInputRoot(CDFG, CDFG.in_edges(node)[0][0])
@@ -1131,6 +1279,22 @@ def getPOs(CDFG: pgv.AGraph, module: Module):
             POs[node] = getWidth(node, module)
     return POs
 
+# function to update the cip dependencies with the new nodes
+def update_cip_dep(old_src, old_dst, new_src, new_dst, new_delay, cip_dependencies):
+
+    tmp_cip_dependencies = cip_dependencies.copy()
+    foundDep = False
+    for dst, src, delay in tmp_cip_dependencies:
+        if src == old_src and dst == old_dst:
+            foundDep = True
+            cip_dependencies.remove((dst, src, delay))
+            if isinstance(delay, str) and not "II" in delay:
+                cip_dependencies.append((new_dst, new_src, new_delay))
+            else:
+                cip_dependencies.append((new_dst, new_src, delay))
+    if not foundDep:
+        cip_dependencies.append((new_dst, new_src, new_delay))
+
 # function to add new PIs and POs to the CDFG for the memory units
 def addMemoryUnitsPorts(CDFG: pgv.AGraph, module: Module, memory_keywords: dict, memoryIdx: int, cip_dependencies: list):
 
@@ -1170,11 +1334,21 @@ def addMemoryUnitsPorts(CDFG: pgv.AGraph, module: Module, memory_keywords: dict,
             for src, dst in CDFG.in_edges(node):
                 if src != addrReq:
                     assert CDFG.get_edge(src, dst).attr["style"] == "dashed" and CDFG.get_edge(src, dst).attr["color"] == "red", "Load node should have one input that is not dashed"
-                    CDFG.add_edge(src, addrReq, color="red", style="dashed")
+                    CDFG.add_edge(src, addrNode, color="red", style="dashed")
+                    if "comment" in CDFG.get_edge(src, dst).attr.keys() and "II" in CDFG.get_edge(src, dst).attr["comment"]:
+                        distance_value = CDFG.get_edge(src, dst).attr["comment"]
+                    else:
+                        distance_value = 1
+                    update_cip_dep(src, dst, src, addrNode, distance_value, cip_dependencies)
             for src, dst in CDFG.out_edges(node):
                 if dst != dataAnswer:
                     assert CDFG.get_edge(src, dst).attr["style"] == "dashed" and CDFG.get_edge(src, dst).attr["color"] == "red", "Load node should have one output that is not dashed"
-                    CDFG.add_edge(dataAnswer, dst, color="red", style="dashed")
+                    CDFG.add_edge(fromMemNode, dst, color="red", style="dashed")
+                    if "comment" in CDFG.get_edge(src, dst).attr.keys() and "II" in CDFG.get_edge(src, dst).attr["comment"]:
+                        distance_value = CDFG.get_edge(src, dst).attr["comment"]
+                    else:
+                        distance_value = 1
+                    update_cip_dep(src, dst, fromMemNode, dst, distance_value, cip_dependencies)
             CDFG.remove_node(node)
         if "store" in node:
             toMem = memory_keywords["inMemory"][memoryIdx]
@@ -1201,10 +1375,22 @@ def addMemoryUnitsPorts(CDFG: pgv.AGraph, module: Module, memory_keywords: dict,
                     assert CDFG.get_edge(src, dst).attr["style"] == "dashed" and CDFG.get_edge(src, dst).attr["color"] == "red", "Store node should have two inputs that are not dashed"
                     CDFG.add_edge(src, addrNode, color="red", style="dashed")
                     CDFG.add_edge(src, toMemNode, color="red", style="dashed")
+                    if "comment" in CDFG.get_edge(src, dst).attr.keys() and "II" in CDFG.get_edge(src, dst).attr["comment"]:
+                        distance_value = CDFG.get_edge(src, dst).attr["comment"]
+                    else:
+                        distance_value = 1
+                    update_cip_dep(src, dst, src, addrNode, distance_value, cip_dependencies)
+                    update_cip_dep(src, dst, src, toMemNode, distance_value, cip_dependencies)
             for src, dst in CDFG.out_edges(node):
                 assert CDFG.get_edge(src, dst).attr["style"] == "dashed" and CDFG.get_edge(src, dst).attr["color"] == "red", "Store node should have one output that is dashed"
                 CDFG.add_edge(toMemNode, dst, color="red", style="dashed")
                 CDFG.add_edge(addrNode, dst, color="red", style="dashed")
+                if "comment" in CDFG.get_edge(src, dst).attr.keys() and "II" in CDFG.get_edge(src, dst).attr["comment"]:
+                    distance_value = CDFG.get_edge(src, dst).attr["comment"]
+                else:
+                    distance_value = 1
+                update_cip_dep(src, dst, toMemNode, dst, distance_value, cip_dependencies)
+                update_cip_dep(src, dst, addrNode, dst, distance_value, cip_dependencies)
             CDFG.remove_node(node)
 
     return additionalPIs, additionalPOs
@@ -1275,13 +1461,16 @@ def addMultiLatencyPorts(CDFG: pgv.AGraph, module: Module, cip_dependencies: lis
                 mult_nodes[multName] = {}
                 input1 = multName + "_in1"
                 input2 = multName + "_in2"
-                result = multName + "_out"
+                result = multName + "_result"
                 mult_nodes[multName]["input1"] = input1
                 mult_nodes[multName]["input2"] = input2
                 mult_nodes[multName]["result"] = result           
                 additionalPOs[input1] = getWidth(node, module)
                 additionalPOs[input2] = getWidth(node, module)
                 additionalPIs[result] = getWidth(node, module)
+                CDFG.add_node(input1, shape="box")
+                CDFG.add_node(input2, shape="box")
+                CDFG.add_node(result, shape="box")
                 for src, dst in CDFG.out_edges(node):
                     CDFG.add_edge(result, dst, color="red")
                 assert len(CDFG.in_edges(node)) == 2, "Mult node should have two inputs"
@@ -1312,39 +1501,57 @@ def extractVariables(CDFG: pgv.AGraph, module: Module, PIs: list, POs: list):
         variables[node] = getWidth(node, module)
     return variables
 
+# function to find the control edge in a loop that does not drive a PHI
+def findControlEdge(CDFG: pgv.AGraph, loop: list):
+    for id in range(len(loop)):
+        src = loop[id]
+        dst = loop[(id+1) % len(loop)]
+        if CDFG.get_node(dst).attr["label"] != "PHI":
+            if CDFG.get_edge(src, dst).attr["style"] == "dashed" and CDFG.get_edge(src, dst).attr["color"] == "red":
+                return (src, dst)
+    return None
+
 # function to break the loops in the CDFG if there are PHIs (the other possible scenario is circular dependencies)
 def breakLoopsPhis(CDFG: pgv.AGraph, module: Module, cip_dependencies: list):
 
     additionalPIs = {}
     additionalPOs = {}
-    nxGraph = nx.DiGraph(CDFG)
+    nxGraph = nx.DiGraph(CDFG.copy())
     cycle = nx.simple_cycles(nxGraph)
     loopsNodes = sorted(cycle) if cycle is not None else None
     while loopsNodes is not None and len(loopsNodes) > 0 and loopsNodes != []:
-        for loop in loopsNodes:
-            idxPhi = -1
-            for id in range(len(loop)):
-                node = loop[id]
-                if "PHI" in CDFG.get_node(node).attr["label"]:
-                    idxPhi = id
-            if idxPhi == -1:
-                nxGraph.remove_edge(loop[0], loop[1])
-            else: 
-                driverPhi = loop[idxPhi-1]
-                phi = loop[idxPhi]
-                nxGraph.remove_edge(driverPhi, phi)
-                CDFG.remove_edge(driverPhi, phi)
-                newPO = driverPhi + "_po"
-                CDFG.add_node(newPO, shape="box")
-                additionalPOs[newPO] = getWidth(driverPhi, module)
-                CDFG.add_edge(driverPhi, newPO, color="red")
-                newPI = phi + "_pi"
-                CDFG.add_node(newPI, shape="box")
-                additionalPIs[newPI] = getWidth(phi, module)
-                CDFG.add_edge(newPI, phi, color="red")
-                #cip_dependencies.append((newPI, newPO, "II"))
-                # the order is inverted since leap backend uses the formulation dst - src >= D where (dst, src, D) is in cip_dependencies
-                cip_dependencies.append((newPO, newPI, "II"))
+        loop = loopsNodes[0]
+        controlEdge =  findControlEdge(CDFG, loop)
+        if controlEdge is not None:
+            nxGraph.remove_edge(controlEdge[0], controlEdge[1])
+            cycle = nx.simple_cycles(nxGraph)
+            if cycle == [] or cycle is None:
+                break
+            loopsNodes = sorted(cycle)
+            continue
+        idxPhi = -1
+        for id in range(len(loop)):
+            node = loop[id]
+            if "PHI" in CDFG.get_node(node).attr["label"]:
+                idxPhi = id
+        if idxPhi == -1:
+            nxGraph.remove_edge(loop[0], loop[1])
+        else:
+            driverPhi = loop[idxPhi-1]
+            phi = loop[idxPhi]
+            nxGraph.remove_edge(driverPhi, phi)
+            CDFG.remove_edge(driverPhi, phi)
+            newPO = driverPhi + "_po"
+            CDFG.add_node(newPO, shape="box")
+            additionalPOs[newPO] = getWidth(driverPhi, module)
+            CDFG.add_edge(driverPhi, newPO, color="red")
+            newPI = phi + "_pi"
+            CDFG.add_node(newPI, shape="box")
+            additionalPIs[newPI] = getWidth(phi, module)
+            CDFG.add_edge(newPI, phi, color="red")
+            #cip_dependencies.append((newPI, newPO, "II"))
+            # the order is inverted since leap backend uses the formulation dst - src >= D where (dst, src, D) is in cip_dependencies
+            cip_dependencies.append((newPO, newPI, "II"))
         cycle = nx.simple_cycles(nxGraph)
         if cycle == [] or cycle is None:
             break
@@ -1424,4 +1631,6 @@ def CDFGToVerilog(_CDFG: pgv.AGraph, module: Module, verilogFilePath: str, jsonF
 
     with open(jsonFilePath, "w") as f:
         json.dump(finalDataJSON, f)
+    
+    CDFG.write("CDFG_final.dot")
         
