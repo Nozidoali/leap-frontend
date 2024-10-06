@@ -883,6 +883,9 @@ def removeDuplicateVars(CDFG: pgv.AGraph):
                 out_nodes.append(dst)
         if len(CDFG.out_edges(node)) >= 1 and len(out_nodes) == 1:
             if isVarNode(CDFG.get_node(node)) and isVarNode(CDFG.get_node(out_nodes[0])):
+                # ensure no multiplier is removed
+                if ("mult" in node and not("mult" in out_nodes[0])) or ("mult" in out_nodes[0] and not("mult" in node)):
+                    continue
                 src = node
                 dst = out_nodes[0]
                 for src2, dst2 in CDFG.in_edges(src):
