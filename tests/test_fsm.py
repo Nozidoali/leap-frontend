@@ -34,26 +34,30 @@ def test_01_basic():
     graph.addBB("D", 3)
     graph.addBB("E", 2)
     graph.addBB("F", 1, isFinish=True)
-    
+
     graph.addFlow("A", "B")
-    
+
     # B is a loop with condition
     graph.addFlow("B", "C")
     graph.addFlow("B", "D")
-    
+
     graph.addFlow("C", "E")
     graph.addFlow("D", "E")
-    
+
+    graph.addFlow("E", "B")
+
     # E is a loop with condition
     graph.addFlow("E", "F")
 
     fsm = cfg2fsm(graph)
-    
+
     assert len(fsm.nodes()) == 13, f"len(fsm.nodes()) = {len(fsm.nodes())}"
-    assert len(fsm.edges()) == 13, f"len(fsm.edges()) = {len(fsm.edges())}"
-    
+    assert len(fsm.edges()) == 14, f"len(fsm.edges()) = {len(fsm.edges())}"
+
     module = fsm2module(fsm)
+    fsm.write("fsm.dot")
     print(moduleToString(module))
+
 
 if __name__ == "__main__":
     # test_00_basic()
