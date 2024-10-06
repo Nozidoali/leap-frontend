@@ -6,14 +6,17 @@ if __name__ == "__main__":
     from frontend import *
     import pygraphviz as pgv
 
-    outputDot = "gaussian"
+    outputDot = "mvt"
     network: Netlist = readVerilog("examples/verilogs/external/legup/{}.v".format(outputDot))
     # network: Netlist = readVerilog("examples/verilogs/external/vitis.v")
     module = network.getModuleAt(0)
     # graph: pgv.AGraph = exportDOT(module)
+    print("Started export dot")
     graph: pgv.AGraph = exportDOT(
         module, params={"skipConstants": False, "skipSignals": []}
     )
+    print("Finished export dot")
+
 
     mult_connect(graph)
 
@@ -22,14 +25,16 @@ if __name__ == "__main__":
     outputsNames = [
         port
         for port in module.getPortsByDir(PortDirection.OUTPUT)
-        if port not in ctrl_output_names
+        if port not in ctrl_output_names and port in graph.nodes()
     ]
 
     inputsNames = [
         port
         for port in module.getPortsByDir(PortDirection.INPUT)
-        if port not in ctrl_input_names
+        if port not in ctrl_input_names and port in graph.nodes()
     ]
+
+    print("Extracting Data Flow Control Flow")
 
     extractDataFlowControlFlow(module, graph, outputsNames, inputsNames)
     graph.write("{}.dot".format(outputDot))
@@ -37,7 +42,11 @@ if __name__ == "__main__":
     #newModule = graphToBNGraph(module, graph, "cluster_control_flow")
     #writeVerilog(newModule, "out.v")
 
-    FSM = extractFSMGraph(module, graph)
+    print("Extracting FSM")
+
+    resetSignals = ["reset", "rst", "ap_rst", "ap_reset"]
+
+    FSM = extractFSMGraph(module, graph, resetSignals)
     FSM.write("{}_FSM.dot".format(outputDot))
 
     # keywords for memory ports
@@ -51,8 +60,12 @@ if __name__ == "__main__":
     memory_keywords["writeEnable"] = ["main_0_MEMORY_NAME_write_enable_MEMORY_ID"]
     memory_keywords["enable"] = ["main_0_MEMORY_NAME_enable_MEMORY_ID"]
 
+    print("Building CDFG")
+
     CDFG = buildOriginalCDFG(graph, module, FSM, ["finish", "ap_done"], memory_keywords)
     CDFG.write("{}_CDFG.dot".format(outputDot))
+
+    print("Generating Verilog")
 
     jsonFile = "{}.json".format(outputDot)
     verilogFile = "{}_CDFG.v".format(outputDot)
