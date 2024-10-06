@@ -5,6 +5,7 @@ from collections import deque
 import re
 import networkx as nx
 import json
+import sys
 
 def _extractDataFlowNodesRec(module:Module, graph: pgv.AGraph, node: pgv.Node, visited: set, revTraversal: bool):
     if node in visited:
@@ -171,7 +172,7 @@ def extractDataFlowControlFlow(module: Module, graph: pgv.AGraph, dataOutputs: l
     graph.graph_attr["overlap"] = "false"  # Prevent overlapping
     graph.graph_attr["ranksep"] = "1.0"  # Increase space between ranks (optional)
 
-    graph.layout(prog="dot")
+    #graph.layout(prog="dot")
 
 def findCondVar(node: BNode, op: str , var: str):
     if node.variable_name == op:

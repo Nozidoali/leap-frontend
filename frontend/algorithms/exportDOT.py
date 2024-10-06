@@ -184,7 +184,7 @@ def exportDOT(module: Module, params: dict = {}) -> pgv.AGraph:
                 node2assignment, id_lhs, id_rhs, id_con, assignment
             )
 
-    graph.layout(prog="dot")
+    #graph.layout(prog="dot")
 
     # Remove reset node
     nodes_list = list(graph.nodes())
