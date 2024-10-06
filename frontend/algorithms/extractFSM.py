@@ -3,6 +3,8 @@ from .highlight import *
 import pygraphviz as pgv
 from collections import deque
 import re
+import networkx as nx
+import json
 
 def _extractDataFlowNodesRec(module:Module, graph: pgv.AGraph, node: pgv.Node, visited: set, revTraversal: bool):
     if node in visited:
@@ -970,3 +972,449 @@ def buildOriginalCDFG(graph: pgv.AGraph, module: Module, FSM: pgv.AGraph, end_no
     replaceMuxes(CDFG, module, graph, departureStates2Ctrl)
 
     return CDFG
+
+# function to generate header of the verilog file
+def generateHeader(ports: list):
+    header = "module top(\n"
+    for port in ports:
+        header += port + ", \n"
+    header = header[:-3]
+    header += "\n);\n"  
+    return header  
+
+# function to generate the variables that are used in the CDFG
+def generateVariablesDef(inputs: dict, outputs: dict, vars: dict, dip_dependencies: dict):
+    text = ""
+    for input in inputs.keys():
+        if inputs[input] == 1:
+            text += "input {0};\n".format(input)
+        else:
+            bitwidth = inputs[input]
+            text += "input [{0}:0] {1};\n".format(bitwidth - 1, input)
+            for i in range(bitwidth):
+                dip_dependencies[input + "[" + str(i) + "]"] = input
+
+    for output in outputs.keys():
+        if outputs[output] == 1:
+            text += "output {0};\n".format(output)
+        else:
+            bitwidth = outputs[output]
+            text += "output [{0}:0] {1};\n".format(bitwidth - 1, output)
+            for i in range(bitwidth):
+                dip_dependencies[output + "[" + str(i) + "]"] = output
+
+    for var in vars.keys():
+        if vars[var] == 1:
+            text += "wire {0};\n".format(var)
+        else:
+            text += "wire [{0}:0] {1};\n".format(vars[var] - 1, var)
+    return text
+
+def isConst(node: str):
+    try:
+        v = int(node)
+        return True
+    except:
+        pass
+    if "'b" in node or "'d" in node:
+        return True
+    return False
+
+# function to find the input root of a node
+def getInputRoot(CDFG: pgv.AGraph, node: pgv.Node):
+
+    if CDFG.get_node(node).attr["shape"] != "ellipse":
+        return node
+    if CDFG.in_edges(node) == []:
+        return CDFG.get_node(node).attr["label"]
+    value = CDFG.get_node(node).attr["label"]
+    if value == "+" or value == "-" or value == "*" or value == "/" or value == "==":
+        lhs = getInputRoot(CDFG, CDFG.in_edges(node)[0][0])
+        rhs = getInputRoot(CDFG, CDFG.in_edges(node)[1][0])
+        return "{0} {1} {2}".format(lhs, value, rhs)
+    elif value == "~":
+        return "{0}({1})".format(value, getInputRoot(CDFG, CDFG.in_edges(node)[0][0]))
+    elif value == ">>" or value == "<<" or value == ">>>":
+        lhs = getInputRoot(CDFG, CDFG.in_edges(node)[0][0])
+        rhs = getInputRoot(CDFG, CDFG.in_edges(node)[1][0])
+        if isConst(rhs):
+            return "({0} {1} {2})".format(lhs, value, rhs)
+        else:
+            return "({0} {1} {2})".format(rhs, value, lhs)
+    elif value == "{{{}}}":
+        lhs = getInputRoot(CDFG, CDFG.in_edges(node)[0][0])
+        rhs = getInputRoot(CDFG, CDFG.in_edges(node)[1][0])
+        if isConst(rhs):
+            return "({" + str(rhs) + "," + str(lhs) + "})"
+        else:
+            return "({" + str(lhs) + "," + str(rhs) + "})"
+    elif value == "[]":
+        input1 = getInputRoot(CDFG, CDFG.in_edges(node)[0][0])
+        input2 = getInputRoot(CDFG, CDFG.in_edges(node)[1][0])
+        input3 = getInputRoot(CDFG, CDFG.in_edges(node)[2][0])
+        input1Int = isConst(input1)
+        input2Int = isConst(input2)
+        input3Int = isConst(input3)
+        if input1Int:
+            if input2Int:
+                return "{0}[{1}:{2}]".format(input3, input2 if int(input2) > int(input1) else input1, input1 if int(input2) > int(input1) else input2)
+            else:
+                assert input3Int, "At least 2 of the 3 inputs should be constants"
+                return "{0}[{1}:{2}]".format(input2, input3 if int(input3) > int(input1) else input1, input1 if int(input3) > int(input1) else input3)
+        else:
+            if input2Int:
+                return "{0}[{1}:{2}]".format(input1, input3 if int(input3) > int(input2) else input2, input2 if int(input3) > int(input2) else input3)
+            else:
+                assert False, "At least 2 of the 3 inputs should be constants"
+    else:
+        assert False, "Node not recognized"
+
+# function to generate assign inside verilog module
+def generateAssigns(CDFG: pgv.AGraph, module: Module):
+
+    assigns = ""
+
+    for node in CDFG.nodes():
+        if CDFG.get_node(node).attr["shape"] != "ellipse":
+            isPhi = CDFG.get_node(node).attr["label"] == "PHI"
+            assert len(CDFG.in_edges(node)) <= 1 or isPhi, "Node should have one input"
+            if CDFG.in_edges(node) == []:
+                continue
+            assignment = getInputRoot(CDFG, CDFG.in_edges(node)[0][0])
+            if isPhi:
+                assignment2 = getInputRoot(CDFG, CDFG.in_edges(node)[1][0])
+                cond = getInputRoot(CDFG, CDFG.in_edges(node)[2][0])
+                assigns += "assign {0} = {1} ? {2} : {3};\n".format(node, cond, assignment, assignment2)
+            else:
+                assigns += "assign {0} = {1};\n".format(node, assignment)
+    
+    return assigns
+
+# function to get the width of node
+def getWidth(node: pgv.Node, module: Module):
+    rangeNode = module.getPort(node).getRange()
+    if rangeNode is None:
+        return 1
+    rightConstant = int(rangeNode.end.variable_name) 
+    leftConstant = int(rangeNode.start.variable_name)
+    return leftConstant - rightConstant + 1
+
+# function to extract the inputs
+def getPIs(CDFG: pgv.AGraph, module: Module):
+    PIs = {}
+    for node in CDFG.nodes():
+        if CDFG.in_edges(node) == []:
+            if CDFG.get_node(node).attr["shape"] != "box":
+                continue
+            PIs[node] = getWidth(node, module)
+    return PIs
+
+# function to extract the outputs
+def getPOs(CDFG: pgv.AGraph, module: Module):
+    POs = {}
+    for node in CDFG.nodes():
+        if CDFG.out_edges(node) == []:
+            if CDFG.get_node(node).attr["shape"] != "box" and not "endCircuit" in node:
+                continue
+            if "endCircuit" in node:
+                POs[node] = 1
+                CDFG.get_node(node).attr["shape"] = "box"
+                assert len(CDFG.in_edges(node)) == 1, "End node should have one input"
+                srcEnd = CDFG.in_edges(node)[0][0]
+                CDFG.get_edge(srcEnd, node).attr["style"] = "solid"
+                continue
+            POs[node] = getWidth(node, module)
+    return POs
+
+# function to add new PIs and POs to the CDFG for the memory units
+def addMemoryUnitsPorts(CDFG: pgv.AGraph, module: Module, memory_keywords: dict, memoryIdx: int, cip_dependencies: list):
+
+    additionalPIs = {}
+    additionalPOs = {}
+    nodes = CDFG.nodes()
+    for node in nodes:
+        if "load" in node:
+            fromMem = memory_keywords["outMemory"][memoryIdx]
+            fromMem = fromMem.replace("MEMORY_NAME", node.split("_")[1]).replace("MEMORY_ID", node.split("_")[2])
+            fromMemNode = node + "_fromMem"
+            additionalPIs[fromMemNode] = getWidth(fromMem, module)
+            addr = memory_keywords["outAddress"][memoryIdx]
+            addr = addr.replace("MEMORY_NAME", node.split("_")[1]).replace("MEMORY_ID", node.split("_")[2])
+            addrNode = node + "_addr"
+            additionalPOs[addrNode] = getWidth(addr, module)
+            CDFG.add_node(fromMemNode, shape="box")
+            CDFG.add_node(addrNode, shape="box")
+            noCIPEdges = 0
+            for src, dst in CDFG.in_edges(node):
+                if CDFG.get_edge(src, dst).attr["style"] == "dashed" and CDFG.get_edge(src, dst).attr["color"] == "red":
+                    continue
+                noCIPEdges += 1
+            assert noCIPEdges == 1, "Load node should have one input"
+            noCIPEdges = 0
+            for src, dst in CDFG.out_edges(node):
+                if CDFG.get_edge(src, dst).attr["style"] == "dashed" and CDFG.get_edge(src, dst).attr["color"] == "red":
+                    continue
+                noCIPEdges += 1
+            assert noCIPEdges == 1, "Load node should have one output"
+            # IMPORTANT: the address is the first important and the data is the first output
+            addrReq = CDFG.in_edges(node)[0][0]
+            dataAnswer = CDFG.out_edges(node)[0][1]
+            CDFG.add_edge(addrReq, addrNode, color="red")
+            CDFG.add_edge(fromMemNode, dataAnswer, color="red")
+            cip_dependencies.append((addrNode, dataAnswer, 1))
+            for src, dst in CDFG.in_edges(node):
+                if src != addrReq:
+                    assert CDFG.get_edge(src, dst).attr["style"] == "dashed" and CDFG.get_edge(src, dst).attr["color"] == "red", "Load node should have one input that is not dashed"
+                    CDFG.add_edge(src, addrReq, color="red", style="dashed")
+            for src, dst in CDFG.out_edges(node):
+                if dst != dataAnswer:
+                    assert CDFG.get_edge(src, dst).attr["style"] == "dashed" and CDFG.get_edge(src, dst).attr["color"] == "red", "Load node should have one output that is not dashed"
+                    CDFG.add_edge(dataAnswer, dst, color="red", style="dashed")
+            CDFG.remove_node(node)
+        if "store" in node:
+            toMem = memory_keywords["inMemory"][memoryIdx]
+            toMem = toMem.replace("MEMORY_NAME", node.split("_")[1]).replace("MEMORY_ID", node.split("_")[2])
+            toMemNode = node + "_toMem"
+            additionalPOs[toMemNode] = getWidth(toMem, module)
+            addr = memory_keywords["outAddress"][memoryIdx]
+            addr = addr.replace("MEMORY_NAME", node.split("_")[1]).replace("MEMORY_ID", node.split("_")[2])
+            addrNode = node + "_addr"
+            additionalPOs[addrNode] = getWidth(addr, module)
+            noCIPEdges = 0
+            for src, dst in CDFG.in_edges(node):
+                if CDFG.get_edge(src, dst).attr["style"] == "dashed" and CDFG.get_edge(src, dst).attr["color"] == "red":
+                    continue
+                noCIPEdges += 1
+            assert noCIPEdges == 2, "Store node should have two inputs"
+            # IMPORTANT: the address is the first input and the data is the second input
+            addrReq = CDFG.in_edges(node)[0][0]
+            dataReq = CDFG.in_edges(node)[1][0]
+            CDFG.add_edge(addrReq, addrNode, color="red")
+            CDFG.add_edge(dataReq, toMemNode, color="red")
+            for src, dst in CDFG.in_edges(node):
+                if src != addrReq and src != dataReq:
+                    assert CDFG.get_edge(src, dst).attr["style"] == "dashed" and CDFG.get_edge(src, dst).attr["color"] == "red", "Store node should have two inputs that are not dashed"
+                    CDFG.add_edge(src, addrNode, color="red", style="dashed")
+                    CDFG.add_edge(src, toMemNode, color="red", style="dashed")
+            for src, dst in CDFG.out_edges(node):
+                assert CDFG.get_edge(src, dst).attr["style"] == "dashed" and CDFG.get_edge(src, dst).attr["color"] == "red", "Store node should have one output that is dashed"
+                CDFG.add_edge(toMemNode, dst, color="red", style="dashed")
+                CDFG.add_edge(addrNode, dst, color="red", style="dashed")
+            CDFG.remove_node(node)
+
+    return additionalPIs, additionalPOs
+
+# function to add new PIs and POs to the CDFG for the multi-latency operations
+# this function assumes all the inputs and outputs of the multi-latency operations are present in the CDFG
+def addMultiLatencyPorts_2(CDFG: pgv.AGraph, module: Module, cip_dependencies: list):
+    
+    additionalPIs = {}
+    additionalPOs = {}
+    nodes = CDFG.nodes()
+    mult_nodes = {}
+    for node in nodes:
+        if "mult" in node and "_datab" in node:
+            multName = node.replace("_datab", "")
+            assert multName not in mult_nodes.keys(), "Mult node already found"
+            mult_nodes[multName] = {}
+    for node in nodes:
+        if "mult" in node:
+            if "_dataa" in node:     
+                multName = node.replace("_dataa", "")
+                assert multName in mult_nodes.keys(), "Mult node not found"
+                assert "input1" not in mult_nodes[multName].keys(), "Data A already found"
+                mult_nodes[multName]["input1"] = node           
+                additionalPOs[node] = getWidth(node, module)
+                for src, dst in CDFG.out_edges(node):
+                    CDFG.remove_edge(node, dst)
+            elif "_datab" in node:
+                multName = node.replace("_datab", "")
+                assert multName in mult_nodes.keys(), "Mult node not found"
+                assert "input2" not in mult_nodes[multName].keys(), "Data B already found"
+                mult_nodes[multName]["input2"] = node
+                additionalPOs[node] = getWidth(node, module)
+                for src, dst in CDFG.out_edges(node):
+                    CDFG.remove_edge(node, dst)
+            elif "_result" in node:
+                multName = node.replace("_result", "")
+                assert multName in mult_nodes.keys(), "Mult node not found"
+                assert "result" not in mult_nodes[multName].keys(), "Result already found"
+                mult_nodes[multName]["result"] = node
+                additionalPIs[node] = getWidth(node, module)
+                for src, dst in CDFG.in_edges(node):
+                    CDFG.remove_edge(src, node)
+
+    memLatency = 4
+    for multName in mult_nodes.keys():
+        assert "input1" in mult_nodes[multName].keys(), "Input 1 not found"
+        assert "input2" in mult_nodes[multName].keys(), "Input 2 not found"
+        assert "result" in mult_nodes[multName].keys(), "Result not found"
+        cip_dependencies.append((mult_nodes[multName]["result"] , mult_nodes[multName]["input1"], memLatency))
+        cip_dependencies.append((mult_nodes[multName]["result"] , mult_nodes[multName]["input2"], memLatency))
+
+    return additionalPIs, additionalPOs
+
+# function to add new PIs and POs to the CDFG for the multi-latency operations
+# this function assumes that there is only one node for the entire multi-latency operation
+def addMultiLatencyPorts(CDFG: pgv.AGraph, module: Module, cip_dependencies: list):
+
+    additionalPIs = {}
+    additionalPOs = {}
+    nodes = CDFG.nodes()
+    mult_nodes = {}
+    for node in nodes:
+        if "mult" in node:
+            if "_out_actual" in node:     
+                multName = node.replace("_out_actual", "")
+                assert not multName in mult_nodes.keys(), "Mult node already found"
+                mult_nodes[multName] = {}
+                input1 = multName + "_in1"
+                input2 = multName + "_in2"
+                result = multName + "_out"
+                mult_nodes[multName]["input1"] = input1
+                mult_nodes[multName]["input2"] = input2
+                mult_nodes[multName]["result"] = result           
+                additionalPOs[input1] = getWidth(node, module)
+                additionalPOs[input2] = getWidth(node, module)
+                additionalPIs[result] = getWidth(node, module)
+                for src, dst in CDFG.out_edges(node):
+                    CDFG.add_edge(result, dst, color="red")
+                assert len(CDFG.in_edges(node)) == 2, "Mult node should have two inputs"
+                input1Src = CDFG.in_edges(node)[0][0]
+                input2Src = CDFG.in_edges(node)[1][0]
+                CDFG.add_edge(input1Src, input1, color="red")
+                CDFG.add_edge(input2Src, input2, color="red")
+                CDFG.remove_node(node)
+
+    memLatency = 4
+    for multName in mult_nodes.keys():
+        assert "input1" in mult_nodes[multName].keys(), "Input 1 not found"
+        assert "input2" in mult_nodes[multName].keys(), "Input 2 not found"
+        assert "result" in mult_nodes[multName].keys(), "Result not found"
+        cip_dependencies.append((mult_nodes[multName]["result"] , mult_nodes[multName]["input1"], memLatency))
+        cip_dependencies.append((mult_nodes[multName]["result"] , mult_nodes[multName]["input2"], memLatency))
+
+    return additionalPIs, additionalPOs
+
+# function to extract variables from the CDFG
+def extractVariables(CDFG: pgv.AGraph, module: Module, PIs: list, POs: list):
+    variables = {}
+    for node in CDFG.nodes():
+        if CDFG.get_node(node).attr["shape"] == "ellipse":
+            continue
+        if node in PIs or node in POs:
+            continue
+        variables[node] = getWidth(node, module)
+    return variables
+
+# function to break the loops in the CDFG if there are PHIs (the other possible scenario is circular dependencies)
+def breakLoopsPhis(CDFG: pgv.AGraph, module: Module, cip_dependencies: list):
+
+    additionalPIs = {}
+    additionalPOs = {}
+    nxGraph = nx.DiGraph(CDFG)
+    cycle = nx.simple_cycles(nxGraph)
+    loopsNodes = sorted(cycle) if cycle is not None else None
+    while loopsNodes is not None and len(loopsNodes) > 0 and loopsNodes != []:
+        for loop in loopsNodes:
+            idxPhi = -1
+            for id in range(len(loop)):
+                node = loop[id]
+                if "PHI" in CDFG.get_node(node).attr["label"]:
+                    idxPhi = id
+            if idxPhi == -1:
+                nxGraph.remove_edge(loop[0], loop[1])
+            else: 
+                driverPhi = loop[idxPhi-1]
+                phi = loop[idxPhi]
+                nxGraph.remove_edge(driverPhi, phi)
+                CDFG.remove_edge(driverPhi, phi)
+                newPO = driverPhi + "_po"
+                CDFG.add_node(newPO, shape="box")
+                additionalPOs[newPO] = getWidth(driverPhi, module)
+                CDFG.add_edge(driverPhi, newPO, color="red")
+                newPI = phi + "_pi"
+                CDFG.add_node(newPI, shape="box")
+                additionalPIs[newPI] = getWidth(phi, module)
+                CDFG.add_edge(newPI, phi, color="red")
+                cip_dependencies.append((newPI, newPO, "II"))
+        cycle = nx.simple_cycles(nxGraph)
+        if cycle == [] or cycle is None:
+            break
+        loopsNodes = sorted(cycle)
+    return additionalPIs, additionalPOs
+
+# function to add phis enable in the PIs
+def addPhisEnable(CDFG: pgv.AGraph, module: Module):
+
+    additionalPIs = {}
+    nodes = CDFG.nodes()
+    for node in nodes:
+        if "PHI" in CDFG.get_node(node).attr["label"]:
+            inputs = []
+            srcEnable = None
+            assert len(CDFG.in_edges(node)) > 1, "PHI node should have at least 2 inputs"
+            for src, dst in CDFG.in_edges(node):
+                if CDFG.get_edge(src, dst).attr["style"] == "dashed" and CDFG.get_edge(src, dst).attr["color"] == "red":
+                    assert srcEnable is None, "Enable already found"
+                    srcEnable = src
+            if srcEnable is None:
+                srcEnable = node + "_enable"
+                additionalPIs[srcEnable] = 1
+                CDFG.add_node(srcEnable, shape="box")
+                CDFG.add_edge(srcEnable, node, color="red")
+    return additionalPIs        
+
+# function to generate the verilog that represents the CDFG
+def CDFGToVerilog(_CDFG: pgv.AGraph, module: Module, verilogFilePath: str, jsonFilePath: str, memory_keywords: dict):
+    
+    CDFG = _CDFG.copy()
+
+    dip_dependencies = {}
+    cip_dependencies = []
+
+    # find the memory regex that matches the memory ports
+    memoryIdx = None
+    memoryReg = memory_keywords["regex_memory"]
+    for node in module.getPorts():
+        for _memoryIdx in range(len(memoryReg)):
+            if re.match(memoryReg[_memoryIdx], node):
+                memoryIdx = _memoryIdx
+                break
+    assert memoryIdx is not None, "Memory regex not found"
+
+    PIs = getPIs(CDFG, module)
+    POs = getPOs(CDFG, module)
+
+    additionalPIs, additionalPOs = breakLoopsPhis(CDFG, module, cip_dependencies)
+    PIs.update(additionalPIs)
+    POs.update(additionalPOs)
+
+    memoryPIs, memoryPOs = addMemoryUnitsPorts(CDFG, module, memory_keywords, memoryIdx, cip_dependencies)
+    PIs.update(memoryPIs)
+    POs.update(memoryPOs)
+    
+    multilatencyPIs, multilatencyPOs = addMultiLatencyPorts(CDFG, module, cip_dependencies)
+    PIs.update(multilatencyPIs)
+    POs.update(multilatencyPOs)
+
+    phisPIs = addPhisEnable(CDFG, module)
+    PIs.update(phisPIs)
+
+    variables = extractVariables(CDFG, module, PIs.keys(), POs.keys())
+
+    verilogData = ""
+    verilogData += generateHeader(list(PIs.keys())+list(POs.keys()))
+    verilogData += generateVariablesDef(PIs, POs, variables, dip_dependencies)
+
+    verilogData += generateAssigns(CDFG, module)
+
+    with open(verilogFilePath, "w") as f:
+        f.write(verilogData)
+        f.write("endmodule\n")
+
+    finalDataJSON = {"dip": dip_dependencies, "cip": cip_dependencies}
+
+    with open(jsonFilePath, "w") as f:
+        json.dump(finalDataJSON, f)
+        
