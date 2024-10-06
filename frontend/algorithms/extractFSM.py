@@ -1178,9 +1178,11 @@ def getInputRoot(CDFG: pgv.AGraph, node: pgv.Node):
         return CDFG.get_node(node).attr["label"]
     value = CDFG.get_node(node).attr["label"]
     if value == "+" or value == "-" or value == "*" or value == "/" or value == "==":
+        if value == "-" and len(CDFG.in_edges(node)) == 1:
+            return "(-" + getInputRoot(CDFG, CDFG.in_edges(node)[0][0]) + ")"
         lhs = getInputRoot(CDFG, CDFG.in_edges(node)[0][0])
         rhs = getInputRoot(CDFG, CDFG.in_edges(node)[1][0])
-        return "{0} {1} {2}".format(lhs, value, rhs)
+        return "({0} {1} {2})".format(lhs, value, rhs)
     elif value == "~":
         return "{0}({1})".format(value, getInputRoot(CDFG, CDFG.in_edges(node)[0][0]))
     elif value == ">>" or value == "<<" or value == ">>>":
@@ -1198,23 +1200,45 @@ def getInputRoot(CDFG: pgv.AGraph, node: pgv.Node):
         else:
             return "({" + str(lhs) + "," + str(rhs) + "})"
     elif value == "[]":
+        numInputs = len(CDFG.in_edges(node))
+        assert numInputs == 3 or numInputs == 2, "Number of inputs not supported"
         input1 = getInputRoot(CDFG, CDFG.in_edges(node)[0][0])
         input2 = getInputRoot(CDFG, CDFG.in_edges(node)[1][0])
-        input3 = getInputRoot(CDFG, CDFG.in_edges(node)[2][0])
+        if numInputs == 3:
+            input3 = getInputRoot(CDFG, CDFG.in_edges(node)[2][0])
+            input3Int = isConst(input3)
         input1Int = isConst(input1)
         input2Int = isConst(input2)
-        input3Int = isConst(input3)
-        if input1Int:
-            if input2Int:
-                return "{0}[{1}:{2}]".format(input3, input2 if int(input2) > int(input1) else input1, input1 if int(input2) > int(input1) else input2)
+        if numInputs == 3:
+            if input1Int:
+                if input2Int:
+                    return "{0}[{1}:{2}]".format(input3, input2 if int(input2) > int(input1) else input1, input1 if int(input2) > int(input1) else input2)
+                else:
+                    assert input3Int, "At least 2 of the 3 inputs should be constants"
+                    return "{0}[{1}:{2}]".format(input2, input3 if int(input3) > int(input1) else input1, input1 if int(input3) > int(input1) else input3)
             else:
-                assert input3Int, "At least 2 of the 3 inputs should be constants"
-                return "{0}[{1}:{2}]".format(input2, input3 if int(input3) > int(input1) else input1, input1 if int(input3) > int(input1) else input3)
+                if input2Int:
+                    return "{0}[{1}:{2}]".format(input1, input3 if int(input3) > int(input2) else input2, input2 if int(input3) > int(input2) else input3)
+                else:
+                    assert False, "At least 2 of the 3 inputs should be constants"
         else:
-            if input2Int:
-                return "{0}[{1}:{2}]".format(input1, input3 if int(input3) > int(input2) else input2, input2 if int(input3) > int(input2) else input3)
+            if input1Int:
+                if input2Int:
+                    assert False, "Only 1 of the 2 inputs should not be constants"
+                else:
+                    return "{0}[{1}]".format(input2, input1)
             else:
-                assert False, "At least 2 of the 3 inputs should be constants"
+                if input2Int:
+                    return "{0}[{1}]".format(input1, input2)
+                else:
+                    assert False, "Only 1 of the 2 inputs should be constants"
+    elif value == "{n{}}":
+        lhs = getInputRoot(CDFG, CDFG.in_edges(node)[0][0])
+        rhs = getInputRoot(CDFG, CDFG.in_edges(node)[1][0])
+        if isConst(rhs):
+            return "({" + str(rhs) + "{" + str(lhs) + "}" + "})"
+        else:
+            return "({" + str(lhs) + "{" + str(rhs) + "}"+ "})"
     else:
         assert False, "Node not recognized"
 
@@ -1543,7 +1567,7 @@ def breakLoopsPhis(CDFG: pgv.AGraph, module: Module, cip_dependencies: list):
             CDFG.remove_edge(driverPhi, phi)
             newPO = driverPhi + "_po"
             CDFG.add_node(newPO, shape="box")
-            additionalPOs[newPO] = getWidth(driverPhi, module)
+            additionalPOs[newPO] = getWidth(phi, module)
             CDFG.add_edge(driverPhi, newPO, color="red")
             newPI = phi + "_pi"
             CDFG.add_node(newPI, shape="box")
