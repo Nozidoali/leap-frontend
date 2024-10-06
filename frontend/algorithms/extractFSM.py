@@ -1549,9 +1549,7 @@ def breakLoopsPhis(CDFG: pgv.AGraph, module: Module, cip_dependencies: list):
             CDFG.add_node(newPI, shape="box")
             additionalPIs[newPI] = getWidth(phi, module)
             CDFG.add_edge(newPI, phi, color="red")
-            #cip_dependencies.append((newPI, newPO, "II"))
-            # the order is inverted since leap backend uses the formulation dst - src >= D where (dst, src, D) is in cip_dependencies
-            cip_dependencies.append((newPO, newPI, "II"))
+            cip_dependencies.append((newPI, newPO, "II"))
         cycle = nx.simple_cycles(nxGraph)
         if cycle == [] or cycle is None:
             break
@@ -1578,6 +1576,14 @@ def addPhisEnable(CDFG: pgv.AGraph, module: Module):
                 CDFG.add_node(srcEnable, shape="box")
                 CDFG.add_edge(srcEnable, node, color="red")
     return additionalPIs        
+
+# function to invert source and destination in cip_dependencies if there is II in the latency
+def invertII_Constraints(cip_dependencies: list):
+    cip_dependencies_copy = cip_dependencies.copy()
+    for dst, src, delay in cip_dependencies_copy:
+        if isinstance(delay, str) and "II" in delay:
+            cip_dependencies.remove((dst, src, delay))
+            cip_dependencies.append((src, dst, delay))
 
 # function to generate the verilog that represents the CDFG
 def CDFGToVerilog(_CDFG: pgv.AGraph, module: Module, verilogFilePath: str, jsonFilePath: str, memory_keywords: dict):
@@ -1626,6 +1632,9 @@ def CDFGToVerilog(_CDFG: pgv.AGraph, module: Module, verilogFilePath: str, jsonF
     with open(verilogFilePath, "w") as f:
         f.write(verilogData)
         f.write("endmodule\n")
+
+    # the order is inverted since leap backend uses the formulation dst - src >= D where (dst, src, D) is in cip_dependencies
+    invertII_Constraints(cip_dependencies)
 
     finalDataJSON = {"dip": dip_dependencies, "cip": cip_dependencies}
 
