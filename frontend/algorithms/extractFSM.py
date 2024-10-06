@@ -988,6 +988,7 @@ def generateVariablesDef(inputs: dict, outputs: dict, vars: dict, dip_dependenci
     for input in inputs.keys():
         if inputs[input] == 1:
             text += "input {0};\n".format(input)
+            dip_dependencies[input] = input
         else:
             bitwidth = inputs[input]
             text += "input [{0}:0] {1};\n".format(bitwidth - 1, input)
@@ -997,6 +998,7 @@ def generateVariablesDef(inputs: dict, outputs: dict, vars: dict, dip_dependenci
     for output in outputs.keys():
         if outputs[output] == 1:
             text += "output {0};\n".format(output)
+            dip_dependencies[output] = output
         else:
             bitwidth = outputs[output]
             text += "output [{0}:0] {1};\n".format(bitwidth - 1, output)
@@ -1161,7 +1163,7 @@ def addMemoryUnitsPorts(CDFG: pgv.AGraph, module: Module, memory_keywords: dict,
             dataAnswer = CDFG.out_edges(node)[0][1]
             CDFG.add_edge(addrReq, addrNode, color="red")
             CDFG.add_edge(fromMemNode, dataAnswer, color="red")
-            cip_dependencies.append((addrNode, dataAnswer, 1))
+            cip_dependencies.append((fromMemNode, addrNode, 1))
             for src, dst in CDFG.in_edges(node):
                 if src != addrReq:
                     assert CDFG.get_edge(src, dst).attr["style"] == "dashed" and CDFG.get_edge(src, dst).attr["color"] == "red", "Load node should have one input that is not dashed"
@@ -1337,7 +1339,9 @@ def breakLoopsPhis(CDFG: pgv.AGraph, module: Module, cip_dependencies: list):
                 CDFG.add_node(newPI, shape="box")
                 additionalPIs[newPI] = getWidth(phi, module)
                 CDFG.add_edge(newPI, phi, color="red")
-                cip_dependencies.append((newPI, newPO, "II"))
+                #cip_dependencies.append((newPI, newPO, "II"))
+                # the order is inverted since leap backend uses the formulation dst - src >= D where (dst, src, D) is in cip_dependencies
+                cip_dependencies.append((newPO, newPI, "II"))
         cycle = nx.simple_cycles(nxGraph)
         if cycle == [] or cycle is None:
             break
