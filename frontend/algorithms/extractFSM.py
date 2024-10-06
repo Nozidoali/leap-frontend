@@ -1110,7 +1110,9 @@ def buildOriginalCDFG(graph: pgv.AGraph, module: Module, FSM: pgv.AGraph, end_no
         assert arrivalState in departureStates.keys(), "Arrival state not found"
         dataDstNodes = departureStates[arrivalState]
         for dataDstNode in dataDstNodes:
-            CDFG.add_edge(dataSrcNode.get_name(), dataDstNode, color="red", style="dashed")
+            edge = (dataSrcNode.get_name(), dataDstNode)
+            if not edge in CDFG.edges():
+                CDFG.add_edge(dataSrcNode.get_name(), dataDstNode, color="red", style="dashed")
         #print(f"Data node {dataSrcNode.get_name()} -> {dataDstNodes}")
     # the pipeline states with no registers across them should be merged since do not represent real states
     mergeConsecutivePipelineStates(FSM, departureStates, departureStates2Ctrl , arrivalStates)
