@@ -44,7 +44,7 @@ def test_01_basic():
     graph.addFlow("C", "E")
     graph.addFlow("D", "E")
 
-    graph.addFlow("E", "B", isLoop=True, loopBound=10, loopII=3)
+    graph.addFlow("E", "B", isLoop=True, loopBound=10, loopII=2)
 
     # E is a loop with condition
     graph.addFlow("E", "F")
@@ -81,7 +81,7 @@ def test_02_generator():
     graph.addFlow("C", "E")
     graph.addFlow("D", "E")
 
-    graph.addFlow("E", "B", isLoop=True, loopBound=10, loopII=3)
+    graph.addFlow("E", "B", isLoop=True, loopBound=10, loopII=2)
 
     # E is a loop with condition
     graph.addFlow("E", "F")

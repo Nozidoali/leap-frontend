@@ -213,7 +213,7 @@ class LoopSimulator(FSMSimulator):
             self._executeHandshake(loop)
             self._checkLoopActivation(loop)
             self._executeIIcounter(loop)
-            self._checkLoopEpilogue(loop)
+            self._checkLoopDeactivation(loop)
 
     def _executeHandshake(self, loop: pgv.Edge) -> None:
         states = self._loopToStates[loop]
@@ -271,6 +271,7 @@ class LoopSimulator(FSMSimulator):
         if self._reset:
             self._loopStart[loop] = False
 
+        # TODO: remove this one, it is redundant
         self._activate_loop[loop] = (
             not self._fsm_stall and self._loop_begin_pipeline[loop]
         ) and not self._loop_active[loop]
@@ -309,7 +310,7 @@ class LoopSimulator(FSMSimulator):
         elif self._loopIIcounter[loop] == self._loopII[loop] - 1:
             self._loopIIcounterReg[loop] = 0
 
-    def _checkLoopEpilogue(self, loop: pgv.Edge) -> None:
+    def _checkLoopDeactivation(self, loop: pgv.Edge) -> None:
 
         if self._reset:
             self._loop_epilogue_reg[loop] = False

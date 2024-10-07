@@ -479,3 +479,26 @@ def seqEventNode(
             resetNode = OPNode("posedge", OPType.UNARY_POSEDGE, resetNode)
         eventNode = OPNode("or", OPType.BINARY_EVENT_OR, eventNode, resetNode)
     return OPNode("always", OPType.EVENT_ALWAYS, eventNode)
+
+
+# Some common operations
+
+
+def notNode(node: BNode) -> BNode:
+    return OPNode("~", OPType.UNARY_NOT, node)
+
+
+def eqNode(node1: BNode, node2: BNode) -> BNode:
+    return OPNode("==", OPType.BINARY_EQ, node1, node2)
+
+
+def neqNode(node1: BNode, node2: BNode) -> BNode:
+    return OPNode("!=", OPType.BINARY_NEQ, node1, node2)
+
+
+def andNode(node1: BNode, node2: BNode) -> BNode:
+    return OPNode("&", OPType.BINARY_AND, node1, node2)
+
+
+def orNode(node1: BNode, node2: BNode) -> BNode:
+    return OPNode("|", OPType.BINARY_OR, node1, node2)

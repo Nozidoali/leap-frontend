@@ -28,10 +28,14 @@ class FSMGenerator(ModuleGenerator):
         self._regular_edges: List[pgv.Edge] = []
         self._regular_nodes: List[pgv.Node] = []
 
+        # fsm stall
+        self._fsm_stall: BNode = self.createWire("fsm_stall")
+
         self._modifyFSM()
         self._bindFSM()
 
     def run(self) -> None:
+        self._generateInferface()
         # we create the parameter for each state
         self._generateState()
         pass
@@ -201,3 +205,43 @@ class FSMGenerator(ModuleGenerator):
     @staticmethod
     def _stateTransitionAssignment(nextStateNode: VarNode, succNode: VarNode) -> BNEdge:
         return LatchAssignment(nextStateNode, succNode)
+
+    def _generateInferface(self):
+        # for each bb with more than one successor, we need an input port
+        # for bb in fsm.bbs:
+        #     for i in range(fsm.numSuccessors(bb) - 1):
+        #         inputNode = fsm.getControlSignalAtBB(bb, i)
+        #         module.addPort(InputPort(inputNode, BasicRange(1)))
+
+        # for node in fsm.nodes():
+        #     # for each parameter, we need to output a control signal, which is the comparison between the current state and the parameter
+        #     paramNode = fsm.getParamAtNode(node)
+        #     compNode = OPNode("==", OPType.BINARY_EQ, currStateNode, paramNode)
+        #     outName = node.name + "_ctrl_out"
+        #     outNode = VarNode(outName)
+        #     module.addPort(OutputPort(outNode, BasicRange(1)))
+        #     module.addAssignment(Assignment(outNode, compNode))
+
+        # generate the clk and reset ports
+        clkNode = VarNode("clk")
+        resetNode = VarNode("reset")
+        self.module.addPort(InputPort(clkNode, BasicRange(1)))
+        self.module.addPort(InputPort(resetNode, BasicRange(1)))
+
+        self._clk = clkNode
+        self._reset = resetNode
+
+        # generate the start and finish ports
+        startNode = VarNode("start")
+        finishNode = VarNode("finish")
+        self.module.addPort(InputPort(startNode, BasicRange(1)))
+        self.module.addPort(OutputRegPort(finishNode, BasicRange(1)))
+
+        self._start = startNode
+        self._finish = finishNode
+
+    def getEntranceParam(self, loop: pgv.Edge) -> BNode:
+        return self._fsm.getParamAtNode(self._loopEntrance[loop])
+
+    def nodeNotStall(self) -> BNode:
+        return notNode(self._fsm_stall)
