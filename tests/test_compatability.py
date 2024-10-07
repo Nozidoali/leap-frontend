@@ -61,6 +61,6 @@ def test_03_vivado():
 
 
 if __name__ == "__main__":
-    test_00_legup()
+    # test_00_legup()
     # test_01_xls()
-    # test_02_legup()
+    test_02_legup()

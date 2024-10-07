@@ -15,7 +15,17 @@ if __name__ == "__main__":
     )
 
     ctrl_output_names = ["ap_done", "ap_idle", "ap_ready", "finish", "ap_start"]
-    ctrl_input_names = ["start", "memory_controller_waitrequest", "clk", "clk2x", "clk1x_follower", "reset", "rst", "ap_rst", "ap_reset"]
+    ctrl_input_names = [
+        "start",
+        "memory_controller_waitrequest",
+        "clk",
+        "clk2x",
+        "clk1x_follower",
+        "reset",
+        "rst",
+        "ap_rst",
+        "ap_reset",
+    ]
     outputsNames = [
         port
         for port in module.getPortsByDir(PortDirection.OUTPUT)
@@ -32,8 +42,8 @@ if __name__ == "__main__":
     extractDataFlowControlFlow(module, graph, outputsNames, inputsNames)
     graph.write("{}.dot".format(outputDot))
 
-    #newModule = graphToBNGraph(module, graph, "cluster_control_flow")
-    #writeVerilog(newModule, "out.v")
+    # newModule = graphToBNGraph(module, graph, "cluster_control_flow")
+    # writeVerilog(newModule, "out.v")
 
     FSM = extractFSMGraph(module, graph)
     FSM.write("{}_FSM.dot".format(outputDot))

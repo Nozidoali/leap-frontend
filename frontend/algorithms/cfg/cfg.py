@@ -1,9 +1,14 @@
 import pygraphviz as pgv
+from typing import List, Dict
 
 from ...modules import *
 
 
 class CFGraph(pgv.AGraph):
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.graph_attr["rankdir"] = "TB"
 
     def getLatency(self, node: pgv.Node):
         return int(node.attr["latency"])
@@ -32,8 +37,21 @@ class CFGraph(pgv.AGraph):
             isFinish="true" if isFinish else "false",
         )
 
-    def addFlow(self, src: str, dst: str):
-        self.add_edge(src, dst)
+    def addFlow(
+        self,
+        src: str,
+        dst: str,
+        isLoop: bool = False,
+        loopBound: int = -1,
+        loopII: int = -1,
+    ):
+        self.add_edge(
+            src,
+            dst,
+            isLoop="true" if isLoop else "false",
+            loopBound=loopBound,
+            loopII=loopII,
+        )
 
     @staticmethod
     def isStart(node: pgv.Node):
@@ -42,3 +60,15 @@ class CFGraph(pgv.AGraph):
     @staticmethod
     def isFinish(node: pgv.Node):
         return node.attr["isFinish"] == "true"
+
+    @staticmethod
+    def isLoop(edge: pgv.Edge):
+        return edge.attr["isLoop"] == "true"
+
+    @staticmethod
+    def getLoopBound(edge: pgv.Edge):
+        return int(edge.attr["loopBound"])
+
+    @staticmethod
+    def getLoopII(edge: pgv.Edge):
+        return int(edge.attr["loopII"])

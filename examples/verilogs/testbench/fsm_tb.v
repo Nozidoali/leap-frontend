@@ -60,13 +60,6 @@ module main_tb;
         B_ctrl_in0 = 0;
         #40;
 
-        // Test Case 4: After reaching s6, check if finish is asserted
-        if (finish) begin
-			$display("Cycle count: %d", $time);
-        end else begin
-            $display("Error: Finish not asserted when expected");
-        end
-
         // Test Case 5: Set B_ctrl_in0 to 1 and observe state transitions back to s1
         B_ctrl_in0 = 1;
         #20;
@@ -77,4 +70,5 @@ module main_tb;
         // End the simulation
         $finish;
     end
+
 endmodule

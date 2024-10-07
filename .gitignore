@@ -172,3 +172,9 @@ tests/*.csv
 ./*.v
 ./*.dot
 tosend
+
+abc.history
+
+*.gif
+
+tmp/

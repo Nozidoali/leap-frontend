@@ -3,7 +3,9 @@ from .highlight import *
 import pygraphviz as pgv
 
 
-def _extractDataFlowNodesRec(module:Module, graph: pgv.AGraph, node: pgv.Node, visited: set, revTraversal: bool):
+def _extractDataFlowNodesRec(
+    module: Module, graph: pgv.AGraph, node: pgv.Node, visited: set, revTraversal: bool
+):
     if node in visited:
         return
     visited.add(node)
@@ -13,27 +15,38 @@ def _extractDataFlowNodesRec(module:Module, graph: pgv.AGraph, node: pgv.Node, v
         edges = graph.out_edges(node)
     for edge in edges:
         # do not traverse condition
-        if isEdgeCond(edge[0], edge[1], graph, module) == False: 
+        if isEdgeCond(edge[0], edge[1], graph, module) == False:
             if revTraversal:
                 nextNode = edge[0]
             else:
                 nextNode = edge[1]
             _extractDataFlowNodesRec(module, graph, nextNode, visited, revTraversal)
 
+
 def isExprCondition(expr: BNode):
-    if expr.variable_name == "&&" or expr.variable_name == "||" or expr.variable_name == "!":
+    if (
+        expr.variable_name == "&&"
+        or expr.variable_name == "||"
+        or expr.variable_name == "!"
+    ):
         return True
     if expr.variable_name == "==" or expr.variable_name == "!=":
         return True
-    if expr.variable_name == "<" or expr.variable_name == "<=" or expr.variable_name == ">" or expr.variable_name == ">=":
+    if (
+        expr.variable_name == "<"
+        or expr.variable_name == "<="
+        or expr.variable_name == ">"
+        or expr.variable_name == ">="
+    ):
         return True
     return False
+
 
 def isEdgeCond(src: pgv.Node, dst: pgv.Node, graph: pgv.AGraph, module: Module):
     isCtrl = graph.get_edge(src, dst).attr["style"] == "dashed"
     if isCtrl:
         return True
-    
+
     if module.isDefined(dst.get_name()):
         for target, expression, cond in module.node2assignment.keys():
             if expression == src.get_name() and target == dst.get_name():
@@ -45,26 +58,35 @@ def isEdgeCond(src: pgv.Node, dst: pgv.Node, graph: pgv.AGraph, module: Module):
     return False
 
 
-def checkDataFlowNode_rec(module: Module, node: pgv.Node, origNode: pgv.Node , graph: pgv.AGraph, additionalNodes: set, existingNodes: set):
+def checkDataFlowNode_rec(
+    module: Module,
+    node: pgv.Node,
+    origNode: pgv.Node,
+    graph: pgv.AGraph,
+    additionalNodes: set,
+    existingNodes: set,
+):
     successTrav = False
     for src, dst in graph.out_edges(node):
         if dst in existingNodes or dst in additionalNodes:
             continue
         if isEdgeCond(src, dst, graph, module):
             if src != origNode:
-                additionalNodes.remove(src) # it's added by next function
+                additionalNodes.remove(src)  # it's added by next function
                 _extractDataFlowNodesRec(module, graph, src, additionalNodes, True)
             successTrav = True
             continue
 
         additionalNodes.add(dst)
-        status = checkDataFlowNode_rec(module, dst, origNode, graph, additionalNodes, existingNodes)
+        status = checkDataFlowNode_rec(
+            module, dst, origNode, graph, additionalNodes, existingNodes
+        )
         if not status:
             additionalNodes.remove(dst)
         else:
             successTrav = True
             if src != origNode:
-                additionalNodes.remove(src) # it's added by next function
+                additionalNodes.remove(src)  # it's added by next function
                 _extractDataFlowNodesRec(module, graph, src, additionalNodes, True)
 
     if not successTrav:
@@ -72,7 +94,10 @@ def checkDataFlowNode_rec(module: Module, node: pgv.Node, origNode: pgv.Node , g
 
     return True
 
-def extractDataFlowControlFlowNodes(module: Module, graph: pgv.AGraph, dataOutputs: list, dataInputs: list):
+
+def extractDataFlowControlFlowNodes(
+    module: Module, graph: pgv.AGraph, dataOutputs: list, dataInputs: list
+):
     dataNodes = set()
     controlNodes = []
     for out in dataOutputs:
@@ -97,8 +122,12 @@ def extractDataFlowControlFlowNodes(module: Module, graph: pgv.AGraph, dataOutpu
     return dataNodes, controlNodes
 
 
-def extractDataFlowControlFlow(module: Module, graph: pgv.AGraph, dataOutputs: list, dataInputs: list):
-    dataNodes, controlNodes = extractDataFlowControlFlowNodes(module, graph, dataOutputs, dataInputs)
+def extractDataFlowControlFlow(
+    module: Module, graph: pgv.AGraph, dataOutputs: list, dataInputs: list
+):
+    dataNodes, controlNodes = extractDataFlowControlFlowNodes(
+        module, graph, dataOutputs, dataInputs
+    )
     dataGraph = graph.add_subgraph(
         dataNodes,
         name="cluster_data_flow",
@@ -166,7 +195,8 @@ def extractDataFlowControlFlow(module: Module, graph: pgv.AGraph, dataOutputs: l
 
     graph.layout(prog="dot")
 
-def findCondVar(node: BNode, op: str , var: str):
+
+def findCondVar(node: BNode, op: str, var: str):
     if node.variable_name == op:
         if node.children[0].variable_name == var:
             return node
@@ -175,6 +205,7 @@ def findCondVar(node: BNode, op: str , var: str):
         if res is not None:
             return res
     return None
+
 
 def extractFSMGraph(module: Module, graph: pgv.AGraph):
     CFG = graph.get_subgraph("cluster_control_flow")
@@ -186,7 +217,7 @@ def extractFSMGraph(module: Module, graph: pgv.AGraph):
     states += module.getPortsByType(PortType.PARAMETER)
 
     statesVar = []
-    for assign in module.assignments:
+    for assign in module.getAssignments():
         if assign.expression.toString() in states:
             if assign.target.toString() not in statesVar:
                 statesVar.append(assign.target.toString())
@@ -216,17 +247,19 @@ def extractFSMGraph(module: Module, graph: pgv.AGraph):
         if assign.expression.toString() == nextStateVar:
             foundCurrStateAssign = True
             break
-    assert foundCurrStateAssign, "The current and next state variables are not connected"
+    assert (
+        foundCurrStateAssign
+    ), "The current and next state variables are not connected"
 
     startState = None
     for assign in module.getAssignmentsOf(currStateVar):
         if assign.expression.toString() in states:
             assert startState is None, "More than one reset state found"
             startState = assign.expression.toString()
-    
+
     if startState is None:
         raise Exception("No reset state found")
-    
+
     for state in states:
         FSM.add_node(state, shape="ellipse", color="green")
 
@@ -244,6 +277,7 @@ def extractFSMGraph(module: Module, graph: pgv.AGraph):
         FSM.add_edge(stateSrc, stateDst, color="red")
 
     return FSM
+
 
 def isOpNode(node: pgv.Node):
     return node.attr["shape"] == "ellipse"
@@ -273,9 +307,7 @@ def getArrivalState_rec(
             op_value = dst.attr["label"]
             if op_value == "~":
                 continue
-        dstNode = getArrivalState_rec(
-            CFG, dst, visited, module, end_nodes, FSM
-        )
+        dstNode = getArrivalState_rec(CFG, dst, visited, module, end_nodes, FSM)
         if dstNode is not None:
             return dstNode
     return None
@@ -283,7 +315,11 @@ def getArrivalState_rec(
 
 # function to extract the arrival states of the data-controlled CFG
 def getArrivalStates(
-    graph: pgv.AGraph, controlPaths: list, module: Module, end_nodes: list, FSM: pgv.AGraph
+    graph: pgv.AGraph,
+    controlPaths: list,
+    module: Module,
+    end_nodes: list,
+    FSM: pgv.AGraph,
 ):
     arrivalStates = []
     CFG = graph.get_subgraph("cluster_control_flow")
@@ -296,18 +332,26 @@ def getArrivalStates(
         arrivalStates.append((dataNode, dstState))
     return arrivalStates
 
+
 # function to extract the departure states of the ctrl data CFG
-def getDepartureStates(graph: pgv.AGraph, controlPaths: list, module: Module, FSM: pgv.AGraph):
+def getDepartureStates(
+    graph: pgv.AGraph, controlPaths: list, module: Module, FSM: pgv.AGraph
+):
     departureStates = []
     for ctrlNode, dataNode in controlPaths:
         assert len(graph.in_edges(ctrlNode)) == 1
         controlOutputNode = graph.in_edges(ctrlNode)[0][0]
-        print(controlOutputNode.get_name(), module.getDependencies(controlOutputNode.get_name()))
+        print(
+            controlOutputNode.get_name(),
+            module.getDependencies(controlOutputNode.get_name()),
+        )
     return departureStates
 
 
 # function to build the original CDFG with the extracted data flow
-def buildOriginalCDFG(graph: pgv.AGraph, module: Module, FSM: pgv.AGraph, end_nodes: list):
+def buildOriginalCDFG(
+    graph: pgv.AGraph, module: Module, FSM: pgv.AGraph, end_nodes: list
+):
     CDFG = pgv.AGraph(strict=False, directed=True)
     CDFG.graph_attr["splines"] = "ortho"
     CDFG.graph_attr["rankdir"] = "TB"  # Top-to-bottom layout
@@ -320,7 +364,9 @@ def buildOriginalCDFG(graph: pgv.AGraph, module: Module, FSM: pgv.AGraph, end_no
         srcIsDataNode = srcNode in graph.get_subgraph("cluster_data_flow").nodes()
         dstIsDataNode = dstNode in graph.get_subgraph("cluster_data_flow").nodes()
         if srcIsDataNode and dstIsDataNode:
-            CDFG.add_edge(srcNode.get_name(), dstNode.get_name(), color="blue", style="dashed")
+            CDFG.add_edge(
+                srcNode.get_name(), dstNode.get_name(), color="blue", style="dashed"
+            )
         elif srcIsDataNode:
             ## if the source node is a data node and the destination node is a control node
             ## this is a control path from data to control
@@ -340,13 +386,18 @@ def buildOriginalCDFG(graph: pgv.AGraph, module: Module, FSM: pgv.AGraph, end_no
 
     arrivalStates = getArrivalStates(graph, inCtrlOutDataWire, module, end_nodes, FSM)
     departureStates = {}
-    #departureStates = getDepartureStates(graph, outCtrlInDataWire, module, FSM)
+    # departureStates = getDepartureStates(graph, outCtrlInDataWire, module, FSM)
     for dataNode, arrivalState in arrivalStates:
         if arrivalState in end_nodes:
-            CDFG.add_edge(dataNode.get_name(), arrivalState.get_name(), color="red", style="dashed")
+            CDFG.add_edge(
+                dataNode.get_name(),
+                arrivalState.get_name(),
+                color="red",
+                style="dashed",
+            )
         elif arrivalState in departureStates.keys():
             pass
-            #CDFG.add_edge(dataNode, arrivalState, color="green", style="dashed")
+            # CDFG.add_edge(dataNode, arrivalState, color="green", style="dashed")
         else:
             assert False, "Arrival state not found"
 

@@ -1,67 +1,37 @@
-#!/usr/bin/env python
-# -*- encoding=utf8 -*-
-
-"""
-Author: Hanyu Wang
-Created time: 2024-07-23 22:33:09
-Last Modified by: Hanyu Wang
-Last Modified time: 2024-07-23 23:19:24
-"""
-
-from typing import List, Dict, Tuple
+from typing import List, Dict
 from ...modules import *
-from .headerWriter import *
+
+
+def _extractEvent(assignment: List[Assignment]) -> Tuple[BNode, List[Assignment]]:
+    event = None
+    newAssignments: List[Assignment] = []
+    for assign in assignment:
+        if event is None and assign.event is not None:
+            event = assign.event
+        if event and assign.event != event:
+            print(f"event: {event.toString()}, assign.event: {assign.event.toString()}")
+            assert (
+                False
+            ), "Multiple events in the same assignment list are not supported"
+        newAssignments.append(assign.copy().setEvent(None))
+    return event, newAssignments
+
 
 def assignmentsToString(assignments: List[Assignment]):
     retString = ""
     if len(assignments) == 0:
         return retString
-    if len(assignments) == 1:
-        return assignmentToString(assignments[0])
-    eventTmp = None
-    noConditionAssign = None
-    for assign in assignments:
-        if assign.condition is None:
-            if noConditionAssign is not None:
-                assert False, "Multiple assignments with and without conditions are not supported"    
-            else:
-                noConditionAssign = assign
-
-        if assign.event is None:
-            continue
-        if eventTmp == None:
-            eventTmp = assign.event
-        elif eventTmp != assign.event:
-            assert False, "Multiple events in the same assignment list are not supported"
-
-    # reordering the assignments
-    if noConditionAssign is not None:
-        assignments.remove(noConditionAssign)
-        assignments.append(noConditionAssign)
-
-    if eventTmp is not None:
-        retString += f"{eventTmp.toString()} begin\n"
-
-    lenAssignments = len(assignments)
-    for iAssign in range(lenAssignments):
-        assign = assignments[iAssign]
-        if assign.condition is not None:
-            condition = assign.condition.toString()
-        else:
-            condition = None
-        target = assign.target.toString()
-        expression = assign.expression.toString()
-        assignOp = "=" if assign.isBlocking else "<="
-        if iAssign == 0:
-            retString += f"\tif ({condition}) begin\n\t\t{target} {assignOp} {expression};\n\tend\n"
-        elif iAssign == lenAssignments - 1 and noConditionAssign is not None:
-            retString += f"\telse begin\n\t\t{target} {assignOp} {expression};\n\tend\n"
-        else:
-            retString += f"\telse if ({condition}) begin\n\t\t{target} {assignOp} {expression};\n\tend\n"
-
-    if eventTmp is not None:
+    try:
+        event, newAssignments = _extractEvent(assignments)
+    except AssertionError as e:
+        event = None
+        newAssignments = assignments
+    if event is not None:
+        retString += f"{event.toString()} begin\n"
+    for assignment in newAssignments:
+        retString += assignmentToString(assignment)
+    if event is not None:
         retString += "end\n"
-    
     return retString
 
 
@@ -76,7 +46,7 @@ def writeAssignment(f, assignment: Assignment):
 
 
 def writeAssignments(f, module: Module):
-    for var in module.var2assigns:
+    for var in module.getVariables():
         for assign in module.getAssignmentsOf(var):
             writeAssignment(f, assign)
 
@@ -105,7 +75,7 @@ def portDefsToString(portDefs: Dict[str, Port], listParamValues: dict):
 def writePortDefinitions(f, module: Module):
     portDefs: dict = module.getPorts()
     if len(portDefs) > 0:
-        f.write(portDefsToString(portDefs, getParamValues(module)))
+        f.write(portDefsToString(portDefs, _getParamValues(module)))
 
 
 def moduleInstToString(moduleInst: ModuleInst):
@@ -137,12 +107,12 @@ def writeModuleInst(f, moduleInst: ModuleInst):
 
 
 # function to extract the default values of the parameters
-def getParamValues(module: Module):
-    listParams = [port for port in module.getPortsByType(PortType.PARAMETER)]
-    listLocalParams = [port for port in module.getPortsByType(PortType.LOCALPARAM)]
+def _getParamValues(module: Module):
+    listParams = module.getPortsByType(PortType.PARAMETER)
+    listLocalParams = module.getPortsByType(PortType.LOCALPARAM)
     listParams += listLocalParams
     defaultParamsValues = {}
-    for var in module.var2assigns:
+    for var in module.getVariables():
         for assign in module.getAssignmentsOf(var):
             if assign.target.toString() in listParams:
                 assert (
@@ -154,47 +124,38 @@ def getParamValues(module: Module):
     return defaultParamsValues
 
 
-def moduleToString(module: Module, inblockVar: bool = False):
+def moduleToString(module: Module):
     moduleString = ""
     moduleString += moduleHeaderToString(module)
     moduleString += module.getMacroString()
-    moduleString += portDefsToString(module.getPorts(), getParamValues(module))
+    moduleString += portDefsToString(module.getPorts(), _getParamValues(module))
     moduleString += "\n"
 
     for _, moduleInst in module.submodules.items():
         moduleString += moduleInstToString(moduleInst)
 
-    if inblockVar:
-        # write assignments to the same variable in the same always block
-        for var in module.var2assigns:
-            assignments = []
-            for assign in module.getAssignmentsOf(var):
-                # TODO: consider the wire/latch/reg
-                # skip the assignment if it's a parameter or localparam and it's a constant expression without condition
-                skipAssignment =  (
-                    assign.target.toString() in module.getPortsByType(PortType.PARAMETER) 
-                    or assign.target.toString() 
-                    in module.getPortsByType(PortType.LOCALPARAM) 
-                    and assign.expression.isConstant() 
-                    and assign.condition is None
-                )
-                if not skipAssignment:
-                    assignments.append(assign)
-            moduleString += assignmentsToString(assignments)
-    else:
-        for var in module.var2assigns:
-            for assign in module.getAssignmentsOf(var):
-                # TODO: consider the wire/latch/reg
-                # skip the assignment if it's a parameter or localparam and it's a constant expression without condition
-                skipAssignment = (
-                    assign.target.toString() in module.getPortsByType(PortType.PARAMETER)
-                    or assign.target.toString()
-                    in module.getPortsByType(PortType.LOCALPARAM)
-                    and assign.expression.isConstant()
-                    and assign.condition is None
-                )
-                if not skipAssignment:
-                    moduleString += assignmentToString(assign)
+    # write assignments to the same variable in the same always block
+    for var in module.getVariables():
+        # print some comments for the variable
+        assignments = []
+        for assign in module.getAssignmentsOf(var):
+            # TODO: consider the wire/latch/reg
+            # skip the assignment if it's a parameter or localparam and it's a constant expression without condition
+            skipAssignment = (
+                assign.target.toString() in module.getPortsByType(PortType.PARAMETER)
+                or assign.target.toString()
+                in module.getPortsByType(PortType.LOCALPARAM)
+                and assign.expression.isConstant()
+                and assign.condition is None
+            )
+            if not skipAssignment:
+                assignments.append(assign)
+        if len(assignments) > 0:
+            moduleString += (
+                f"\n/* Variable {var} Type = {module.getPort(var).getType().value} */\n"
+            )
+        moduleString += assignmentsToString(assignments)
+
     moduleString += "endmodule\n"
     return moduleString
 

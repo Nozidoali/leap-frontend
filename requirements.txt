@@ -1,2 +1,4 @@
-lark>=1.2
-pygraphviz>=1.10
+imageio==2.35.1
+lark==1.2.2
+pygraphviz==1.13
+tqdm==4.66.5

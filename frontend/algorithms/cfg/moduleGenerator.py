@@ -20,7 +20,7 @@ def _fsmStateGeneration(fsm: FSM, module: Module):
         # we define each state as a parameter
         paramNode = fsm.getParamAtNode(node)
         module.addPort(ParameterPort(paramNode, BasicRange(width)))
-        module.addAssignment(Assignment(paramNode, ConstantNode(f"3'd{i}")))
+        module.addAssignment(Assignment(paramNode, ConstantNode(f"{width}'d{i}")))
     return nextStateNode, currStateNode
 
 

@@ -255,7 +255,7 @@ def moduleToGraph(module: Module) -> CDFGraph:
     graph.frame = module.getFrame()
 
     # Loop through the module assignments and add them to the graph
-    for i, assignment in enumerate(module.assignments):
+    for i, assignment in enumerate(module.getAssignments()):
 
         # Process the lhs (target) and rhs (expression)
         lhsNode = _addNodeRecursively(graph, assignment.target)
