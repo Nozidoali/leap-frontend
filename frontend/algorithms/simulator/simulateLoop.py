@@ -41,7 +41,7 @@ class LoopSimulator(FSMSimulator):
 
         # piepline exit
         self._loop_exit_cond: Dict[pgv.Edge, bool] = {}
-        self._loop_only_fast_stage_enabled: Dict[pgv.Edge, bool] = {}
+        self._loop_only_last_stage_enabled: Dict[pgv.Edge, bool] = {}
         self._loop_epilogue: Dict[pgv.Edge, bool] = {}
         self._loop_pipeline_finished: Dict[pgv.Edge, bool] = {}
 
@@ -74,7 +74,7 @@ class LoopSimulator(FSMSimulator):
             self._activate_loop[loop] = False
 
             self._loop_exit_cond[loop] = False
-            self._loop_only_fast_stage_enabled[loop] = False
+            self._loop_only_last_stage_enabled[loop] = False
             self._loop_epilogue[loop] = False
             self._loop_pipeline_finished[loop] = False
 
@@ -96,7 +96,7 @@ class LoopSimulator(FSMSimulator):
                     stack.append(succ)
 
             # TODO: we need to modify the state according to the scheduling
-            self._loopIItoState[loop] = states[0]
+            self._loopIItoState[loop] = states[1]
 
             # add the loop
             self._loopToStates[loop] = states
@@ -142,6 +142,9 @@ class LoopSimulator(FSMSimulator):
 
         for loop, epilogue in self._loop_epilogue_reg.items():
             self._loop_epilogue[loop] = epilogue
+            
+        for loop, pipelineFinished in self._loop_pipeline_finished_reg.items():
+            self._loop_pipeline_finished[loop] = pipelineFinished
 
         # we highlight the states based on the stateEnabled
         for state, enabled in self._stateEnabled.items():
@@ -163,9 +166,8 @@ class LoopSimulator(FSMSimulator):
             print(
                 f"{str(state):<10} | {str(isEnable):<8} | {str(isValid):<6} | {str(isStalled):<8}"
             )
-
         print(
-            f"\n{'Loop':<20} | {'Active':<8} | {'Pipeline':<8} | {'Epilogue':<8} | {'Finished':<8} | {'Start':<8}"
+            f"\n{'Loop':<20} | {'Active':<8} | {'Pipeline':<8} | {'Epilogue':<8} | {'Finished':<8} | {'Start':<8} | {'Activating':<10} | {'Exit Cond':<10} | {'Last Stage':<10}"
         )
         for loop in self._loops:
             isActive = self._loop_active[loop]
@@ -173,16 +175,25 @@ class LoopSimulator(FSMSimulator):
             isEpilogue = self._loop_epilogue[loop]
             isFinished = self._loop_pipeline_finished[loop]
             isStart = self._loopStart[loop]
+            isActivating = self._activate_loop[loop]
+            isExitCond = self._loop_exit_cond[loop]
+            isLastStage = self._loop_only_last_stage_enabled[loop]
 
             print(
-                f"{str(loop):<20} | {str(isActive):<8} | {str(isPipeline):<8} | {str(isEpilogue):<8} | {str(isFinished):<8} | {str(isStart):<8}"
+            f"{str(loop):<20} | {str(isActive):<8} | {str(isPipeline):<8} | {str(isEpilogue):<8} | {str(isFinished):<8} | {str(isStart):<8} | {str(isActivating):<10} | {str(isExitCond):<10} | {str(isLastStage):<10}"
             )
 
-        print(f"\n{'Loop':<20} | {'II':<8} | {'II Cnt':<6} | {'IndVar':<8}")
-        for loop in self._loops:
+        print(f"\n{'Loop':<20} | {'II':<8} | {'II Cnt':<6} | {'IndVar':<8} | {'Bounds':<8}")
+        for loop in self._loopII:
+            loop_ii = self._loopII[loop]
+            loop_ii_counter = self._loopIIcounter[loop]
+            loop_ind_var = self._loopIndVar[loop]
+            loop_bounds = self._loopBounds[loop]
+
             print(
-                f"{str(loop):<20} | {str(self._loopII[loop]):<8} | {str(self._loopIIcounter[loop]):<6} | {str(self._loopIndVar[loop]):<8}"
+            f"{str(loop):<20} | {str(loop_ii):<8} | {str(loop_ii_counter):<6} | {str(loop_ind_var):<8} | {str(loop_bounds):<8}"
             )
+
 
     def _propagateLoopStates(self) -> None:
         for loop in self._loops:
@@ -254,29 +265,27 @@ class LoopSimulator(FSMSimulator):
 
         # TODO: double check the boundar
         # because most of the case we need to minus 2
-        self._loop_exit_cond[loop] = self._loopIndVar[loop] == self._loopBounds[loop]
+        self._loop_exit_cond[loop] = self._loopIndVar[loop] == self._loopBounds[loop] - 2
 
         if self._reset:
             self._loop_active_reg[loop] = False
-        elif self._loop_activate_pipeline[loop]:
+        if self._loop_activate_pipeline[loop]:
             self._loop_active_reg[loop] = True
-        elif (
+        if (
             not self._stateStalled[self._loopToStates[loop][0]]
             and self._loop_epilogue[loop]
-            and self._loop_only_fast_stage_enabled[loop]
+            and self._loop_only_last_stage_enabled[loop]
         ):
             self._loop_active_reg[loop] = False
 
     def _executeIIcounter(self, loop: pgv.Edge) -> None:
-        self._loopIndVarReg[loop] = self._loopIndVar[loop]
         if self._reset:
             self._loopIndVarReg[loop] = 0
         elif self._activate_loop[loop]:
             self._loopIndVarReg[loop] = 0
-        elif self._loopIIcounter[loop] == self._loopII[loop] - 1:
-            state = self._loopIItoState[loop]
-            if self._stateEnabled[state]:
-                self._loopIndVarReg[loop] = self._loopIndVar[loop] + 1
+        state = self._loopIItoState[loop]
+        if self._stateEnabled[state] and self._loopIIcounter[loop] == 1:
+            self._loopIndVarReg[loop] = self._loopIndVar[loop] + 1
 
         self._loopIIcounterReg[loop] = self._loopIIcounter[loop] + 1
         if self._reset:
@@ -285,39 +294,34 @@ class LoopSimulator(FSMSimulator):
             self._loopIIcounterReg[loop] = 0
 
     def _checkLoopEpilogue(self, loop: pgv.Edge) -> None:
-        self._loop_epilogue[loop] = (
-            self._loop_active[loop] and self._loop_exit_cond[loop]
-        )
-        if self._reset:
-            self._loop_epilogue[loop] = False
 
-        self._loop_epilogue_reg[loop] = self._loop_epilogue[loop]
         if self._reset:
             self._loop_epilogue_reg[loop] = False
-        elif (
-            self._stateEnabled[self._loopToStates[loop][0]]
-            and self._loop_exit_cond[loop]
-        ):
-            self._loop_epilogue_reg[loop] = True
-        elif (
-            not self._stateStalled[self._loopToStates[loop][0]]
-            and self._loop_epilogue[loop]
-            and self._loop_only_fast_stage_enabled[loop]
-        ):
-            self._loop_epilogue_reg[loop] = False
+        else:
+            if (
+                self._stateEnabled[self._loopToStates[loop][0]]
+                and self._loop_exit_cond[loop]
+            ):
+                self._loop_epilogue_reg[loop] = True
+            elif (
+                not self._stateStalled[self._loopToStates[loop][0]]
+                and self._loop_epilogue[loop]
+                and self._loop_only_last_stage_enabled[loop]
+            ):
+                self._loop_epilogue_reg[loop] = False
 
         self._loop_pipeline_finished[loop] = (
             not self._stateStalled[self._loopToStates[loop][0]]
             and self._loop_epilogue[loop]
-            and self._loop_only_fast_stage_enabled[loop]
+            and self._loop_only_last_stage_enabled[loop]
         ) or self._loop_pipeline_finished[loop]
 
-        self._loop_only_fast_stage_enabled[loop] = self._stateEnabled[
+        self._loop_only_last_stage_enabled[loop] = self._stateEnabled[
             self._loopToStates[loop][-1]
         ]
         for i in range(len(self._loopToStates[loop]) - 1):
             if not self._stateEnabled[self._loopToStates[loop][i]]:
-                self._loop_only_fast_stage_enabled[loop] = False
+                self._loop_only_last_stage_enabled[loop] = False
                 break
 
         self._loop_pipeline_finished_reg[loop] = self._loop_pipeline_finished[loop]
