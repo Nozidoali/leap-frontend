@@ -1303,6 +1303,11 @@ def getInputRoot(CDFG: pgv.AGraph, node: pgv.Node):
         return node
     if CDFG.in_edges(node) == []:
         return CDFG.get_node(node).attr["label"]
+    CDFG_edges = CDFG.in_edges(node)
+    for src, dst in CDFG_edges:
+        if CDFG.get_edge(src, dst).attr["color"] == "red" and CDFG.get_edge(src, dst).attr["style"] == "dashed":
+            CDFG.remove_edge(src, dst)
+            #print("Removed edge: {0} -> {1}".format(src, dst))
     value = CDFG.get_node(node).attr["label"]
     if value == "+" or value == "-" or value == "*" or value == "/" or value == "==":
         if value == "-" and len(CDFG.in_edges(node)) == 1:
@@ -1372,27 +1377,64 @@ def getInputRoot(CDFG: pgv.AGraph, node: pgv.Node):
 # function to generate assign inside verilog module
 def generateAssigns(CDFG: pgv.AGraph, module: Module):
 
-    assigns = ""
+    assignsString = ""
 
     for node in CDFG.nodes():
         if CDFG.get_node(node).attr["shape"] != "ellipse":
             isPhi = CDFG.get_node(node).attr["label"] == "PHI"
             numDataEdges = 0
+            idEdge = -1
+            idTmp = 0
             for src, dst in CDFG.in_edges(node):
-                if CDFG.get_edge(src, dst).attr["color"] != "red" and CDFG.get_edge(src, dst).attr["style"] != "dashed":
+                if not(CDFG.get_edge(src, dst).attr["color"] == "red" and CDFG.get_edge(src, dst).attr["style"] == "dashed"):
                     numDataEdges += 1
+                    if idEdge == -1:
+                        idEdge = idTmp
+                idTmp += 1
             assert numDataEdges <= 1 or isPhi, "Node should have one input"
             if CDFG.in_edges(node) == []:
                 continue
-            assignment = getInputRoot(CDFG, CDFG.in_edges(node)[0][0])
+            if numDataEdges == 0:
+                continue
+            assert idEdge != -1, "Data edge not found"
+            assert not(CDFG.in_edges(node)[idEdge].attr["color"] == "red" and CDFG.in_edges(node)[idEdge].attr["style"] == "dashed"), "Data node should not have control input"
+            assignment = getInputRoot(CDFG, CDFG.in_edges(node)[idEdge][0])
             if isPhi:
-                assignment2 = getInputRoot(CDFG, CDFG.in_edges(node)[1][0])
-                cond = getInputRoot(CDFG, CDFG.in_edges(node)[2][0])
-                assigns += "assign {0} = {1} ? {2} : {3};\n".format(node, cond, assignment, assignment2)
+                if len(CDFG.in_edges(node)) == 3:
+                    assignment2 = getInputRoot(CDFG, CDFG.in_edges(node)[1][0])
+                    assignment3 = getInputRoot(CDFG, CDFG.in_edges(node)[2][0])
+                    cond = None
+                    for assign in [assignment, assignment2, assignment3]:
+                        if "_enable" in assign:
+                            assert cond is None, "There should be only one enable signal"
+                            cond = assign
+                    assert cond is not None, "Condition should have the enable signal"
+                    assignsString += "assign {0} = {1} ? {2} : {3};\n".format(node, cond, assignment, assignment2)
+                else:
+                    assert len(CDFG.in_edges(node)) == 4, "PHI node should have 3 or 4 inputs"
+                    assignments = [assignment]
+                    for src, dst in CDFG.in_edges(node):
+                        if not(CDFG.get_edge(src, dst).attr["color"] == "red" and CDFG.get_edge(src, dst).attr["style"] == "dashed"):
+                            assignments.append(getInputRoot(CDFG, src))
+                    cond = []
+                    for assign in assignments:
+                        if "_enable" in assign:
+                            cond.append(assign)
+                    assert len(cond) == 2, "There should be two inputs that are not enable"
+                    nonCond = [assign for assign in assignments if assign not in cond]
+                    assignsString += "if ({0}) begin\n".format(cond[0])
+                    assignsString += "assign {0} = {1};\n".format(node, nonCond[0])
+                    assignsString += "end else if begin\n"
+                    assignsString += "assign {0} = {1};\n".format(node, nonCond[1])
+                    assignsString += "end else begin\n"
+                    assignsString += "assign {0} = {1};\n".format(node, 0)
+                    assignsString += "end\n"
+
+
             else:
-                assigns += "assign {0} = {1};\n".format(node, assignment)
+                assignsString += "assign {0} = {1};\n".format(node, assignment)
     
-    return assigns
+    return assignsString
 
 # function to get the width of node
 def getWidth(node: pgv.Node, module: Module):
@@ -1725,7 +1767,7 @@ def addPhisEnable(CDFG: pgv.AGraph, module: Module, cip_dependencies: list):
                 srcEnable = node + "_enable"
                 additionalPIs[srcEnable] = 1
                 CDFG.add_node(srcEnable, shape="box")
-                CDFG.add_edge(srcEnable, node, color="red", style="dashed")
+                CDFG.add_edge(srcEnable, node, color="red")
             else:
                 for srcEnable in srcEnables:
                     assert CDFG.get_edge(srcEnable, node).attr["color"] == "red" and CDFG.get_edge(srcEnable, node).attr["style"] == "dashed", "Not correct enable"
@@ -1736,11 +1778,13 @@ def addPhisEnable(CDFG: pgv.AGraph, module: Module, cip_dependencies: list):
                     ctrlOut = "n" + srcEnable + "_ctrlOut"
                     additionalPOs[ctrlOut] = 1
                     CDFG.add_node(ctrlOut, shape="box")
-                    CDFG.add_edge(srcEnable, ctrlOut, color="red", style="dashed")
+                    if (srcEnable, ctrlOut) not in CDFG.edges():
+                        CDFG.add_edge(srcEnable, ctrlOut, color="red")
                     newSrcEnable = node + "_enable"
                     additionalPIs[newSrcEnable] = 1
                     CDFG.add_node(newSrcEnable, shape="box")
-                    CDFG.add_edge(newSrcEnable, node, color="red", style="dashed")
+                    if (newSrcEnable, node) not in CDFG.edges():
+                        CDFG.add_edge(newSrcEnable, node, color="red")
                     CDFG.remove_edge(srcEnable, node)
                     cip_dependencies.append((newSrcEnable, ctrlOut, distance_value))
 
