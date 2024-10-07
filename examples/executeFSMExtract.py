@@ -6,8 +6,9 @@ if __name__ == "__main__":
     from frontend import *
     import pygraphviz as pgv
 
-    outputDot = "mvt"
-    network: Netlist = readVerilog("examples/verilogs/external/legup/{}.v".format(outputDot))
+    outputDot = "gaussian"
+    external = "vivado"
+    network: Netlist = readVerilog("examples/verilogs/external/{}/{}.v".format(external, outputDot))
     # network: Netlist = readVerilog("examples/verilogs/external/vitis.v")
     module = network.getModuleAt(0)
     # graph: pgv.AGraph = exportDOT(module)
@@ -21,7 +22,7 @@ if __name__ == "__main__":
     mult_connect(graph)
 
     ctrl_output_names = ["ap_done", "ap_idle", "ap_ready", "finish", "ap_start"]
-    ctrl_input_names = ["start", "memory_controller_waitrequest", "clk", "clk2x", "clk1x_follower", "reset", "rst", "ap_rst", "ap_reset"]
+    ctrl_input_names = ["start", "memory_controller_waitrequest", "clk", "clk2x", "clk1x_follower", "reset", "rst", "ap_rst", "ap_reset", "ap_start"]
     outputsNames = [
         port
         for port in module.getPortsByDir(PortDirection.OUTPUT)
@@ -52,13 +53,13 @@ if __name__ == "__main__":
     # keywords for memory ports
     
     memory_keywords = {}
-    memory_keywords["regex_memory"] = [r"main_0_(?P<memory_name>[a-zA-Z0-9_]+)_address_(?P<memory_id>[a-z])"]
-    memory_keywords["outAddress"] = ["main_0_MEMORY_NAME_address_MEMORY_ID"]
+    memory_keywords["regex_memory"] = [r"main_0_(?P<memory_name>[a-zA-Z0-9_]+)_address_(?P<memory_id>[a-z])", r"(?P<memory_name>[a-zA-Z0-9_]+)_address(?P<memory_id>[0-9]+)"]
+    memory_keywords["outAddress"] = ["main_0_MEMORY_NAME_address_MEMORY_ID", "MEMORY_NAME_addressMEMORY_ID"]
     #memory_keywords["inAddress"] = ["arg_MEMORY_NAME"]
-    memory_keywords["outMemory"] = ["main_0_MEMORY_NAME_out_MEMORY_ID"]
-    memory_keywords["inMemory"] = ["main_0_MEMORY_NAME_in_MEMORY_ID"]
-    memory_keywords["writeEnable"] = ["main_0_MEMORY_NAME_write_enable_MEMORY_ID"]
-    memory_keywords["enable"] = ["main_0_MEMORY_NAME_enable_MEMORY_ID"]
+    memory_keywords["outMemory"] = ["main_0_MEMORY_NAME_out_MEMORY_ID", "MEMORY_NAME_qMEMORY_ID"]
+    memory_keywords["inMemory"] = ["main_0_MEMORY_NAME_in_MEMORY_ID", "MEMORY_NAME_dMEMORY_ID"]
+    memory_keywords["writeEnable"] = ["main_0_MEMORY_NAME_write_enable_MEMORY_ID", "MEMORY_NAME_weMEMORY_ID"]
+    memory_keywords["enable"] = ["main_0_MEMORY_NAME_enable_MEMORY_ID", "MEMORY_NAME_ceMEMORY_ID"]
 
     print("Building CDFG")
 
