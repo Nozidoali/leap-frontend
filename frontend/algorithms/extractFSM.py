@@ -335,10 +335,10 @@ def getArrivalState_rec(
     FSM: pgv.AGraph,
 ):
     if node in visited:
-        return None
+        return None, None
     visited.add(node)
     if node.attr["label"] in end_nodes:
-        return node
+        return node, None
     for src, dst in CFG.out_edges(node):
         if isOpNode(dst):
             op_value = dst.attr["label"]
@@ -355,14 +355,33 @@ def getArrivalState_rec(
                 else:
                     expression = assign.expression.toString()
                     if expression in FSM.nodes():
-                        return expression
+                        return expression, assign.condition
 
-        dstNode = getArrivalState_rec(
+        dstNode, condDstNode = getArrivalState_rec(
             CFG, dst, visited, module, end_nodes, FSM
         )
         if dstNode is not None:
-            return dstNode
-    return None
+            return dstNode, condDstNode
+    return None, None
+
+# function to find current state condition
+def findCurrStateCond(module: Module, FSM: pgv.AGraph, condDstNode: BNode, BBdest: str):
+
+    currStateVar = getCurrStateVar(FSM)
+    condCurrState = findCondVar(condDstNode, "==", currStateVar)
+    assert condCurrState is not None, "Current state condition not found"
+    stateRet = condCurrState.children[1].variable_name
+    assert stateRet in FSM.nodes(), "Current state not found"
+    outputs = FSM.out_edges(stateRet)
+    assert len(outputs) > 1, "The BB should have multiple destinations"
+    assert BBdest in FSM.nodes(), "The destination BB not found in the FSM"
+    foundDstBB = False
+    for src, dst in outputs:
+        if dst == BBdest:
+            foundDstBB = True
+            break
+    assert foundDstBB, "The destination BB not connected to the current state condition"
+    return stateRet
 
 
 # function to extract the arrival states of the data-controlled CFG
@@ -373,11 +392,15 @@ def getArrivalStates(
     CFG = graph.get_subgraph("cluster_control_flow")
     for dataNode, ctrlNode in controlPaths:
         controlInputNode = graph.out_edges(ctrlNode)[0][1]
-        dstState = getArrivalState_rec(
+        dstState, condDstNode = getArrivalState_rec(
             CFG, controlInputNode, set(), module, end_nodes, FSM
         )
         assert dstState is not None
-        arrivalStates.append((dataNode, dstState))
+        if dstState in end_nodes:
+            condCurrState = dstState
+        else:
+            condCurrState = findCurrStateCond(module, FSM, condDstNode, dstState)
+        arrivalStates.append((dataNode, condCurrState))
     return arrivalStates
 
 def getDepartureStates_rec(
@@ -632,6 +655,7 @@ def getDepartureStates(graph: pgv.AGraph, controlPaths: list, module: Module, FS
                     CFG_outNode[cOut] = driverCtrl
                     if not driverCtrl in list_outNodes:
                         list_outNodes.append(driverCtrl)
+                pipelineGraph = None
                 if len(list_outNodes) > 1:
                     pipelineGraph = checkPipeline(list_outNodes, currStateVar, nextStateVar, graph, module)
                     if pipelineGraph is not None:
@@ -779,8 +803,9 @@ def removeMemNodes(CDFG: pgv.AGraph, memoryNodes: dict):
     for keyword, node in memoryNodes.items():
         if keyword != "regex_memory" and keyword != "inAddress":
             for src, dst in CDFG.in_edges(node):
-                CDFG.remove_edge(src, dst)
-                CDFG.remove_node(src)
+                if len(CDFG.out_edges(src)) == 1 and CDFG.out_edges(src)[0][1] == node:
+                    CDFG.remove_edge(src, node)
+                    CDFG.remove_node(src)
             CDFG.remove_node(node)
 
 # function to get the conversion from the state name to the distance from the start state
@@ -950,15 +975,42 @@ def memory_merge(module: Module, CDFG: pgv.AGraph, FSM: pgv.AGraph, graph: pgv.A
                 CDFG.remove_node(src)
             CDFG.remove_node(node)
 
+# function to check if the node is a PHI
+# TODO: Improve the function # It is not always correct
+def isPhiNode(nodesAssignments: list, FSM: pgv.AGraph):
+    currStateVar = getCurrStateVar(FSM)
+    statesCond = []
+    for assign in nodesAssignments:
+        cond = findCondVar(assign.condition, "==", currStateVar)
+        state = cond.children[1].variable_name
+        assert state in FSM.nodes(), "State not found"
+        statesCond.append(state)
+    # check if the the source state of the state in which the PHI is activated has multiple destinations
+    for state in statesCond:
+        for srcState, tmp in FSM.in_edges(state):
+            if len(FSM.out_edges(srcState)) > 1:
+                return True
+    return False
+
+# function to check if there are duplicated assignments in the node
+def duplicateAssignments(assignments: list):
+    cond = assignments[0].condition
+    for assign in assignments[1:]:
+        if assign.condition != cond:
+            return False
+    return True
+
 # function to replace the muxes in the CDFG with phis
-def replaceMuxes(CDFG: pgv.AGraph, module: Module, graph: pgv.AGraph, state2node: dict):
+def replaceMuxes(CDFG: pgv.AGraph, FSM:pgv.AGraph, module: Module, graph: pgv.AGraph, state2node: dict):
     for node in CDFG.nodes():
         if module.isDefined(node):
             assignemnts = module.getAssignmentsOf(node)
             if len(assignemnts) > 1:
-                CDFG.get_node(node).attr["shape"] = "diamond"
-                CDFG.get_node(node).attr["label"] = "PHI"
-                assert len(CDFG.in_edges(node)) > 1, "The node should have more than one input"
+                # check if the phi is destination of divergent BBs
+                if not duplicateAssignments(assignemnts):
+                    CDFG.get_node(node).attr["shape"] = "diamond"
+                    CDFG.get_node(node).attr["label"] = "PHI"
+                    assert len(CDFG.in_edges(node)) > 1, "The node should have more than one input"
 
 # function to reorder the states to merge in the FSM
 def reorderStates2Merge( states2merge: dict ):
@@ -1026,12 +1078,14 @@ def mergeConsecutivePipelineStates(FSM: pgv.AGraph, departureStates: dict, depar
         list2move = departureStates2Ctrl[dst]
         departureStates2Ctrl[src].extend(list2move)
         del departureStates2Ctrl[dst]
+        '''
+        TODO: check if this is needed and make sure it's correct
         copy_arrival = arrivalStates.copy()
         for dataSrcNode, arrivalState in copy_arrival:
             if arrivalState == dst:
                 arrivalStates.remove((dataSrcNode, arrivalState))
                 arrivalStates.append((dataSrcNode, src))
-
+        '''
     FSM.write("FSM_merged.dot")
 
 # function to remove duplicate variables in the CDFG
@@ -1125,24 +1179,33 @@ def buildOriginalCDFG(graph: pgv.AGraph, module: Module, FSM: pgv.AGraph, end_no
 
     # departure states should be computed first since they identify potential pipeline graphs and insert them in the FSM
     departureStates, departureStates2Ctrl = getDepartureStates(graph, outCtrlInDataWire, module, FSM, end_nodes)
+    # arrival states contain the data nodes that create condition and the state in which this condition is checkeced
+    #   (i.e., the source of a diamond shaped node)
     arrivalStates = getArrivalStates(graph, inCtrlOutDataWire, module, end_nodes, FSM)
     for dataSrcNode, arrivalState in arrivalStates:
-        assert arrivalState in departureStates.keys() or arrivalState in end_nodes, "Arrival state not found"
+        # the arrival state should be the source of multiple BBs (2 or more) or an end node
+        assert arrivalState in end_nodes or len(FSM.out_edges(arrivalState)) > 1, "Arrival state should be the source of multiple BBs"
         if arrivalState in end_nodes:
-            dataDstNodes = ["endCircuit"]
-        else:
-            dataDstNodes = departureStates[arrivalState]
-        for dataDstNode in dataDstNodes:
+            dataDstNodes = "endCircuit"
             edge = (dataSrcNode.get_name(), dataDstNode)
             if not edge in CDFG.edges():
                 CDFG.add_edge(dataSrcNode.get_name(), dataDstNode, color="red", style="dashed")
+            continue
+        for tmp, stateBB in FSM.out_edges(arrivalState):
+            assert stateBB in departureStates.keys(), "Arrival state not found"
+            dataDstNodes = departureStates[stateBB]
+            for dataDstNode in dataDstNodes:
+                edge = (dataSrcNode.get_name(), dataDstNode)
+                if not edge in CDFG.edges():
+                    CDFG.add_edge(dataSrcNode.get_name(), dataDstNode, color="red", style="dashed")
+                    #print("Edge added: {0} -> {1}".format(dataSrcNode.get_name(), dataDstNode))
         #print(f"Data node {dataSrcNode.get_name()} -> {dataDstNodes}")
     # the pipeline states with no registers across them should be merged since do not represent real states
     mergeConsecutivePipelineStates(FSM, departureStates, departureStates2Ctrl , arrivalStates)
     memory_merge(module, CDFG, FSM, graph, departureStates2Ctrl, memory_keywords)
 
     removeDuplicateVars(CDFG)
-    replaceMuxes(CDFG, module, graph, departureStates2Ctrl)
+    replaceMuxes(CDFG, FSM, module, graph, departureStates2Ctrl)
 
     return CDFG
 
