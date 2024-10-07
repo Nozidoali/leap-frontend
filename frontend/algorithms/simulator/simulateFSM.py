@@ -1,13 +1,11 @@
 from typing import List, Dict, Any
 import pygraphviz as pgv
-import tqdm
 
 from ..cfg import *
 
 
 class FSMSimulator:
     def __init__(self, fsm: FSM) -> None:
-        super().__init__()
         # fsm state enabled
         self._fsm: FSM = fsm
         self._fsm_state_enabled: Dict[pgv.Node, bool] = {}

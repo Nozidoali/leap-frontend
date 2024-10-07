@@ -28,8 +28,10 @@ class LoopSimulator(FSMSimulator):
         self._loopIndVar: Dict[pgv.Edge, int] = {}
 
         self._loopIIcounterReg: Dict[pgv.Edge, int] = {}
-        self._loopIItoOffset: Dict[pgv.Edge, pgv.Node] = {}
         self._loopIndVarReg: Dict[pgv.Edge, int] = {}
+
+        # TODO: think about the offset
+        self._loopIItoOffset: Dict[pgv.Edge, int] = {}
 
         # some boolean signals
         self._loop_activate_pipeline: Dict[pgv.Edge, bool] = {}

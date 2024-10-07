@@ -61,6 +61,43 @@ def test_01_basic():
     job.dumpGIF("tmp.gif")
 
 
+# Test 02
+# Simple graph
+def test_02_generator():
+    graph = CFGraph()
+    graph.addBB("A", 1, isStart=True)
+    graph.addBB("B", 4)
+    graph.addBB("C", 3)
+    graph.addBB("D", 3)
+    graph.addBB("E", 2)
+    graph.addBB("F", 1, isFinish=True)
+
+    graph.addFlow("A", "B")
+
+    # B is a loop with condition
+    graph.addFlow("B", "C")
+    graph.addFlow("B", "D")
+
+    graph.addFlow("C", "E")
+    graph.addFlow("D", "E")
+
+    graph.addFlow("E", "B", isLoop=True, loopBound=10, loopII=3)
+
+    # E is a loop with condition
+    graph.addFlow("E", "F")
+
+    fsm = cfg2fsm(graph)
+
+    assert len(fsm.nodes()) == 14, f"len(fsm.nodes()) = {len(fsm.nodes())}"
+    assert len(fsm.edges()) == 15, f"len(fsm.edges()) = {len(fsm.edges())}"
+
+    job = LoopGenerator(fsm)
+    job.run()
+    module = job.getModule()
+    print(moduleToString(module))
+
+
 if __name__ == "__main__":
     # test_00_basic()
-    test_01_basic()
+    # test_01_basic()
+    test_02_generator()
