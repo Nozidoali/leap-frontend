@@ -1420,7 +1420,7 @@ def generateAssigns(CDFG: pgv.AGraph, module: Module):
                     for assign in assignments:
                         if "_enable" in assign:
                             cond.append(assign)
-                    assert len(cond) == 2, "There should be two inputs that are not enable"
+                    assert len(cond) == 2, f"There should be two inputs that are not enable ({assignments})"
                     nonCond = [assign for assign in assignments if assign not in cond]
                     assignsString += "if ({0}) begin\n".format(cond[0])
                     assignsString += "assign {0} = {1};\n".format(node, nonCond[0])
@@ -1816,6 +1816,22 @@ def breakLoopsCond(CDFG: pgv.AGraph, module: Module, cip_dependencies: list):
 
     return additionalPIs, additionalPOs
 
+# function to remove multiple zeros assign in the phis
+def removeMultipleZerosAssignPhis(CDFG: pgv.AGraph):
+    nodes = CDFG.nodes()
+    for node in nodes:
+        if node in CDFG.nodes() and "PHI" in CDFG.get_node(node).attr["label"]:
+            numZeros = 0
+            for src, dst in CDFG.in_edges(node):
+                if CDFG.get_node(src).attr["label"] == "0":
+                    numZeros += 1
+            if numZeros > 1:
+                for src, dst in CDFG.in_edges(node):
+                    if CDFG.get_node(src).attr["label"] == "0" and numZeros > 1:
+                        CDFG.remove_edge(src, node)
+                        CDFG.remove_node(src)
+                        numZeros -= 1
+
 # function to invert source and destination in cip_dependencies if there is II in the latency
 def invertII_Constraints(cip_dependencies: list):
     cip_dependencies_copy = cip_dependencies.copy()
@@ -1852,6 +1868,8 @@ def CDFGToVerilog(_CDFG: pgv.AGraph, module: Module, verilogFilePath: str, jsonF
     additionalPIs, additionalPOs = breakLoopsPhis(CDFG, module, cip_dependencies)
     PIs.update(additionalPIs)
     POs.update(additionalPOs)
+
+    removeMultipleZerosAssignPhis(CDFG)
 
     memoryPIs, memoryPOs = addMemoryUnitsPorts(CDFG, module, memory_keywords, memoryIdx, cip_dependencies)
     PIs.update(memoryPIs)
