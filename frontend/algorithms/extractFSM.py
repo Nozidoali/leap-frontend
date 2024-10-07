@@ -1746,6 +1746,32 @@ def addPhisEnable(CDFG: pgv.AGraph, module: Module, cip_dependencies: list):
 
     return additionalPIs, additionalPOs  
 
+# function to break all loops due tue the newly added condition edges
+def breakLoopsCond(CDFG: pgv.AGraph, module: Module, cip_dependencies: list):
+
+    additionalPIs = {}
+    additionalPOs = {}
+    CDFG_edges = CDFG.edges()
+    for src, dst in CDFG_edges:
+        if "comment" in CDFG.get_edge(src, dst).attr.keys() and "II" in CDFG.get_edge(src, dst).attr["comment"]:
+            assert CDFG.get_edge(src, dst).attr["style"] == "dashed" and CDFG.get_edge(src, dst).attr["color"] == "red", "Edge should be dashed"
+            assert CDFG.get_node(src).attr["label"] != "PHI", "PHI node should have been already handled"
+            assert CDFG.get_node(dst).attr["label"] != "PHI", "PHI node should have been already handled"
+            assert not "store" in CDFG.get_node(src).attr["label"], "Store node should have been already handled"
+            assert not "load" in CDFG.get_node(dst).attr["label"], "Load node should have been already handled"
+            #newPO = "n" + src + "_IIdepPO"
+            #newPI = "n" + dst + "_IIdepPI"
+            #CDFG.add_node(newPO, shape="box")
+            #CDFG.add_node(newPI, shape="box")
+            CDFG.remove_edge(src, dst)
+
+    nxGraph = nx.DiGraph(CDFG.copy())
+    cycle = nx.simple_cycles(nxGraph)
+    cycle = sorted(cycle)
+    assert cycle == [] or cycle is None, "There should be no cycles"
+
+    return additionalPIs, additionalPOs
+
 # function to invert source and destination in cip_dependencies if there is II in the latency
 def invertII_Constraints(cip_dependencies: list):
     cip_dependencies_copy = cip_dependencies.copy()
@@ -1787,6 +1813,10 @@ def CDFGToVerilog(_CDFG: pgv.AGraph, module: Module, verilogFilePath: str, jsonF
     PIs.update(memoryPIs)
     POs.update(memoryPOs)
     
+    additionalPIs, additionalPOs = breakLoopsCond(CDFG, module, cip_dependencies)
+    PIs.update(additionalPIs)
+    POs.update(additionalPOs)
+
     multilatencyPIs, multilatencyPOs = addMultiLatencyPorts(CDFG, module, cip_dependencies)
     PIs.update(multilatencyPIs)
     POs.update(multilatencyPOs)
