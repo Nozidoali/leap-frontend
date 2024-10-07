@@ -5,6 +5,7 @@ from ..cfg import *
 
 from .simulateFSM import *
 
+
 class LoopSimulator(FSMSimulator):
 
     def __init__(self, fsm: FSM) -> None:
@@ -25,16 +26,16 @@ class LoopSimulator(FSMSimulator):
         self._loopBounds: Dict[pgv.Edge, int] = {}
         self._loopStart: Dict[pgv.Edge, bool] = {}
         self._loopIndVar: Dict[pgv.Edge, int] = {}
-        
+
         self._loopIItoState: Dict[pgv.Edge, pgv.Node] = {}
         self._loopIndVarReg: Dict[pgv.Edge, int] = {}
-        
+
         # some boolean signals
         self._loop_activate_pipeline: Dict[pgv.Edge, bool] = {}
         self._loop_begin_pipeline: Dict[pgv.Edge, bool] = {}
         self._loop_active: Dict[pgv.Edge, bool] = {}
         self._activate_loop: Dict[pgv.Edge, bool] = {}
-        
+
         self._loop_active_reg: Dict[pgv.Edge, bool] = {}
 
         # piepline exit
@@ -42,7 +43,7 @@ class LoopSimulator(FSMSimulator):
         self._loop_only_fast_stage_enabled: Dict[pgv.Edge, bool] = {}
         self._loop_epilogue: Dict[pgv.Edge, bool] = {}
         self._loop_pipeline_finished: Dict[pgv.Edge, bool] = {}
-        
+
         self._loop_epilogue_reg: Dict[pgv.Edge, bool] = {}
         self._loop_pipeline_finished_reg: Dict[pgv.Edge, bool] = {}
 
@@ -54,7 +55,7 @@ class LoopSimulator(FSMSimulator):
 
         # initialize the loop states
         self._extractLoops()
-        
+
         self._fsm.write("fsm.dot")
 
     def _extractLoops(self) -> None:
@@ -65,13 +66,12 @@ class LoopSimulator(FSMSimulator):
             self._loopBounds[loop] = int(self._fsm.getLoopBound(loop))
             self._loopStart[loop] = False
             self._loopIndVar[loop] = 0
-            
 
             self._loop_activate_pipeline[loop] = False
             self._loop_begin_pipeline[loop] = False
             self._loop_active[loop] = False
             self._activate_loop[loop] = False
-            
+
             self._loop_exit_cond[loop] = False
             self._loop_only_fast_stage_enabled[loop] = False
             self._loop_epilogue[loop] = False
@@ -93,7 +93,7 @@ class LoopSimulator(FSMSimulator):
                         # this should not happen
                         assert False, "Loop inside loop"
                     stack.append(succ)
-                    
+
             # TODO: we need to modify the state according to the scheduling
             self._loopIItoState[loop] = states[0]
 
@@ -132,7 +132,6 @@ class LoopSimulator(FSMSimulator):
 
         for loop, indVar in self._loopIndVarReg.items():
             self._loopIndVar[loop] = indVar
-        
 
         # we highlight the states based on the stateEnabled
         for state, enabled in self._stateEnabled.items():
@@ -195,11 +194,10 @@ class LoopSimulator(FSMSimulator):
         self._activate_loop[loop] = (
             not self._fsm_stall and self._loop_begin_pipeline[loop]
         ) and not self._loop_active[loop]
-        
+
         # TODO: double check the boundar
         # because most of the case we need to minus 2
         self._loop_exit_cond[loop] = self._loopIndVar[loop] == self._loopBounds[loop]
-        
 
         if self._reset:
             self._loop_active_reg[loop] = False
@@ -211,14 +209,13 @@ class LoopSimulator(FSMSimulator):
             and self._loop_only_fast_stage_enabled[loop]
         ):
             self._loop_active_reg[loop] = False
-        
+
         self._loop_begin_pipeline[loop] = False
         if self._reset:
             self._loop_begin_pipeline[loop] = False
         elif self._fsm_state_enabled[self._loopEntrance[loop]] and not self._fsm_stall:
             self._loop_begin_pipeline[loop] = True
 
-        
     def _executeIIcounter(self, loop: pgv.Edge) -> None:
         self._loopIndVarReg[loop] = self._loopIndVar[loop]
         if self._reset:
@@ -229,16 +226,21 @@ class LoopSimulator(FSMSimulator):
             state = self._loopIItoState[loop]
             if self._stateEnabled[state]:
                 self._loopIndVarReg[loop] = self._loopIndVar[loop] + 1
-    
+
     def _checkLoopEpilogue(self, loop: pgv.Edge) -> None:
-        self._loop_epilogue[loop] = self._loop_active[loop] and self._loop_exit_cond[loop]
+        self._loop_epilogue[loop] = (
+            self._loop_active[loop] and self._loop_exit_cond[loop]
+        )
         if self._reset:
             self._loop_epilogue[loop] = False
 
         self._loop_epilogue_reg[loop] = self._loop_epilogue[loop]
         if self._reset:
             self._loop_epilogue_reg[loop] = False
-        elif self._stateEnabled[self._loopToStates[loop][0]] and self._loop_exit_cond[loop]:
+        elif (
+            self._stateEnabled[self._loopToStates[loop][0]]
+            and self._loop_exit_cond[loop]
+        ):
             self._loop_epilogue_reg[loop] = True
         elif (
             not self._stateStalled[self._loopToStates[loop][0]]
@@ -246,21 +248,23 @@ class LoopSimulator(FSMSimulator):
             and self._loop_only_fast_stage_enabled[loop]
         ):
             self._loop_epilogue_reg[loop] = False
-        
-        self._loop_pipeline_finished = (
-            (not self._stateStalled[self._loopToStates[loop][0]] and self._loop_epilogue[loop] and self._loop_only_fast_stage_enabled[loop])
-            or self._loop_pipeline_finished[loop]
-        )
 
-        self._loop_only_fast_stage_enabled[loop] = self._stateEnabled[self._loopToStates[loop][-1]]
+        self._loop_pipeline_finished = (
+            not self._stateStalled[self._loopToStates[loop][0]]
+            and self._loop_epilogue[loop]
+            and self._loop_only_fast_stage_enabled[loop]
+        ) or self._loop_pipeline_finished[loop]
+
+        self._loop_only_fast_stage_enabled[loop] = self._stateEnabled[
+            self._loopToStates[loop][-1]
+        ]
         for i in range(len(self._loopToStates[loop]) - 1):
             if not self._stateEnabled[self._loopToStates[loop][i]]:
                 self._loop_only_fast_stage_enabled[loop] = False
                 break
-        
+
         self._loop_pipeline_finished_reg[loop] = self._loop_pipeline_finished[loop]
         if self._reset:
             self._loop_pipeline_finished_reg[loop] = False
         elif self._loop_activate_pipeline[loop]:
             self._loop_pipeline_finished_reg[loop] = False
-

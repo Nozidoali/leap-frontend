@@ -5,6 +5,7 @@ from io import BytesIO
 
 from .simulateLoop import *
 
+
 class Simulator(LoopSimulator):
 
     def __init__(self, fsm: FSM) -> None:

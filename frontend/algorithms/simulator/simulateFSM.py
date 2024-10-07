@@ -4,6 +4,7 @@ import tqdm
 
 from ..cfg import *
 
+
 class FSMSimulator:
     def __init__(self, fsm: FSM) -> None:
         super().__init__()
@@ -65,7 +66,7 @@ class FSMSimulator:
     def _catagorizeEdges(self) -> None:
         for edge in self._fsm.edges():
             u, v = edge
-            
+
             self._regular_edges.append(edge)
 
     def _checkExitCondition(self) -> bool:
@@ -107,25 +108,24 @@ class FSMSimulator:
                 self._dehighlightNode(node)
         self._fsm_state_enabled_reg = {}
 
-
     def _modifyFSM(self) -> None:
         for loop in self._fsm.getLoops():
             self._loops.append(loop)
-        
+
         # we need to extract the Loop portion from the FSM and add a state for the loop
         for i, loop in enumerate(self._loops):
             loopStart: pgv.Node = loop[1]
             loopEnd: pgv.Node = loop[0]
-            
+
             # we need to add three states for each loop
             self._fsm.add_node(f"loop_{i}_entrance")
             self._fsm.add_node(f"loop_{i}_wait")
             self._fsm.add_node(f"loop_{i}_exit")
-            
+
             entrance = self._fsm.get_node(f"loop_{i}_entrance")
             wait = self._fsm.get_node(f"loop_{i}_wait")
             loopexit = self._fsm.get_node(f"loop_{i}_exit")
-            
+
             # First, we connect loopStart's predecessor to loop_entrence
             toRemove: List[pgv.Edge] = []
             for pred in self._fsm.predecessors(loopStart):
@@ -135,7 +135,7 @@ class FSMSimulator:
             # Remove these edges
             for edge in toRemove:
                 self._fsm.remove_edge(edge)
-                
+
             # Second, we connect loopEnd's successor to loop_exit
             toRemove = []
             for succ in self._fsm.successors(loopEnd):
@@ -148,7 +148,7 @@ class FSMSimulator:
             self._fsm.add_edge(entrance, wait)
             self._fsm.add_edge(wait, wait)
             self._fsm.add_edge(wait, loopexit)
-            
+
             # we need to add the loop
             self._loopEntrance[loop] = entrance
             self._loopWait[loop] = wait
