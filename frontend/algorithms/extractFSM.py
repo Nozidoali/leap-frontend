@@ -27,11 +27,23 @@ def _extractDataFlowNodesRec(module:Module, graph: pgv.AGraph, node: pgv.Node, v
 def isExprCondition(expr: BNode):
     if expr.variable_name == "&&" or expr.variable_name == "||" or expr.variable_name == "!":
         return True
-    if expr.variable_name == "==" or expr.variable_name == "!=":
+    if expr.variable_name == "==" or expr.variable_name == "!=" or expr.variable_name == "?:":
         return True
     if expr.variable_name == "<" or expr.variable_name == "<=" or expr.variable_name == ">" or expr.variable_name == ">=":
         return True
     return False
+
+# find the subtree of the expression where var is a child
+def getNodesExpr(expr: BNode, var: str):
+    if len(expr.children) == 0:
+        return None
+    if expr.children[0].variable_name == var or expr.children[1].variable_name == var:
+        return expr
+    for child in expr.children:
+        res = getNodesExpr(child, var)
+        if res is not None:
+            return res
+    return None
 
 def isEdgeCond(src: pgv.Node, dst: pgv.Node, graph: pgv.AGraph, module: Module):
     isCtrl = graph.get_edge(src, dst).attr["style"] == "dashed"
@@ -900,18 +912,21 @@ def memory_merge(module: Module, CDFG: pgv.AGraph, FSM: pgv.AGraph, graph: pgv.A
             memoryNodes = {}
             for node in CDFG.nodes():
                 for keyword in memory_keywords.keys():
-                    memoryNode = memory_keywords[keyword][0].replace("MEMORY_NAME", memory_name).replace("MEMORY_ID", memory_id)
+                    memoryNode = memory_keywords[keyword][idMemReg].replace("MEMORY_NAME", memory_name).replace("MEMORY_ID", memory_id)
                     if memoryNode == node.get_name():
                         assert keyword not in memoryNodes.keys(), "Memory node already exists"
                         memoryNodes[keyword] = node
             # assert that memory nodes and memory keywords have the same length apart from the regex
-            assert len(memoryNodes) >= len(memory_keywords) - 2, "Memory nodes not found"
+            assert len(memoryNodes) >= len(memory_keywords) - 3, "Memory nodes not found"
             statesMem = getStatesMem(module, graph , memoryNodes["enable"], state2node)
             if statesMem is None:
                 removeMemNodes(CDFG, memoryNodes)
                 continue
             # identify the states in which there is a write operation, the remaining states in statesMem are read operations
-            statesWriteOp = getMemWriteOpState(module, graph, memoryNodes["writeEnable"], state2node)
+            if "writeEnable" in memoryNodes.keys():
+                statesWriteOp = getMemWriteOpState(module, graph, memoryNodes["writeEnable"], state2node)
+            else:
+                statesWriteOp = []
             statesReadOp = [state for state in statesMem if state not in statesWriteOp]
 
             if len(statesWriteOp) > 0:
@@ -942,7 +957,8 @@ def replaceMuxes(CDFG: pgv.AGraph, module: Module, graph: pgv.AGraph, state2node
             assignemnts = module.getAssignmentsOf(node)
             if len(assignemnts) > 1:
                 CDFG.get_node(node).attr["shape"] = "diamond"
-                CDFG.get_node(node).attr["label"] = "PHI"                  
+                CDFG.get_node(node).attr["label"] = "PHI"
+                assert len(CDFG.in_edges(node)) > 1, "The node should have more than one input"
 
 # function to reorder the states to merge in the FSM
 def reorderStates2Merge( states2merge: dict ):
@@ -1111,8 +1127,11 @@ def buildOriginalCDFG(graph: pgv.AGraph, module: Module, FSM: pgv.AGraph, end_no
     departureStates, departureStates2Ctrl = getDepartureStates(graph, outCtrlInDataWire, module, FSM, end_nodes)
     arrivalStates = getArrivalStates(graph, inCtrlOutDataWire, module, end_nodes, FSM)
     for dataSrcNode, arrivalState in arrivalStates:
-        assert arrivalState in departureStates.keys(), "Arrival state not found"
-        dataDstNodes = departureStates[arrivalState]
+        assert arrivalState in departureStates.keys() or arrivalState in end_nodes, "Arrival state not found"
+        if arrivalState in end_nodes:
+            dataDstNodes = ["endCircuit"]
+        else:
+            dataDstNodes = departureStates[arrivalState]
         for dataDstNode in dataDstNodes:
             edge = (dataSrcNode.get_name(), dataDstNode)
             if not edge in CDFG.edges():
