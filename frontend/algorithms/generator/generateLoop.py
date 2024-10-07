@@ -367,7 +367,7 @@ class LoopGenerator(FSMGenerator):
                         self.nextStateNode, nextParamNode
                     )
                 else:
-                    print(f"State {start} has multiple successors = {successors}")
+                    # print(f"State {start} has multiple successors = {successors}")
                     nextStateAssignment = ConditionalAssignment(self._fsm_next_state)
                     for j, succ in enumerate(successors[:-1]):
                         controlNode = self._fsm.getControlSignalAtNode(succ, j)
