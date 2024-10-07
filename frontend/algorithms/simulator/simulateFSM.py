@@ -9,7 +9,7 @@ class FSMSimulator:
     def __init__(self, fsm: FSM) -> None:
         super().__init__()
         # fsm state enabled
-        self._fsm = fsm
+        self._fsm: FSM = fsm
         self._fsm_state_enabled: Dict[pgv.Node, bool] = {}
         self._fsm_state_enabled_reg: Dict[pgv.Node, bool] = {}
 
@@ -23,16 +23,29 @@ class FSMSimulator:
         self._loopExit: Dict[pgv.Edge, pgv.Node] = {}
 
         # some precalculated values
+        self._wait_states: Dict[pgv.Node, pgv.Node] = {}
+
+        # some precalculated values
         self._regular_edges: List[pgv.Edge] = []
+        self._regular_nodes: List[pgv.Node] = []
         self._modifyFSM()
         self._bindFSM()
 
     def _bindFSM(self) -> None:
-        # for each loop, we need to find the start node
-        self._fsm_state_enabled = {node: False for node in self._fsm.nodes()}
-        self._fsm_state_enabled[self._fsm.getIdleState()] = True
+
+        # during initialization, we deligate the FSM states to the regular states
+        for node in self._fsm.nodes():
+            if node != self._fsm.getIdleState():
+                self._dehighlightNode(node)
+            else:
+                self._highlightNode(node)
 
         self._catagorizeEdges()
+        # for each loop, we need to find the start node
+        self._fsm_state_enabled = {node: False for node in self._regular_nodes}
+
+        assert self._fsm.getIdleState() in self._fsm_state_enabled
+        self._fsm_state_enabled[self._fsm.getIdleState()] = True
         # layout
         self._fsm.layout(prog="dot")
 
@@ -63,11 +76,33 @@ class FSMSimulator:
             "fontcolor": "black",
         }
 
-    def _catagorizeEdges(self) -> None:
-        for edge in self._fsm.edges():
-            u, v = edge
+    def isWaitState(self, node: pgv.Node) -> bool:
+        return node in self._wait_states
 
-            self._regular_edges.append(edge)
+    def _catagorizeEdges(self) -> None:
+        self._regular_edges = []
+        self._regular_nodes = []
+
+        # we run a BFS from the idle state
+        # all states that are reachable from the idle state and is not a wait state is a regular state
+        stack: List[pgv.Node] = [self._fsm.getIdleState()]
+
+        while stack:
+            node = stack.pop()
+            self._regular_nodes.append(node)
+            if self.isWaitState(node):
+                # we skip the wait state
+                # but add the exit state to the stack
+                loop = self._wait_states[node]
+                stack.append(self._loopExit[loop])
+                continue
+            for succ in self._fsm.successors(node):
+                stack.append(succ)
+                self._regular_edges.append(self._fsm.get_edge(node, succ))
+
+        # for debugging
+        # for edge in self._regular_edges:
+        #     print(edge)
 
     def _checkExitCondition(self) -> bool:
         # check the exit condition
@@ -108,6 +143,9 @@ class FSMSimulator:
                 self._dehighlightNode(node)
         self._fsm_state_enabled_reg = {}
 
+    def printStats(self) -> Dict[str, Any]:
+        return {state: enabled for state, enabled in self._fsm_state_enabled.items()}
+
     def _modifyFSM(self) -> None:
         for loop in self._fsm.getLoops():
             self._loops.append(loop)
@@ -125,6 +163,8 @@ class FSMSimulator:
             entrance = self._fsm.get_node(f"loop_{i}_entrance")
             wait = self._fsm.get_node(f"loop_{i}_wait")
             loopexit = self._fsm.get_node(f"loop_{i}_exit")
+
+            self._wait_states[wait] = loop
 
             # First, we connect loopStart's predecessor to loop_entrence
             toRemove: List[pgv.Edge] = []

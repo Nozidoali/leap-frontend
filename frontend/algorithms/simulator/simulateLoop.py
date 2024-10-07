@@ -27,6 +27,7 @@ class LoopSimulator(FSMSimulator):
         self._loopStart: Dict[pgv.Edge, bool] = {}
         self._loopIndVar: Dict[pgv.Edge, int] = {}
 
+        self._loopIIcounterReg: Dict[pgv.Edge, int] = {}
         self._loopIItoState: Dict[pgv.Edge, pgv.Node] = {}
         self._loopIndVarReg: Dict[pgv.Edge, int] = {}
 
@@ -133,6 +134,15 @@ class LoopSimulator(FSMSimulator):
         for loop, indVar in self._loopIndVarReg.items():
             self._loopIndVar[loop] = indVar
 
+        for loop, iiCounter in self._loopIIcounterReg.items():
+            self._loopIIcounter[loop] = iiCounter
+
+        for loop, active in self._loop_active_reg.items():
+            self._loop_active[loop] = active
+
+        for loop, epilogue in self._loop_epilogue_reg.items():
+            self._loop_epilogue[loop] = epilogue
+
         # we highlight the states based on the stateEnabled
         for state, enabled in self._stateEnabled.items():
             if enabled:
@@ -140,24 +150,59 @@ class LoopSimulator(FSMSimulator):
             else:
                 self._dehighlightNode(state)
 
+    def printStats(self) -> Dict[str, Any]:
+        stats = super().printStats()
+
+        print(f"\n{'States':<10} | {'Enabled':<8} | {'Valid':<6} | {'Stalled':<8}")
+        for state in self._stateEnabled:
+            isEnable = self._stateEnabled[state]
+            isValid = self._stateValid[state]
+            isStalled = self._stateStalled[state]
+
+            # format print
+            print(
+                f"{str(state):<10} | {str(isEnable):<8} | {str(isValid):<6} | {str(isStalled):<8}"
+            )
+
+        print(
+            f"\n{'Loop':<20} | {'Active':<8} | {'Pipeline':<8} | {'Epilogue':<8} | {'Finished':<8} | {'Start':<8}"
+        )
+        for loop in self._loops:
+            isActive = self._loop_active[loop]
+            isPipeline = self._loop_activate_pipeline[loop]
+            isEpilogue = self._loop_epilogue[loop]
+            isFinished = self._loop_pipeline_finished[loop]
+            isStart = self._loopStart[loop]
+
+            print(
+                f"{str(loop):<20} | {str(isActive):<8} | {str(isPipeline):<8} | {str(isEpilogue):<8} | {str(isFinished):<8} | {str(isStart):<8}"
+            )
+
+        print(f"\n{'Loop':<20} | {'II':<8} | {'II Cnt':<6} | {'IndVar':<8}")
+        for loop in self._loops:
+            print(
+                f"{str(loop):<20} | {str(self._loopII[loop]):<8} | {str(self._loopIIcounter[loop]):<6} | {str(self._loopIndVar[loop]):<8}"
+            )
+
     def _propagateLoopStates(self) -> None:
         for loop in self._loops:
             # execute the handshake
             self._executeHandshake(loop)
-
             self._checkLoopActivation(loop)
+            self._executeIIcounter(loop)
+            self._checkLoopEpilogue(loop)
 
     def _executeHandshake(self, loop: pgv.Edge) -> None:
         states = self._loopToStates[loop]
 
-        for i in range(len(states) - 1):
+        for i in range(len(states)):
             currState = states[i]
             # valid
             if not self._stateStalled[currState]:
                 if i == 0:
                     self._stateValidReg[currState] = (
                         self._loopStart[loop]
-                        and self._loopIIcounter[loop] == self._loopII[loop]
+                        and self._loopIIcounter[loop] == self._loopII[loop] - 1
                     )
                 else:
                     self._stateValidReg[currState] = self._stateEnabled[states[i - 1]]
@@ -179,6 +224,18 @@ class LoopSimulator(FSMSimulator):
                 self._stateStalled[currState] = False
 
     def _checkLoopActivation(self, loop: pgv.Edge) -> bool:
+        # Step 1
+        # loop begin pipeline
+        self._loop_begin_pipeline[loop] = False
+        if self._reset:
+            self._loop_begin_pipeline[loop] = False
+        elif self._fsm_state_enabled[self._loopEntrance[loop]] and not self._fsm_stall:
+            self._loop_begin_pipeline[loop] = True
+
+        self._loop_activate_pipeline[loop] = (
+            not self._fsm_stall and self._loop_begin_pipeline[loop]
+        ) and not self._loop_active[loop]
+
         self._loopStart[loop] = self._loop_activate_pipeline[loop] or (
             (self._loop_active[loop] and not self._loop_epilogue[loop])
             and not (
@@ -210,12 +267,6 @@ class LoopSimulator(FSMSimulator):
         ):
             self._loop_active_reg[loop] = False
 
-        self._loop_begin_pipeline[loop] = False
-        if self._reset:
-            self._loop_begin_pipeline[loop] = False
-        elif self._fsm_state_enabled[self._loopEntrance[loop]] and not self._fsm_stall:
-            self._loop_begin_pipeline[loop] = True
-
     def _executeIIcounter(self, loop: pgv.Edge) -> None:
         self._loopIndVarReg[loop] = self._loopIndVar[loop]
         if self._reset:
@@ -226,6 +277,12 @@ class LoopSimulator(FSMSimulator):
             state = self._loopIItoState[loop]
             if self._stateEnabled[state]:
                 self._loopIndVarReg[loop] = self._loopIndVar[loop] + 1
+
+        self._loopIIcounterReg[loop] = self._loopIIcounter[loop] + 1
+        if self._reset:
+            self._loopIIcounterReg[loop] = 0
+        elif self._loopIIcounter[loop] == self._loopII[loop] - 1:
+            self._loopIIcounterReg[loop] = 0
 
     def _checkLoopEpilogue(self, loop: pgv.Edge) -> None:
         self._loop_epilogue[loop] = (
@@ -249,7 +306,7 @@ class LoopSimulator(FSMSimulator):
         ):
             self._loop_epilogue_reg[loop] = False
 
-        self._loop_pipeline_finished = (
+        self._loop_pipeline_finished[loop] = (
             not self._stateStalled[self._loopToStates[loop][0]]
             and self._loop_epilogue[loop]
             and self._loop_only_fast_stage_enabled[loop]
