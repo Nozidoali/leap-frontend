@@ -502,3 +502,7 @@ def andNode(node1: BNode, node2: BNode) -> BNode:
 
 def orNode(node1: BNode, node2: BNode) -> BNode:
     return OPNode("|", OPType.BINARY_OR, node1, node2)
+
+
+def plusNode(node1: BNode, node2: BNode) -> BNode:
+    return OPNode("+", OPType.BINARY_ADD, node1, node2)

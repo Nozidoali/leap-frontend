@@ -34,10 +34,14 @@ class FSMGenerator(ModuleGenerator):
         self._modifyFSM()
         self._bindFSM()
 
+        # self._fsm.write("tmp.dot")
+
     def run(self) -> None:
         self._generateInferface()
         # we create the parameter for each state
         self._generateState()
+        self._fsmExitGeneration()
+        self._fsmCurrentStateAssignment()
         pass
 
     def _bindFSM(self) -> None:
@@ -94,6 +98,12 @@ class FSMGenerator(ModuleGenerator):
     def isWaitState(self, node: pgv.Node) -> bool:
         return node in self._wait_states
 
+    def isEntranceState(self, node: pgv.Node) -> bool:
+        return node in self._loopEntrance.values()
+
+    def isExitState(self, node: pgv.Node) -> bool:
+        return node in self._loopExit.values()
+
     def getWaitState(self, loop: pgv.Edge) -> pgv.Node:
         return self._loopWait[loop]
 
@@ -119,6 +129,9 @@ class FSMGenerator(ModuleGenerator):
                 continue
             for succ in self._fsm.successors(node):
                 stack.append(succ)
+                currEdge = self._fsm.get_edge(node, succ)
+                if currEdge in self._regular_edges:
+                    continue
                 self._regular_edges.append(self._fsm.get_edge(node, succ))
 
         # for debugging
@@ -181,27 +194,6 @@ class FSMGenerator(ModuleGenerator):
         )
         return nextStateAssignment
 
-    def _getNextStateAssignment(self, succ: pgv.Node) -> BNEdge:
-        nextParamNode = self._fsm.getParamAtNode(succ)
-        return FSMGenerator._stateTransitionAssignment(
-            self.nextStateNode, nextParamNode
-        )
-        # else:
-        #     conditionalAssignment = ConditionalAssignment(self.nextStateNode)
-        #     for j, succ in enumerate(self._fsm.successors(node)[:-1]):
-        #         controlNode = self._fsm.getControlSignalAtNode(succ, j)
-        #         nextParamNode = self._fsm.getParamAtNode(succ)
-        #         conditionalAssignment.addBranch(
-        #             controlNode,
-        #             FSMGenerator._stateTransitionAssignment(self.nextStateNode, nextParamNode),
-        #         )
-        #     # add a default case to the conditional assignment
-        #     nextParamNode = self._fsm.getParamAtNode(self._fsm.successors(node)[-1])
-        #     conditionalAssignment.addDefaultBranch(
-        #         FSMGenerator._stateTransitionAssignment(self.nextStateNode, nextParamNode),
-        #     )
-        #     return conditionalAssignment
-
     @staticmethod
     def _stateTransitionAssignment(nextStateNode: VarNode, succNode: VarNode) -> BNEdge:
         return LatchAssignment(nextStateNode, succNode)
@@ -239,6 +231,38 @@ class FSMGenerator(ModuleGenerator):
 
         self._start = startNode
         self._finish = finishNode
+
+    def _fsmExitGeneration(self):
+        finishNode = VarNode("finish")
+        finalStateParam = self._fsm.getParamAtNode(self._fsm.getFinalState())
+        finishAssignment = ConditionalAssignment(finishNode, event=seqEventNode())
+        finishAssignment.addBranch(
+            OPNode("==", OPType.BINARY_EQ, self.currStateNode, finalStateParam),
+            RegAssignment(finishNode, ConstantNode("1'b1")),
+        )
+        finishAssignment.addDefaultBranch(
+            RegAssignment(finishNode, ConstantNode("1'b0"))
+        )
+        self.module.addAssignment(finishAssignment)
+
+    def _fsmCurrentStateAssignment(self) -> None:
+        """
+        CurrState is a register that is updated with the next state
+        when reset is high, the current state is set to the idle state
+        """
+        resetNode = VarNode("reset")
+        idleStateNode = VarNode(self._fsm.getIdleState().name + "_label")
+
+        assignment = ConditionalAssignment(
+            self.currStateNode, event=seqEventNode(useReset=True)
+        )
+        assignment.addBranch(
+            resetNode, RegAssignment(self.currStateNode, idleStateNode)
+        )
+        assignment.addDefaultBranch(
+            RegAssignment(self.currStateNode, self.nextStateNode)
+        )
+        self.module.addAssignment(assignment)
 
     def getEntranceParam(self, loop: pgv.Edge) -> BNode:
         return self._fsm.getParamAtNode(self._loopEntrance[loop])

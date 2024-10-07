@@ -42,12 +42,96 @@ class LoopGenerator(FSMGenerator):
     def run(self) -> None:
         # we create the parameter for each state
         super().run()
+        self._generateOutputs()
 
         for loop in self._loops:
             self._generateHandShake(loop)
             self._generateLoopActivation(loop)
             self._genreateLoopDeactivation(loop)
+            self._generateLoopIICounter(loop)
         self._generateStateTransition()
+
+    def _generateOutputs(self) -> None:
+        for node in self._fsm.nodes():
+            if (
+                self.isWaitState(node)
+                or self.isEntranceState(node)
+                or self.isExitState(node)
+            ):
+                continue
+            self._generateStateOutput(node)
+
+    def _generateStateOutput(self, node: pgv.Node) -> None:
+        if node in self._regular_nodes:
+            outName = f"{node.name}_ctrl_out"
+            outNode = VarNode(outName)
+            self.module.addPort(OutputPort(outNode, BasicRange(1)))
+            paramNode = self._fsm.getParamAtNode(node)
+            compNode = eqNode(self._fsm_curr_state, paramNode)
+            self.addAssignment(WireAssignment(outNode, compNode))
+            return
+        else:
+            assert (
+                node in self._stateEnabled
+            ), f"Node {node} is not in {self._stateEnabled}"
+            outName = f"{node.name}_ctrl_out"
+            outNode = VarNode(outName)
+            self.module.addPort(OutputPort(outNode, BasicRange(1)))
+            enableNode = self._stateEnabled[node]
+            self.addAssignment(WireAssignment(outNode, enableNode))
+            return
+
+    def _generateLoopIICounter(self, loop: pgv.Edge) -> None:
+        # step 1
+        # loop indvar
+        assignmentIndVar = ConditionalAssignment(
+            self._loopIndVar[loop], event=seqEventNode()
+        )
+        assignmentIndVar.addBranch(
+            self._reset,
+            RegAssignment(self._loopIndVar[loop], ConstantNode("1'b0")),
+        )
+        assignmentIndVar.addBranch(
+            self._loop_activate_pipeline[loop],
+            RegAssignment(self._loopIndVar[loop], ConstantNode("1'b0")),
+        )
+        offset = self._loopIItoOffset[loop]
+        state = self._loopToStates[loop][offset]
+        assignmentIndVar.addBranch(
+            andNode(
+                self.nodeIIisBound(loop),
+                self._stateEnabled[state],
+            ),
+            RegAssignment(
+                self._loopIndVar[loop],
+                plusNode(self._loopIndVar[loop], ConstantNode("1")),
+            ),
+        )
+        self.addAssignment(assignmentIndVar)
+
+        # step 2
+        # loop II counter
+        IIwidth = math.ceil(math.log2(self._loopII[loop]))
+        constNode = ConstantNode(f"{IIwidth}'d0")
+        increNode = ConstantNode(f"{IIwidth}'d1")
+        assignmentIIcounter = ConditionalAssignment(
+            self._loopIIcounter[loop], event=seqEventNode()
+        )
+        assignmentIIcounter.addBranch(
+            self._reset,
+            RegAssignment(self._loopIIcounter[loop], constNode),
+        )
+        assignmentIIcounter.addBranch(
+            self.nodeIIisBound(loop),
+            RegAssignment(self._loopIIcounter[loop], constNode),
+        )
+        assignmentIIcounter.addDefaultBranch(
+            RegAssignment(
+                self._loopIIcounter[loop],
+                plusNode(self._loopIIcounter[loop], increNode),
+            ),
+        )
+        self.addAssignment(assignmentIIcounter)
 
     def _generateHandShake(self, loop: pgv.Edge) -> None:
         states = self._loopToStates[loop]
@@ -261,17 +345,68 @@ class LoopGenerator(FSMGenerator):
         # add the state transition to enter the fsm using an input port start
         assert self._fsm.getIdleState() is not None, "FSM has no initial state"
 
-        for edge in allEdges:
-            start = edge[0]
-            end = edge[1]
+        for start in allStates:
+            if self.isWaitState(start):
+                continue
+
             currParamNode = self._fsm.getParamAtNode(start)
 
             if start == self._fsm.getIdleState():
                 # add the idle state
                 nextStateAssignment = self._getIdleStateAssignment()
             else:
-                nextStateAssignment = self._getNextStateAssignment(end)
+                successors = []
+                for edge in allEdges:
+                    if edge[0] == start:
+                        successors.append(edge[1])
+                if len(successors) == 0:
+                    continue
+                if len(successors) == 1:
+                    nextParamNode = self._fsm.getParamAtNode(successors[0])
+                    nextStateAssignment = FSMGenerator._stateTransitionAssignment(
+                        self.nextStateNode, nextParamNode
+                    )
+                else:
+                    print(f"State {start} has multiple successors = {successors}")
+                    nextStateAssignment = ConditionalAssignment(self._fsm_next_state)
+                    for j, succ in enumerate(successors[:-1]):
+                        controlNode = self._fsm.getControlSignalAtNode(succ, j)
+
+                        # we need to create an input port for the control signal
+                        self.module.addPort(InputPort(controlNode, BasicRange(1)))
+
+                        nextParamNode = self._fsm.getParamAtNode(succ)
+                        nextStateAssignment.addBranch(
+                            controlNode,
+                            FSMGenerator._stateTransitionAssignment(
+                                self.nextStateNode, nextParamNode
+                            ),
+                        )
+                    # add a default case to the conditional assignment
+                    nextParamNode = self._fsm.getParamAtNode(successors[-1])
+                    nextStateAssignment.addDefaultBranch(
+                        FSMGenerator._stateTransitionAssignment(
+                            self.nextStateNode, nextParamNode
+                        ),
+                    )
             assignment.addCase(currParamNode, nextStateAssignment)
+
+        for loop in self._loops:
+            # add the transition from the wait
+            waitState: pgv.Node = self.getWaitState(loop)
+            exitState: pgv.Node = self.getExitState(loop)
+            paramNode: BNode = self._fsm.getParamAtNode(waitState)
+            nextParamNode: BNode = self._fsm.getParamAtNode(exitState)
+            nextStateAssignment: BNEdge = ConditionalAssignment(self._fsm_next_state)
+            nextStateAssignment.addBranch(
+                andNode(self._loop_pipeline_finished[loop], self.nodeNotStall()),
+                FSMGenerator._stateTransitionAssignment(
+                    self._fsm_next_state, nextParamNode
+                ),
+            )
+
+            assignment.addCase(paramNode, nextStateAssignment)
+
         # add a default case to the current state
         assignment.addDefaultCase(
             WireAssignment(
