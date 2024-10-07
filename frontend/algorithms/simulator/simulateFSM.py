@@ -79,6 +79,12 @@ class FSMSimulator:
     def isWaitState(self, node: pgv.Node) -> bool:
         return node in self._wait_states
 
+    def getWaitState(self, loop: pgv.Edge) -> pgv.Node:
+        return self._loopWait[loop]
+
+    def getExitState(self, loop: pgv.Edge) -> pgv.Node:
+        return self._loopExit[loop]
+
     def _catagorizeEdges(self) -> None:
         self._regular_edges = []
         self._regular_nodes = []
@@ -106,18 +112,21 @@ class FSMSimulator:
 
     def _checkExitCondition(self) -> bool:
         # check the exit condition
-        if self._fsm_stall and not self._reset:
+        if not self._fsm_stall and not self._reset:
             if self._fsm_state_enabled[self._fsm.getFinalState()]:
                 return True
         return False
+
+    def stateTransition(self, stateFrom: pgv.Node, stateTo: pgv.Node) -> None:
+        self._fsm_state_enabled_reg[stateFrom] = False
+        self._fsm_state_enabled_reg[stateTo] = True
 
     def _propagateFSMstates(self) -> bool:
         # regular nodes
         self._fsm_state_enabled_reg: Dict[pgv.Node, bool] = {}
         for edge in self._regular_edges:
             if self._fsm_state_enabled[edge[0]]:
-                self._fsm_state_enabled_reg[edge[0]] = False
-                self._fsm_state_enabled_reg[edge[1]] = True
+                self.stateTransition(edge[0], edge[1])
 
     def step(self) -> bool:
         """
