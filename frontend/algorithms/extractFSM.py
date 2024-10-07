@@ -1146,6 +1146,27 @@ def mult_connect(CDFG: pgv.AGraph):
         CDFG.add_edge(inputA, output, color="red")
         CDFG.add_edge(inputB, output, color="red")
 
+# function to check if the edge to add (edgeSrc -> edgeDst) is a loopback
+def isAddingLoopback(edgeSrc: str, edgeDst: str, CDFG: pgv.AGraph, verbose: bool = False):
+    if edgeSrc == edgeDst:
+        return True
+    assert (edgeSrc, edgeDst) not in CDFG.edges(), "Edge already exists"
+    visited = set()
+    queue = deque([edgeDst])
+    while queue:
+        node = queue.popleft()
+        visited.add(node)
+        if verbose:
+            print("Visiting node: {0}".format(node))
+        for src, dst in CDFG.out_edges(node):
+            if CDFG.get_edge(src, dst).attr["color"] == "red" and CDFG.get_edge(src, dst).attr["style"] == "dashed":
+                continue
+            if dst == edgeSrc:
+                return True
+            if dst not in visited:
+                queue.append(dst)
+    return
+
 # function to build the original CDFG with the extracted data flow
 def buildOriginalCDFG(graph: pgv.AGraph, module: Module, FSM: pgv.AGraph, end_nodes: list, memory_keywords: dict):
     CDFG = pgv.AGraph(strict=False, directed=True)
@@ -1191,14 +1212,31 @@ def buildOriginalCDFG(graph: pgv.AGraph, module: Module, FSM: pgv.AGraph, end_no
             if not edge in CDFG.edges():
                 CDFG.add_edge(dataSrcNode.get_name(), dataDstNode, color="red", style="dashed")
             continue
+        # case in which the stateBB activated is used as a condition
         for tmp, stateBB in FSM.out_edges(arrivalState):
             assert stateBB in departureStates.keys(), "Arrival state not found"
             dataDstNodes = departureStates[stateBB]
             for dataDstNode in dataDstNodes:
                 edge = (dataSrcNode.get_name(), dataDstNode)
                 if not edge in CDFG.edges():
-                    CDFG.add_edge(dataSrcNode.get_name(), dataDstNode, color="red", style="dashed")
+                    if isAddingLoopback(dataSrcNode.get_name(), dataDstNode, CDFG):
+                        CDFG.add_edge(dataSrcNode.get_name(), dataDstNode, color="red", style="dashed", comment="II")
+                        #print("Loopback added: {0} -> {1}".format(dataSrcNode.get_name(), dataDstNode))
+                    else:
+                        CDFG.add_edge(dataSrcNode.get_name(), dataDstNode, color="red", style="dashed")
                     #print("Edge added: {0} -> {1}".format(dataSrcNode.get_name(), dataDstNode))
+        # case in which the arrivalState + data condition is used as a condition
+        assert arrivalState in departureStates.keys(), "Arrival state not found"
+        dataDstNodes = departureStates[arrivalState]
+        for dataDstNode in dataDstNodes:
+            edge = (dataSrcNode.get_name(), dataDstNode)
+            if not edge in CDFG.edges():
+                if isAddingLoopback(dataSrcNode.get_name(), dataDstNode, CDFG):
+                    CDFG.add_edge(dataSrcNode.get_name(), dataDstNode, color="red", style="dashed", comment="II")
+                    #print("Loopback added: {0} -> {1}".format(dataSrcNode.get_name(), dataDstNode))
+                else:
+                    CDFG.add_edge(dataSrcNode.get_name(), dataDstNode, color="red", style="dashed")
+                #print("Edge added: {0} -> {1}".format(dataSrcNode.get_name(), dataDstNode))
         #print(f"Data node {dataSrcNode.get_name()} -> {dataDstNodes}")
     # the pipeline states with no registers across them should be merged since do not represent real states
     mergeConsecutivePipelineStates(FSM, departureStates, departureStates2Ctrl , arrivalStates)
@@ -1677,29 +1715,34 @@ def addPhisEnable(CDFG: pgv.AGraph, module: Module, cip_dependencies: list):
     nodes = CDFG.nodes()
     for node in nodes:
         if "PHI" in CDFG.get_node(node).attr["label"]:
-            srcEnable = None
+            srcEnables = []
             assert len(CDFG.in_edges(node)) > 1, "PHI node should have at least 2 inputs"
             for src, dst in CDFG.in_edges(node):
                 if CDFG.get_edge(src, dst).attr["style"] == "dashed" and CDFG.get_edge(src, dst).attr["color"] == "red":
-                    assert srcEnable is None, "Enable already found"
-                    srcEnable = src
-            if srcEnable is None:
+                    assert not src in srcEnables, "Enable already found"
+                    srcEnables.append(src)
+            if srcEnables == []:
                 srcEnable = node + "_enable"
                 additionalPIs[srcEnable] = 1
                 CDFG.add_node(srcEnable, shape="box")
                 CDFG.add_edge(srcEnable, node, color="red", style="dashed")
             else:
-                assert CDFG.get_edge(srcEnable, node).attr["color"] == "red" and CDFG.get_edge(srcEnable, node).attr["style"] == "dashed", "Not correct enable"
-                ctrlOut = "n" + srcEnable + "_ctrlOut"
-                additionalPOs[ctrlOut] = 1
-                CDFG.add_node(ctrlOut, shape="box")
-                CDFG.add_edge(srcEnable, ctrlOut, color="red", style="dashed")
-                newSrcEnable = node + "_enable"
-                additionalPIs[newSrcEnable] = 1
-                CDFG.add_node(newSrcEnable, shape="box")
-                CDFG.add_edge(newSrcEnable, node, color="red", style="dashed")
-                CDFG.remove_edge(srcEnable, node)
-                cip_dependencies.append((newSrcEnable, ctrlOut, 0))
+                for srcEnable in srcEnables:
+                    assert CDFG.get_edge(srcEnable, node).attr["color"] == "red" and CDFG.get_edge(srcEnable, node).attr["style"] == "dashed", "Not correct enable"
+                    if "comment" in CDFG.get_edge(srcEnable, node).attr.keys() and "II" in CDFG.get_edge(srcEnable, node).attr["comment"]:
+                        distance_value = CDFG.get_edge(srcEnable, node).attr["comment"]
+                    else:
+                        distance_value = 0
+                    ctrlOut = "n" + srcEnable + "_ctrlOut"
+                    additionalPOs[ctrlOut] = 1
+                    CDFG.add_node(ctrlOut, shape="box")
+                    CDFG.add_edge(srcEnable, ctrlOut, color="red", style="dashed")
+                    newSrcEnable = node + "_enable"
+                    additionalPIs[newSrcEnable] = 1
+                    CDFG.add_node(newSrcEnable, shape="box")
+                    CDFG.add_edge(newSrcEnable, node, color="red", style="dashed")
+                    CDFG.remove_edge(srcEnable, node)
+                    cip_dependencies.append((newSrcEnable, ctrlOut, distance_value))
 
     return additionalPIs, additionalPOs  
 
