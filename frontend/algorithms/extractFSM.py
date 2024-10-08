@@ -423,10 +423,7 @@ def getArrivalStates(
             CFG, controlInputNode, set(), module, end_nodes, FSM
         )
         assert dstState is not None
-        if dstState in end_nodes:
-            condCurrState = dstState
-        else:
-            condCurrState = findCurrStateCond(module, FSM, condDstNode, dstState)
+        condCurrState = dstState
         arrivalStates.append((dataNode, condCurrState))
     return arrivalStates
 
@@ -685,12 +682,6 @@ def getDepartureStates(graph: pgv.AGraph, controlPaths: list, module: Module, FS
                             ctrlFound = ctrl
                             break
                     assert ctrlFound != -1, "Control node not found"
-                    # identify if the control also depend on the data-dependent control
-                    if containsDataControlSignal(graph, module, assign.condition, [currStateVar, nextStateVar]):
-                        # in this case the real state that activates it is the successor state
-                        assert len(FSM.out_edges(state)) > 1, "The state should have multiple destinations since it depends on a data control signal"
-                        srcState = FSM.out_edges(state)[0][1]
-                        #print("State changed from {0} to {1} for {2}".format(state, srcState, cond))
                     departureStates2Ctrl[srcState].append(ctrlFound)
                     departureStates[srcState].append(dataEndPoint)
                     continue
@@ -1276,6 +1267,7 @@ def buildOriginalCDFG(graph: pgv.AGraph, module: Module, FSM: pgv.AGraph, end_no
     # arrival states contain the data nodes that create condition and the state in which this condition is checkeced
     #   (i.e., the source of a diamond shaped node)
     arrivalStates = getArrivalStates(graph, inCtrlOutDataWire, module, end_nodes, FSM)
+    '''
     for dataSrcNode, arrivalState in arrivalStates:
         # the arrival state should be the source of multiple BBs (2 or more) or an end node
         assert arrivalState in end_nodes or len(FSM.out_edges(arrivalState)) > 1, "Arrival state should be the source of multiple BBs"
@@ -1298,7 +1290,6 @@ def buildOriginalCDFG(graph: pgv.AGraph, module: Module, FSM: pgv.AGraph, end_no
                     else:
                         CDFG.add_edge(dataSrcNode.get_name(), dataDstNode, color="red", style="dashed")
         # case in which the arrivalState + data condition is used as a condition
-        '''
         assert arrivalState in departureStates.keys(), "Arrival state not found"
         dataDstNodes = departureStates[arrivalState]
         for dataDstNode in dataDstNodes:
@@ -1310,8 +1301,8 @@ def buildOriginalCDFG(graph: pgv.AGraph, module: Module, FSM: pgv.AGraph, end_no
                 else:
                     CDFG.add_edge(dataSrcNode.get_name(), dataDstNode, color="red", style="dashed")
                 #print("Edge added: {0} -> {1}".format(dataSrcNode.get_name(), dataDstNode))
-        '''
         #print(f"Data node {dataSrcNode.get_name()} -> {dataDstNodes}")
+    '''
     # the pipeline states with no registers across them should be merged since do not represent real states
     mergeConsecutivePipelineStates(FSM, departureStates, departureStates2Ctrl , arrivalStates)
     memory_merge(module, CDFG, FSM, graph, departureStates2Ctrl, memory_keywords)
