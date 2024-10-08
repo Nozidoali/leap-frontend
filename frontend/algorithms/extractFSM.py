@@ -422,8 +422,14 @@ def getArrivalStates(
         dstState, condDstNode = getArrivalState_rec(
             CFG, controlInputNode, set(), module, end_nodes, FSM
         )
+        if dstState is None:
+            print("******ATTENTION! The destination state not found for the control node of : {}".format(dataNode))
+            continue
         assert dstState is not None
-        condCurrState = dstState
+        if dstState in end_nodes:
+            condCurrState = dstState
+        else:
+            condCurrState = findCurrStateCond(module, FSM, condDstNode, dstState)
         arrivalStates.append((dataNode, condCurrState))
     return arrivalStates
 
@@ -437,15 +443,15 @@ def getDepartureStates_rec(
     verbose: bool = False,
 ):
     if verbose:
-        print("Traversing node: {}".format(node))
-    if "ctrl_" in node:
-        return None
+        print("Traversing node: {}".format(node)) 
     if node in visited:
         return None
     if node in terminateTravNodes:
         return None
     if node in nodes2reach:
         nodes2reach.remove(node)
+        return None
+    if "ctrl_" in node:
         return None
     visited.add(node)
     for src, dst in CFG.out_edges(node):
@@ -676,6 +682,9 @@ def getDepartureStates(graph: pgv.AGraph, controlPaths: list, module: Module, FS
                     if value == "1'b0" or value == "0" or value == "1'd0":
                         continue
                 targ, expr, cond = getAssignToNode(module, assign)
+                # if the expression is dependent on a contion, skip the node
+                if len(graph.in_edges(expr)) == 1 and "ctrl_" in graph.in_edges(expr)[0][0]:
+                    continue
                 ctrlOuts = list_ctrlOuts.copy()
                 # check if the target of the condition is already in the datapath nodes
                 if targ in graph.get_subgraph("cluster_data_flow").nodes():
@@ -789,6 +798,7 @@ def getMemWriteOpState(module: Module, graph: pgv.AGraph, writeEnablePort: str, 
 def addStoreOps(CDFG: pgv.AGraph, graph: pgv.AGraph, module: Module, state2node: dict, statesWriteOp: list, portOutAddress: str, portToMemory: str, node_name_template: str):
     state2addr = {}
     state2data = {}
+    # iterate over the assignments of the output address port
     for assignment in module.getAssignmentsOf(portOutAddress):
         if assignment.condition is None:
             continue
@@ -797,6 +807,15 @@ def addStoreOps(CDFG: pgv.AGraph, graph: pgv.AGraph, module: Module, state2node:
             continue
         target, expression, condition = getAssignToNode(module, assignment)
         state2addr[state] = expression
+    # check if the address is purely combinational
+    if len(state2addr) == 0:
+        assert len(module.getAssignmentsOf(portOutAddress)) == 1, "The address is not purely combinational"
+        assign = module.getAssignmentsOf(portOutAddress)[0]
+        target, expression, condition = getAssignToNode(module, assign)
+        for state in statesWriteOp:
+            state2addr[state] = expression
+
+    # iterater over the assignments to get the data to be stored
     for assignment in module.getAssignmentsOf(portToMemory):
         if assignment.condition is None:
             continue
@@ -805,6 +824,13 @@ def addStoreOps(CDFG: pgv.AGraph, graph: pgv.AGraph, module: Module, state2node:
             continue
         target, expression, condition = getAssignToNode(module, assignment)
         state2data[state] = expression
+    # check if the data is purely combinational
+    if len(state2data) == 0:
+        assert len(module.getAssignmentsOf(portToMemory)) == 1, "The data is not purely combinational"
+        assign = module.getAssignmentsOf(portToMemory)[0]
+        target, expression, condition = getAssignToNode(module, assign)
+        for state in statesWriteOp:
+            state2data[state] = expression
     idOp = 0
     storeOpsNames = []
     for state in statesWriteOp:
@@ -828,6 +854,7 @@ def addStoreOps(CDFG: pgv.AGraph, graph: pgv.AGraph, module: Module, state2node:
 def addLoadOps(CDFG: pgv.AGraph, graph: pgv.AGraph, module: Module, state2node: dict, statesReadOp: list, portOutAddress: str, portFromMemory: str, node_name_template: str):
     state2addr = {}
     state2data = {}
+    # iterate over the assignments of the output address port
     for assignment in module.getAssignmentsOf(portOutAddress):
         if assignment.condition is None:
             continue
@@ -836,7 +863,14 @@ def addLoadOps(CDFG: pgv.AGraph, graph: pgv.AGraph, module: Module, state2node: 
             continue
         target, expression, condition = getAssignToNode(module, assignment)
         state2addr[state] = expression
-    
+    # check if the address is purely combinational
+    if len(state2addr) == 0:
+        assert len(module.getAssignmentsOf(portOutAddress)) == 1, "The address is not purely combinational"
+        assign = module.getAssignmentsOf(portOutAddress)[0]
+        target, expression, condition = getAssignToNode(module, assign)
+        for state in statesReadOp:
+            state2addr[state] = expression
+
     idOp = 0
     loadOpNames = []
     for state in statesReadOp:
@@ -927,6 +961,8 @@ def addInterMemoryDep(CDFG: pgv.AGraph, FSM: pgv.AGraph ,statesWriteOp: list, st
         if tmpStatesWriteOp[0] == tmpStatesReadOp[0]:
             tmpStatesWriteOp.pop(0)
             tmpStatesReadOp.pop(0)
+            storeOp = storeOps[idStoreOp]
+            loadOp = loadOps[idLoadOp]
             if len(lastOps) > 0:
                 storeOp = storeOps[idStoreOp]
                 loadOp = loadOps[idLoadOp]
@@ -1295,6 +1331,104 @@ def isAddingLoopback(edgeSrc: str, edgeDst: str, CDFG: pgv.AGraph, verbose: bool
                 queue.append(dst)
     return
 
+# function to check if the state is a loopback state
+def isLoopbackState(stateTest: str, stateOther: str, FSM: pgv.AGraph):
+
+    topState = None
+    for state in FSM.nodes():
+        if "comment" in FSM.get_node(state).attr.keys() and FSM.get_node(state).attr["comment"] == "Start":
+            topState = state
+            break
+    assert topState is not None, "Top state not found"
+    for src, dst in FSM.out_edges(stateTest):
+        if (stateOther, dst) in FSM.edges():
+            queue1 = deque([topState])
+            visited = set()
+            while queue1:
+                queue2 = queue1.copy()
+                while queue2:
+                    current_state = queue2.popleft()
+                    queue1.popleft()
+                    visited.add(current_state)
+                    for src2, dst2 in FSM.out_edges(current_state):
+                        if dst2 not in visited:
+                            queue1.append(dst2)
+                    if current_state == stateTest:
+                        if dst in visited:
+                            return True
+                        else:
+                            return False
+    assert False, "Joining state not found"
+
+    
+
+# function to write the states in which the phi is activated
+def addPhisInputControls(CDFG: pgv.AGraph, FSM: pgv.AGraph, departureStates: dict, assignmentsNodes: dict, arrivalStates: list):
+
+    # ensure all the phis have been correctly marked
+    verbose = False
+    phis = []
+    for node in CDFG.nodes():
+        if CDFG.get_node(node).attr["label"] == "PHI":
+            phis.append(node)
+    phis_copy = phis.copy()
+    for node in CDFG.nodes():
+        if node not in assignmentsNodes.keys():
+            assert node not in phis, "Phi node not correctly marked"
+            continue
+        assignments = assignmentsNodes[node]
+        if len(assignments) <= 1:
+            assert node not in phis, "Phi node not correctly marked"
+            continue
+
+        assign = assignments[0]
+        different_assign = False
+        for assign1 in assignments[1:]:
+            if assign1 != assign:
+                different_assign = True
+                break
+        if not different_assign:
+            assert node not in phis, "Phi node not correctly marked"
+            continue
+
+        statesNode = getStatesOfNode(node, departureStates)
+        assert statesNode != None, "States not found"
+        assert len(statesNode) > 1, "Phi node not correctly marked. There should be more than one state for different assignments"
+        phis_copy.remove(node)
+    
+    assert len(phis_copy) == 0, "Phi nodes not correctly marked. Some nodes have been marked as phis but they are not"
+
+    for phi in phis:
+        statesPhi = getStatesOfNode(phi, departureStates)
+        #assert len(statesPhi) == 2 or len(statesPhi) == 3, "Phi node should be activated in two or three states"
+        state0 = statesPhi[0]
+        state1 = statesPhi[1]
+        assert state0 != state1, "States should be different"
+        assert state0 in FSM.nodes(), "State not found"
+        assert state1 in FSM.nodes(), "State not found"
+        conds = {}
+        for dataSrcNode, arrivalState in arrivalStates:
+            for state in statesPhi:
+                if state == arrivalState:
+                    assert state not in conds.keys(), "State already found"
+                    conds[state] = dataSrcNode
+        
+        if verbose:
+            print(f"Phi node {phi} activated in states {[statesPhi]}")
+        #assert cond0 is not None or cond1 is not None, "Condition not found"
+        for cond in conds.values():
+            if verbose:
+                print(f"Condition: {cond}")
+            if isLoopbackState(state0, state1, FSM):
+                CDFG.add_edge(cond, phi, color="red", style="dashed", comment="II")
+                if verbose:
+                    print(f"Loopback added: {cond} -> {phi}")
+            else:
+                CDFG.add_edge(cond, phi, color="red", style="dashed")
+                if verbose:
+                    print(f"Edge added: {cond} -> {phi}")
+
+
 # function to build the original CDFG with the extracted data flow
 def buildOriginalCDFG(graph: pgv.AGraph, module: Module, FSM: pgv.AGraph, end_nodes: list, memory_keywords: dict):
     CDFG = pgv.AGraph(strict=False, directed=True)
@@ -1393,6 +1527,8 @@ def buildOriginalCDFG(graph: pgv.AGraph, module: Module, FSM: pgv.AGraph, end_no
                 assignmentsNodes[node].append(expr)
     departureStates, assignmentsNodes = removeDuplicateVars(CDFG, departureStates, assignmentsNodes)
 
+    addPhisInputControls(CDFG, FSM, departureStates, assignmentsNodes, arrivalStates)
+
     return CDFG
 
 # function to generate header of the verilog file
@@ -1457,7 +1593,7 @@ def getInputRoot(CDFG: pgv.AGraph, node: pgv.Node):
             CDFG.remove_edge(src, dst)
             #print("Removed edge: {0} -> {1}".format(src, dst))
     value = CDFG.get_node(node).attr["label"]
-    if value == "+" or value == "-" or value == "*" or value == "/" or value == "==" or value == ">":
+    if value == "+" or value == "-" or value == "*" or value == "/" or value == "==" or value == ">" or value == "===":
         if value == "-" and len(CDFG.in_edges(node)) == 1:
             return "(-" + getInputRoot(CDFG, CDFG.in_edges(node)[0][0]) + ")"
         lhs = getInputRoot(CDFG, CDFG.in_edges(node)[0][0])
@@ -1521,6 +1657,11 @@ def getInputRoot(CDFG: pgv.AGraph, node: pgv.Node):
             return "({" + str(rhs) + "{" + str(lhs) + "}" + "})"
         else:
             return "({" + str(lhs) + "{" + str(rhs) + "}"+ "})"
+    elif value == "?:":
+        cond = getInputRoot(CDFG, CDFG.in_edges(node)[0][0])
+        pos = getInputRoot(CDFG, CDFG.in_edges(node)[1][0])
+        neg = getInputRoot(CDFG, CDFG.in_edges(node)[2][0])
+        return "({0} ? {1} : {2})".format(cond, pos, neg)
     else:
         assert False, f"Node not recognized ({value})"
 
