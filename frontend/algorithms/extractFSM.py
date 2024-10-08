@@ -7,6 +7,27 @@ import networkx as nx
 import json
 import sys
 
+def printFSMGraph(FSM: pgv.AGraph , outputFile: str):
+    print("Extracting FSM in file: {}".format(outputFile))
+    with open(outputFile, "w") as f:
+        for edge in FSM.edges():
+            f.write(edge[0] + " -> " + edge[1] + "\n")
+
+# function to print phis states info
+def writePHIsStates(CDFG: pgv.AGraph, FSM:pgv.AGraph, module: Module, graph: pgv.AGraph, state2node: dict, outputFile: str):
+    print("Extracting PHIs states in file: {}".format(outputFile))
+    file = open(outputFile, "w")
+    for node in CDFG.nodes():
+        if module.isDefined(node):
+            assignemnts = module.getAssignmentsOf(node)
+            if len(assignemnts) > 1:
+                # check if the phi is destination of divergent BBs
+                if not duplicateAssignments(assignemnts):
+                    for state in state2node.keys():
+                        if node in state2node[state]:
+                            file.write("State: {0} - Node: {1}\n".format(state, node))
+    file.close()
+
 def _extractDataFlowNodesRec(module:Module, graph: pgv.AGraph, node: pgv.Node, visited: set, revTraversal: bool):
     if node in visited:
         return
@@ -1295,6 +1316,7 @@ def buildOriginalCDFG(graph: pgv.AGraph, module: Module, FSM: pgv.AGraph, end_no
     mergeConsecutivePipelineStates(FSM, departureStates, departureStates2Ctrl , arrivalStates)
     memory_merge(module, CDFG, FSM, graph, departureStates2Ctrl, memory_keywords)
 
+    writePHIsStates(CDFG, FSM, module, graph, departureStates, "phi_states.txt")
     replaceMuxes(CDFG, FSM, module, graph, departureStates2Ctrl)
     removeDuplicateVars(CDFG)
 
@@ -1949,6 +1971,8 @@ def CDFGToVerilog(_CDFG: pgv.AGraph, module: Module, verilogFilePath: str, jsonF
     PIs.update(multilatencyPIs)
     POs.update(multilatencyPOs)
 
+    # manually add clk and rst
+    PIs.update({"clk": 1, "rst": 1})
 
     variables = extractVariables(CDFG, module, PIs.keys(), POs.keys())
 
