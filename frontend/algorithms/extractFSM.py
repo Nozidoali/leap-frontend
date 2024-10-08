@@ -434,7 +434,12 @@ def getDepartureStates_rec(
     module: Module,
     nodes2reach: list,
     terminateTravNodes: list,
+    verbose: bool = False,
 ):
+    if verbose:
+        print("Traversing node: {}".format(node))
+    if "ctrl_" in node:
+        return None
     if node in visited:
         return None
     if node in terminateTravNodes:
@@ -465,7 +470,7 @@ def getDepartureStates_rec(
         if dst in terminateTravNodes:
             continue
         dstNode = getDepartureStates_rec(
-            CFG, dst, visited, module, nodes2reach, terminateTravNodes, 
+            CFG, dst, visited, module, nodes2reach, terminateTravNodes, verbose,
         )
         if dstNode is not None:
             return dstNode
@@ -1140,8 +1145,29 @@ def mergeConsecutivePipelineStates(FSM: pgv.AGraph, departureStates: dict, depar
         '''
     FSM.write("FSM_merged.dot")
 
+# function to merge states from src into dst # removing src states and src in the dict
+def mergeStates(state2node: dict, src: str, dst: str):
+    srcStates = getStatesOfNode(src, state2node)
+    if srcStates == None:
+        return state2node
+    for state in srcStates:
+        if dst not in state2node[state]:
+            state2node[state].append(dst)
+        state2node[state].remove(src)
+    return state2node
+
+# function to get state of a node
+def getStatesOfNode(node: str, state2node: dict):
+    states = []
+    for state, nodes in state2node.items():
+        if node in nodes:
+            states.append(state)
+    if len(states) == 0:
+        return None
+    return states
+
 # function to remove duplicate variables in the CDFG
-def removeDuplicateVars(CDFG: pgv.AGraph):
+def removeDuplicateVars(CDFG: pgv.AGraph, state2node: dict, assingmentsNodes: dict):
     nodes = CDFG.nodes()
     for node in nodes:
         out_nodes = []
@@ -1149,6 +1175,29 @@ def removeDuplicateVars(CDFG: pgv.AGraph):
             if dst not in out_nodes:
                 out_nodes.append(dst)
         if len(CDFG.out_edges(node)) >= 1 and len(out_nodes) == 1:
+            # verify out_nodes[0] has only one source
+            inputNodes = []
+            for src2, dst2 in CDFG.in_edges(out_nodes[0]):
+                if src2 not in inputNodes:
+                    inputNodes.append(src2)
+            if len(inputNodes) > 1:
+                continue
+            stateSrc = getStatesOfNode(node, state2node)
+            stateDst = getStatesOfNode(out_nodes[0], state2node) 
+            if stateSrc != None and stateDst != None:
+                skipMerging = False
+                if len(stateSrc) > len(stateDst):
+                    for state in stateDst:
+                        if state not in stateSrc:
+                            skipMerging = True
+                            break
+                else:
+                    for state in stateSrc:
+                        if state not in stateDst:
+                            skipMerging = True
+                            break
+                if skipMerging:
+                    continue
             isPhiNode = CDFG.get_node(node).attr["label"] == "PHI"
             if (isVarNode(CDFG.get_node(node)) or isPhiNode ) and isVarNode(CDFG.get_node(out_nodes[0])):
                 # ensure no multiplier is removed
@@ -1168,12 +1217,27 @@ def removeDuplicateVars(CDFG: pgv.AGraph):
                     else:
                         #print("Skipped {0} -> {1}".format(src2, dst))
                         pass
-                # if the src operation is a phi, the destination should be a phi as well
+                # if the src operation is a phi, the destination should be a phi as well                
                 if isPhiNode:
                     CDFG.get_node(dst).attr["label"] = "PHI"
                     CDFG.get_node(dst).attr["shape"] = "diamond"
+                # if the src operation is a multiplier it doesn't have any assignment
+                if "mult" in src and ("result" in src):
+                    CDFG.remove_node(src)
+                    continue
+                # transfer the assignments
+                if len(CDFG.in_edges(src)) == 0: # case in which src is a PI
+                    assert src not in assingmentsNodes.keys(), "Node is a PI and should not be in the assignments"
+                    del assingmentsNodes[dst]
+                else:
+                    assert src in assingmentsNodes.keys(), "Node not found in the assignments"
+                    assingmentsNodes[dst] = assingmentsNodes[src].copy()
+                    del assingmentsNodes[src]
+                # transfer the states
+                state2node = mergeStates(state2node, src, dst)
                 CDFG.remove_node(src)
                 #print("Merging {0} into {1}".format(src, dst))
+    return state2node, assingmentsNodes
 
 # function to connect the multiplication inputs and outputs in the CDFG
 def mult_connect(CDFG: pgv.AGraph):
@@ -1309,7 +1373,25 @@ def buildOriginalCDFG(graph: pgv.AGraph, module: Module, FSM: pgv.AGraph, end_no
 
     writePHIsStates(CDFG, FSM, module, graph, departureStates, "phi_states.txt")
     replaceMuxes(CDFG, FSM, module, graph, departureStates2Ctrl)
-    removeDuplicateVars(CDFG)
+
+    # clean the departure states data structure
+    for state in departureStates.keys():
+        tmp = departureStates[state].copy()
+        departureStates[state] = []
+        for node in tmp:
+            if node not in departureStates[state]:
+                departureStates[state].append(node)
+
+    # save the assignments to nodes in order to change them later
+    assignmentsNodes = {}
+    for node in CDFG.nodes():
+        if module.isDefined(node):
+            for assign in module.getAssignmentsOf(node):
+                expr = assign.expression.toString()
+                if node not in assignmentsNodes.keys():
+                    assignmentsNodes[node] = []
+                assignmentsNodes[node].append(expr)
+    departureStates, assignmentsNodes = removeDuplicateVars(CDFG, departureStates, assignmentsNodes)
 
     return CDFG
 
