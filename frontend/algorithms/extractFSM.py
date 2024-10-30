@@ -2132,6 +2132,7 @@ def addMemoryUnitsPorts(CDFG: pgv.AGraph, module: Module, memory_keywords: dict,
     additionalPIs = {}
     additionalPOs = {}
     nodes = CDFG.nodes()
+    edges2remove = [] # edges related to control dependencies which are related to the memory units and they are already taken into account in the cip
     for node in nodes:
         if "loaddd" in node:
             fromMem = memory_keywords["outMemory"][memoryIdx]
@@ -2173,6 +2174,7 @@ def addMemoryUnitsPorts(CDFG: pgv.AGraph, module: Module, memory_keywords: dict,
                         distance_value = CDFG.get_edge(src, dst).attr["comment"]
                     else:
                         distance_value = 1
+                    edges2remove.append((src, addrNode))
                     update_cip_dep(src, dst, src, addrNode, distance_value, cip_dependencies)
             for src, dst in CDFG.out_edges(node):
                 if dst != dataAnswer:
@@ -2182,6 +2184,7 @@ def addMemoryUnitsPorts(CDFG: pgv.AGraph, module: Module, memory_keywords: dict,
                         distance_value = CDFG.get_edge(src, dst).attr["comment"]
                     else:
                         distance_value = 1
+                    edges2remove.append((fromMemNode, dst))
                     update_cip_dep(src, dst, fromMemNode, dst, distance_value, cip_dependencies)
             CDFG.remove_node(node)
         if "storeee" in node:
@@ -2218,6 +2221,8 @@ def addMemoryUnitsPorts(CDFG: pgv.AGraph, module: Module, memory_keywords: dict,
                         distance_value = CDFG.get_edge(src, dst).attr["comment"]
                     else:
                         distance_value = 1
+                    edges2remove.append((src, addrNode))
+                    edges2remove.append((src, toMemNode))
                     update_cip_dep(src, dst, src, addrNode, distance_value, cip_dependencies)
                     update_cip_dep(src, dst, src, toMemNode, distance_value, cip_dependencies)
             for src, dst in CDFG.out_edges(node):
@@ -2228,9 +2233,16 @@ def addMemoryUnitsPorts(CDFG: pgv.AGraph, module: Module, memory_keywords: dict,
                     distance_value = CDFG.get_edge(src, dst).attr["comment"]
                 else:
                     distance_value = 1
+                edges2remove.append((toMemNode, dst))
+                edges2remove.append((addrNode, dst))
                 update_cip_dep(src, dst, toMemNode, dst, distance_value, cip_dependencies)
                 update_cip_dep(src, dst, addrNode, dst, distance_value, cip_dependencies)
             CDFG.remove_node(node)
+
+    allEdges = CDFG.edges()
+    for edge in edges2remove:
+        if edge in allEdges: # check if the edge has not changed during processing of other memory nodes
+            CDFG.remove_edge(edge[0], edge[1])
 
     return additionalPIs, additionalPOs
 
@@ -2493,6 +2505,7 @@ def addAnchorsBB(CDFG: pgv.AGraph, FSM: pgv.AGraph, module: Module, PIs: dict, P
             assert BB_src is not None, "BB not found"
             assert BB_dst is not None, "BB not found"
             if BB_src != BB_dst:
+                print(f"Anchor added between {node} and {dst}")
                 width = getWidth(node, module)
                 #anchorPi = dst + "_anchorPi_" + BB_dst
                 #anchorsPIs[anchorPi] = width
