@@ -2506,7 +2506,10 @@ def addAnchorsBB(CDFG: pgv.AGraph, FSM: pgv.AGraph, module: Module, PIs: dict, P
             assert BB_dst is not None, "BB not found"
             if BB_src != BB_dst:
                 print(f"Anchor added between {node} and {dst}")
-                width = getWidth(node, module)
+                if "fromMem" in node:
+                    width = getWidth(dst, module)
+                else:
+                    width = getWidth(node, module)
                 #anchorPi = dst + "_anchorPi_" + BB_dst
                 #anchorsPIs[anchorPi] = width
                 anchorPo = node + "_anchorPo_" + BB_src
@@ -2562,7 +2565,9 @@ def addEndCircuitPorts(CDFG: pgv.AGraph, module: Module, PIs: dict, POs: dict):
                 additionalPOs[ctrlOut] = 1
                 CDFG.add_node(ctrlOut, shape="box")
                 CDFG.get_node(ctrlOut).attr["BB"] = BB_ctrl
-            CDFG.add_edge(srcEnd, ctrlOut, color="red")
+                CDFG.add_edge(srcEnd, ctrlOut, color="red")
+            else:
+                assert (srcEnd, ctrlOut) in CDFG.edges(), "Control output not found despite ctrlOut already in POs"
             CDFG.remove_edge(srcEnd, endCircuitNode)
             newSrcEnd = endCircuitNode + "_endCircuitPI"
             additionalPIs[newSrcEnd] = 1
