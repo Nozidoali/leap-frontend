@@ -2714,17 +2714,30 @@ def assignBBs2nodes(CDFG: pgv.AGraph, states2nodes: dict, CFG: pgv.AGraph, FSM: 
                 if node in nodes:
                     foundStates.append(state)
             assert len(foundStates) > 1, "PHI node should be in more than one state"
-            assert len(foundStates) == 2, "PHI node should be in two states"
-            if states2BB[foundStates[0]] == states2BB[foundStates[1]]:
+            assert len(foundStates) <= 3, "PHI node should be in two or three states"
+            sameState = True
+            for i in range(1, len(foundStates)):
+                if foundStates[i] != foundStates[0]:
+                    sameState = False
+                    break
+            if sameState:
                 BB = states2BB[foundStates[0]]
                 CDFG.get_node(node).attr["BB"] = BB
                 continue
             commonDstState = None
             for src0, dst0 in FSM.out_edges(foundStates[0]):
                 for src1, dst1 in FSM.out_edges(foundStates[1]):
-                    if dst0 == dst1:
-                        commonDstState = dst0
-                        break
+                    if len(foundStates) == 3:
+                        for src2, dst2 in FSM.out_edges(foundStates[2]):
+                            if dst0 == dst1 and dst1 == dst2:
+                                assert commonDstState is None, "Common destination state already found"
+                                commonDstState = dst0
+                                break
+                    else:
+                        if dst0 == dst1:
+                            assert commonDstState is None, "Common destination state already found"
+                            commonDstState = dst0
+                            break
             assert commonDstState is not None, "Common destination state not found"
             BB = states2BB[commonDstState]
             CDFG.get_node(node).attr["BB"] = BB
