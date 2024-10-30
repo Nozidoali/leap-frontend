@@ -5,9 +5,11 @@
 if __name__ == "__main__":
     from frontend import *
     import pygraphviz as pgv
+    import os
 
     outputDot = "gaussian"
-    external = "vivado"
+    external = "legup"
+    results_folder = "results/{0}/{1}".format(external, outputDot)
     network: Netlist = readVerilog("examples/verilogs/external/{}/{}.v".format(external, outputDot))
     # network: Netlist = readVerilog("examples/verilogs/external/vitis.v")
     module = network.getModuleAt(0)
@@ -38,7 +40,7 @@ if __name__ == "__main__":
     print("Extracting Data Flow Control Flow")
 
     extractDataFlowControlFlow(module, graph, outputsNames, inputsNames)
-    graph.write("{}.dot".format(outputDot))
+    graph.write("{0}/{1}.dot".format(results_folder , outputDot))
 
     #newModule = graphToBNGraph(module, graph, "cluster_control_flow")
     #writeVerilog(newModule, "out.v")
@@ -48,7 +50,9 @@ if __name__ == "__main__":
     resetSignals = ["reset", "rst", "ap_rst", "ap_reset"]
 
     FSM = extractFSMGraph(module, graph, resetSignals)
-    FSM.write("{}_FSM.dot".format(outputDot))
+    FSM.write("{0}/{1}_FSM.dot".format(results_folder, outputDot))
+    printFSMGraph(FSM, f"{results_folder}/{outputDot}_FSM.txt")
+
 
     # keywords for memory ports
     
@@ -63,11 +67,23 @@ if __name__ == "__main__":
 
     print("Building CDFG")
 
-    CDFG = buildOriginalCDFG(graph, module, FSM, ["finish", "ap_done"], memory_keywords)
-    CDFG.write("{}_CDFG.dot".format(outputDot))
+    CDFG, states2nodes = buildOriginalCDFG(graph, module, FSM, ["finish", "ap_done"], memory_keywords)
+    
+    #for state in states2nodes:
+    #    print(state, states2nodes[state])
+    #    print()
+
+    CFG = extractCFGGraph(module, FSM)
+    CFG.write("{0}/{1}_CFG.dot".format(results_folder, outputDot))
+    CDFG = assignBBs2nodes(CDFG, states2nodes, CFG, FSM)
+    CDFG.write("{0}/{1}_CDFG.dot".format(results_folder, outputDot))
+    printCDFGBB(CDFG, CFG, f"{results_folder}/{outputDot}_CDFG_BB.dot")
+    os.system("mv FSM_merged.dot {0}/{1}_FSM_merged.dot".format(results_folder, outputDot))
+    os.system("mv FSM_* {0}".format(results_folder))
+    os.system("mv phi_states.txt {0}".format(results_folder))
 
     print("Generating Verilog")
 
-    jsonFile = "{}.json".format(outputDot)
-    verilogFile = "{}_CDFG.v".format(outputDot)
-    CDFGToVerilog(CDFG, module, verilogFile, jsonFile, memory_keywords)
+    jsonFile = "{0}/{1}.json".format(results_folder, outputDot)
+    verilogFile = "{0}/{1}_CDFG.v".format(results_folder, outputDot)
+    CDFGToVerilog(CDFG, FSM, module, verilogFile, jsonFile, memory_keywords, states2nodes)
