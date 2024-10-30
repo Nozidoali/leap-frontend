@@ -14,18 +14,14 @@ def printFSMGraph(FSM: pgv.AGraph , outputFile: str):
             f.write(edge[0] + " -> " + edge[1] + "\n")
 
 # function to print phis states info
-def writePHIsStates(CDFG: pgv.AGraph, FSM:pgv.AGraph, module: Module, graph: pgv.AGraph, state2node: dict, outputFile: str):
+def writePHIsStates(phisStates: dict, outputFile: str):
     print("Extracting PHIs states in file: {}".format(outputFile))
     file = open(outputFile, "w")
-    for node in CDFG.nodes():
-        if module.isDefined(node):
-            assignemnts = module.getAssignmentsOf(node)
-            if len(assignemnts) > 1:
-                # check if the phi is destination of divergent BBs
-                if not duplicateAssignments(assignemnts):
-                    for state in state2node.keys():
-                        if node in state2node[state]:
-                            file.write("State: {0} - Node: {1}\n".format(state, node))
+    for phi in phisStates.keys():
+        file.write("PHI:" + phi + ":")
+        for state in phisStates[phi]:
+            file.write(state + ":")
+        file.write("\n")
     file.close()
 
 def _extractDataFlowNodesRec(module:Module, graph: pgv.AGraph, node: pgv.Node, visited: set, revTraversal: bool):
@@ -313,11 +309,221 @@ def extractFSMGraph(module: Module, graph: pgv.AGraph, resetSignals: list):
         condCurrStateExpr = condCurrState.children[1].variable_name
         assert condCurrStateExpr in states, "The condition is not a state variable"
         stateSrc = condCurrStateExpr
+        #if not (stateSrc, stateDst) in FSM.edges():
         FSM.add_edge(stateSrc, stateDst, color="red")
 
     setFSMTopState(FSM, module, currStateVar ,resetSignals)
 
+    # remove the edges to top state # due to reset
+    topState = None
+    for node in FSM.nodes():
+        if "Start" in FSM.get_node(node).attr["comment"]:
+            topState = node
+            break
+    assert topState is not None, "Top state not found"
+    in_edges = FSM.in_edges(topState)
+    for src, dst in in_edges:
+        FSM.remove_edge(src, dst)
+        print("[INFO] Removing edge from {} to {} (topState)".format(src, dst))
+
     return FSM
+
+def findBBPredecessor(FSM: pgv.AGraph, node: pgv.Node, statesPerBB: dict, visited: list):
+
+    for src, dst in FSM.in_edges(node):
+        for BB, list_states in statesPerBB.items():
+            if src in list_states:
+                return BB
+    for src, dst in FSM.in_edges(node):
+        if src in visited:
+            continue
+        visited.append(src)
+        BB = findBBPredecessor(FSM, src, statesPerBB, visited)
+        if BB is not None:
+            return BB
+    return None 
+
+def getTopoOrder(FSM: pgv.AGraph):
+
+    result = []
+    startNode = FSM.nodes()[0] ## ASSUMPTION: The start node is the first node in the list
+    visited = set()
+    def dfs(node):
+        visited.add(node)
+        for src, dst in FSM.out_edges(node):
+            if dst not in visited:
+                dfs(dst)
+        result.append(node)
+    dfs(startNode)
+    return list(reversed(result))
+
+def stateBB(node: pgv.Node, statesPerBB: dict):
+    for BB, list_states in statesPerBB.items():
+        if node in list_states:
+            return BB
+    return None
+
+def removeLoopBackEdges(FSM: pgv.AGraph):
+
+    FSM_noLoop = pgv.AGraph(strict=False, directed=True)
+    topState = None
+    for node in FSM.nodes():
+        if "Start" in FSM.get_node(node).attr["comment"]:
+            topState = node
+            break
+    assert topState is not None, "Top state not found"
+    visited = set()
+    loopBacks = []
+    def dfs(node):
+        visited.add(node)
+        for src, dst in FSM.out_edges(node):
+            if dst not in visited:
+                dfs(dst)
+                FSM_noLoop.add_edge(src, dst, color="red")
+            else:
+                loopBacks.append((src, dst))
+    dfs(topState)
+    return FSM_noLoop, loopBacks
+
+# function to find predecessors of a state from an FSM graph without loops without traversing node tNode
+def findPredecessorsStatesWotNode(FSM: pgv.AGraph, node: pgv.Node, tNode: pgv.Node):
+    predecessors = []
+    visited = set()
+    def dfs(node):
+        visited.add(node)
+        for src, dst in FSM.in_edges(node):
+            if src == tNode:
+                continue
+            if src not in visited:
+                dfs(src)
+                predecessors.append(src)
+    dfs(node)
+    return predecessors
+
+# function to extract the CFG graph from the FSM
+def extractCFGGraph(module: Module, _FSM: pgv.AGraph):
+
+    print("Extracting CFG graph")
+    CFG = pgv.AGraph(strict=False, directed=True)
+    CFG.graph_attr["splines"] = "ortho"
+    CFG.graph_attr["rankdir"] = "TB"  # Top-to-bottom layout
+
+    # creating a copy with no double edges to the same node
+    FSM = _FSM.copy()
+    allEdges = FSM.edges()
+    found = []
+    for src, dst in allEdges:
+        if (src, dst) in found:
+            FSM.remove_edge(src, dst)
+        else:
+            found.append((src, dst))
+
+    FSM_noLoop, loopBacks = removeLoopBackEdges(FSM)
+
+    lastStateBB = []
+    firstStateBB = []
+    # mark last state BB
+    for node in FSM.nodes():
+        out_edges = FSM.out_edges(node)
+        in_edges = FSM.in_edges(node)
+        if len(in_edges) > 1:
+            firstStateBB.append(node)
+        if len(out_edges) > 1:
+            lastStateBB.append(node)
+        elif len(out_edges) == 0:
+            lastStateBB.append(node)
+        else:
+            dstNode = out_edges[0][1]
+            inEdgesDstNode = FSM.in_edges(dstNode)
+            if len(inEdgesDstNode) <= 1:
+                continue
+            inEdgesNodes = [src for src, dst in FSM.in_edges(node)]
+            predecessorsDstNode = findPredecessorsStatesWotNode(FSM_noLoop, dstNode, node)
+            reconvergentPath = False
+            for inNode in inEdgesNodes:
+                if inNode in predecessorsDstNode:
+                    reconvergentPath = True
+                    break
+            if reconvergentPath:
+                lastStateBB.append(node)
+
+    # assign states to each BB
+    statesPerBB = {}
+    BB_id = 0
+    topoOrder = getTopoOrder(FSM)
+    visited = []
+    for iNode in range(len(topoOrder)):
+        node = topoOrder[iNode]
+        if node in visited:
+            continue
+        visited.append(node)
+        # check if the node is a BB
+        if node in lastStateBB:
+            BB_name = "BB_" + str(BB_id)
+            BB_id += 1
+            statesPerBB[BB_name] = node
+            CFG.add_node(BB_name, shape="box", color="blue")
+            CFG.get_node(BB_name).attr["info"] = f"{node}"
+        else:
+            # if node is not a BB, find the BB that contains it
+            startNodeFound = None if node not in firstStateBB else node
+            listStates = [node]
+            succNode = FSM.out_edges(node)[0][1]
+            traverseGraph = True
+            if succNode in firstStateBB:
+                #if startNodeFound is None:
+                #    startNodeFound = succNode
+                #else:
+                traverseGraph = False
+                succNode = node
+            if traverseGraph:
+                while not succNode in lastStateBB:
+                    listStates.append(succNode)
+                    if not succNode in visited:
+                        visited.append(succNode)
+                    succNode_next = FSM.out_edges(succNode)[0][1]
+                    if succNode_next in firstStateBB:
+                        #if startNodeFound is None:
+                        #    startNodeFound = succNode_next
+                        #else:
+                        break
+                    succNode = succNode_next
+                if not succNode in visited:
+                    visited.append(succNode)
+                if not succNode in listStates:
+                    listStates.append(succNode)
+            BB_name = stateBB(succNode, statesPerBB)
+            if BB_name is None:
+                BB_name = "BB_" + str(BB_id)
+                BB_id += 1
+            else:
+                listStates.extend(statesPerBB[BB_name])
+            listStates = list(set(listStates))
+            statesPerBB[BB_name] = listStates
+            CFG.add_node(BB_name, shape="box", color="blue")
+            statesString = ""
+            for state in listStates:
+                statesString += state + " "
+            listStates.append(node)
+            CFG.get_node(BB_name).attr["info"] = statesString
+
+
+    for src, dst in FSM.edges():
+        srcBB = None
+        dstBB = None
+        for BB, list_states in statesPerBB.items():
+            if src in list_states:
+                srcBB = BB
+            if dst in list_states:
+                dstBB = BB
+        assert srcBB is not None, f"Source BB not found for {src}"
+        assert dstBB is not None, f"Destination BB not found for {dst}"
+        if not (srcBB, dstBB) in CFG.edges() and ( srcBB != dstBB or (src, dst) in loopBacks):
+            CFG.add_edge(srcBB, dstBB)
+
+
+    return CFG
+
 
 def getCurrStateVar(FSM: pgv.AGraph):
     for node in FSM.nodes():
@@ -400,7 +606,7 @@ def findCurrStateCond(module: Module, FSM: pgv.AGraph, condDstNode: BNode, BBdes
     stateRet = condCurrState.children[1].variable_name
     assert stateRet in FSM.nodes(), "Current state not found"
     outputs = FSM.out_edges(stateRet)
-    assert len(outputs) > 1, "The BB should have multiple destinations"
+    assert len(outputs) > 1, f"The BB {stateRet} should have multiple destinations"
     assert BBdest in FSM.nodes(), "The destination BB not found in the FSM"
     foundDstBB = False
     for src, dst in outputs:
@@ -618,6 +824,8 @@ def insertPipelineGraphs(graph: pgv.AGraph, FSM: pgv.AGraph, pipelineGraphs: dic
         FSM.remove_edge(state, dstState)
         FSM.add_edge(state, topNode, color="red", style="dashed")
         FSM.add_edge(bottomNode, dstState, color="red", style="dashed")
+        # add loop back edge between top node and dstState of the pipeline
+        FSM.add_edge(dstState, topNode, color="red", style="dashed")
         print("Pipeline graph inserted for state: {0}. Exporting new FSM graph FSM_{0}.dot".format(state))
         FSM.write("FSM_{}.dot".format(state))
 
@@ -848,6 +1056,50 @@ def addStoreOps(CDFG: pgv.AGraph, graph: pgv.AGraph, module: Module, state2node:
         storeOpsNames.append(node_name)
         idOp += 1
 
+    # if multiple stores share the same output address, the address has to be duplicated
+    addr2store = {}
+    idOp = 0
+    for state, addr in state2addr.items():
+        if addr in addr2store.keys():
+            addr2store[addr].append(storeOpsNames[idOp])
+        else:
+            addr2store[addr] = [storeOpsNames[idOp]]
+        idOp += 1
+    for addr, storeOps in addr2store.items():
+        if len(storeOps) > 1:
+            for storeOp in storeOps:
+                newNode = storeOp + "_addr"
+                assert not newNode in CDFG.nodes(), "Node already exists"
+                CDFG.add_node(newNode, shape="box", color="green", label=addr)
+                CDFG.add_edge(newNode, storeOp, color="red")
+                assert len(CDFG.in_edges(addr)) == 1, "The address has to have only one input"
+                srcAddr = CDFG.in_edges(addr)[0][0]
+                CDFG.add_edge(srcAddr, newNode, color="red")
+                print("Duplicating address node: {} from {}".format(newNode, addr))
+            CDFG.remove_node(addr)
+    
+    # if multiple stores share the same data, the data has to be duplicated
+    data2store = {}
+    idOp = 0
+    for state, data in state2data.items():
+        if data in data2store.keys():
+            data2store[data].append(storeOpsNames[idOp])
+        else:
+            data2store[data] = [storeOpsNames[idOp]]
+        idOp += 1
+    for data, storeOps in data2store.items():
+        if len(storeOps) > 1:
+            for storeOp in storeOps:
+                newNode = storeOp + "_data"
+                assert not newNode in CDFG.nodes(), "Node already exists"
+                CDFG.add_node(newNode, shape="box", color="green", label=data)
+                CDFG.add_edge(newNode, storeOp, color="red")
+                assert len(CDFG.in_edges(data)) == 1, "The data has to have only one input"
+                srcData = CDFG.in_edges(data)[0][0]
+                CDFG.add_edge(srcData, newNode, color="red")
+                print("Duplicating data node: {} from {}".format(newNode, data))
+            CDFG.remove_node(data)
+
     return storeOpsNames
 
 # function to add a load operation to the CDFG
@@ -879,12 +1131,57 @@ def addLoadOps(CDFG: pgv.AGraph, graph: pgv.AGraph, module: Module, state2node: 
         addr = state2addr[state]
         CDFG.remove_edge(addr, portOutAddress)
         CDFG.add_edge(addr, node_name, color="red")
+        #print(portFromMemory, CDFG.out_edges(portFromMemory))
         infoFromMemory = CDFG.out_edges(portFromMemory)[0][1]
         CDFG.add_edge(node_name, infoFromMemory, color="red")
         CDFG.remove_edge(portFromMemory, infoFromMemory)        
 
         loadOpNames.append(node_name)
         idOp += 1
+
+    # if multiple loads share the same output address, the address has to be duplicated
+    addr2load = {}
+    idOp = 0
+    for state, addr in state2addr.items():
+        if addr in addr2load.keys():
+            addr2load[addr].append(loadOpNames[idOp])
+        else:
+            addr2load[addr] = [loadOpNames[idOp]]
+        idOp += 1
+    for addr, loadOps in addr2load.items():
+        if len(loadOps) > 1:
+            for loadOp in loadOps:
+                newNode = loadOp + "_addr"
+                assert not newNode in CDFG.nodes(), "Node already exists"
+                CDFG.add_node(newNode, shape="box", color="green", label=addr)
+                CDFG.add_edge(newNode, loadOp, color="red")
+                assert len(CDFG.in_edges(addr)) == 1, "The address has to have only one input"
+                srcAddr = CDFG.in_edges(addr)[0][0]
+                CDFG.add_edge(srcAddr, newNode, color="red")
+                print("Duplicating address node: {} from {}".format(newNode, addr))
+            CDFG.remove_node(addr)
+
+    # if multiple loads share the same data, the data has to be duplicated
+    data2load = {}
+    idOp = 0
+    for state, data in state2data.items():
+        if data in data2load.keys():
+            data2load[data].append(loadOpNames[idOp])
+        else:
+            data2load[data] = [loadOpNames[idOp]]
+        idOp += 1
+    for data, loadOps in data2load.items():
+        if len(loadOps) > 1:
+            for loadOp in loadOps:
+                newNode = loadOp + "_data"
+                assert not newNode in CDFG.nodes(), "Node already exists"
+                CDFG.add_node(newNode, shape="box", color="green", label=data)
+                CDFG.add_edge(newNode, loadOp, color="red")
+                assert len(CDFG.in_edges(data)) == 1, "The data has to have only one input"
+                srcData = CDFG.in_edges(data)[0][0]
+                CDFG.add_edge(srcData, newNode, color="red")
+                print("Duplicating data node: {} from {}".format(newNode, data))
+            CDFG.remove_node(data)
 
     return loadOpNames
 
@@ -1004,7 +1301,7 @@ def addInterMemoryDep(CDFG: pgv.AGraph, FSM: pgv.AGraph ,statesWriteOp: list, st
     return
 
 # function to merge memory ports of the CDFG
-def memory_merge(module: Module, CDFG: pgv.AGraph, FSM: pgv.AGraph, graph: pgv.AGraph , state2node: dict, memory_keywords: dict):
+def memory_merge(module: Module, CDFG: pgv.AGraph, FSM: pgv.AGraph, graph: pgv.AGraph , state2node: dict, memory_keywords: dict, state2memOp: dict):
 
     regex_memory = memory_keywords["regex_memory"]
 
@@ -1057,6 +1354,12 @@ def memory_merge(module: Module, CDFG: pgv.AGraph, FSM: pgv.AGraph, graph: pgv.A
 
             # remove the nodes still existing in the CDFG and all the nodes connected to them
             removeMemNodes(CDFG, memoryNodes)
+
+            # add states of new memory operations
+            for i in range(len(statesWriteOp)):
+                state2memOp[statesWriteOp[i]].append(newStoreOps[i])
+            for i in range(len(statesReadOp)):
+                state2memOp[statesReadOp[i]].append(newLoadOps[i])
 
     # remove byteena node if present
     allNodes = CDFG.nodes()
@@ -1363,7 +1666,7 @@ def isLoopbackState(stateTest: str, stateOther: str, FSM: pgv.AGraph):
     
 
 # function to write the states in which the phi is activated
-def addPhisInputControls(CDFG: pgv.AGraph, FSM: pgv.AGraph, departureStates: dict, assignmentsNodes: dict, arrivalStates: list):
+def addPhisInputControls(CDFG: pgv.AGraph, FSM: pgv.AGraph, departureStates: dict, assignmentsNodes: dict, arrivalStates: list, phisStatesFilename: str):
 
     # ensure all the phis have been correctly marked
     verbose = False
@@ -1398,8 +1701,11 @@ def addPhisInputControls(CDFG: pgv.AGraph, FSM: pgv.AGraph, departureStates: dic
     
     assert len(phis_copy) == 0, "Phi nodes not correctly marked. Some nodes have been marked as phis but they are not"
 
+    allPhisStates = {}
+
     for phi in phis:
         statesPhi = getStatesOfNode(phi, departureStates)
+        allPhisStates[phi] = statesPhi
         #assert len(statesPhi) == 2 or len(statesPhi) == 3, "Phi node should be activated in two or three states"
         state0 = statesPhi[0]
         state1 = statesPhi[1]
@@ -1412,10 +1718,11 @@ def addPhisInputControls(CDFG: pgv.AGraph, FSM: pgv.AGraph, departureStates: dic
                 if state == arrivalState:
                     assert state not in conds.keys(), "State already found"
                     conds[state] = dataSrcNode
-        
+
         if verbose:
             print(f"Phi node {phi} activated in states {[statesPhi]}")
         #assert cond0 is not None or cond1 is not None, "Condition not found"
+        # if conditions are found, add the edges
         for cond in conds.values():
             if verbose:
                 print(f"Condition: {cond}")
@@ -1428,6 +1735,18 @@ def addPhisInputControls(CDFG: pgv.AGraph, FSM: pgv.AGraph, departureStates: dic
                 if verbose:
                     print(f"Edge added: {cond} -> {phi}")
 
+
+    writePHIsStates(allPhisStates, phisStatesFilename)
+
+# function to add branches to the CDFG
+def addBranches(CDFG: pgv.AGraph, FSM: pgv.AGraph, departureStates: dict, assignmentsNodes: dict, arrivalStates: list):
+
+    for condNode, state in arrivalStates:
+
+        branch_name = "branch_" + state
+        CDFG.add_node(branch_name, color="green", label="BRANCH")
+        CDFG.add_edge(condNode.get_name(), branch_name, color="green", style="dashed")
+        departureStates[state].append(branch_name)
 
 # function to build the original CDFG with the extracted data flow
 def buildOriginalCDFG(graph: pgv.AGraph, module: Module, FSM: pgv.AGraph, end_nodes: list, memory_keywords: dict):
@@ -1501,11 +1820,29 @@ def buildOriginalCDFG(graph: pgv.AGraph, module: Module, FSM: pgv.AGraph, end_no
                 #print("Edge added: {0} -> {1}".format(dataSrcNode.get_name(), dataDstNode))
         #print(f"Data node {dataSrcNode.get_name()} -> {dataDstNodes}")
     '''
+    # add end circuit node
+    for dataSrcNode, arrivalState in arrivalStates:
+        if arrivalState in end_nodes or "endCircuit" in arrivalState  or departureStates[arrivalState] in end_nodes or "endCircuit" in departureStates[arrivalState]:
+            dataDstNode = "endCircuit"
+            edge = (dataSrcNode.get_name(), dataDstNode)
+            if not edge in CDFG.edges():
+                CDFG.add_edge(dataSrcNode.get_name(), dataDstNode, color="red", style="dashed")
+                break
+        for srcState, dstState in FSM.out_edges(arrivalState):
+            if "endCircuit" in departureStates[dstState] or departureStates[dstState] in end_nodes:
+                dataDstNode = "endCircuit"
+                edge = (dataSrcNode.get_name(), dataDstNode)
+                if not edge in CDFG.edges():
+                    CDFG.add_edge(dataSrcNode.get_name(), dataDstNode, color="red", style="dashed")
+                    break
+        if "endCircuit" in CDFG.nodes():
+            break
+
+
     # the pipeline states with no registers across them should be merged since do not represent real states
     mergeConsecutivePipelineStates(FSM, departureStates, departureStates2Ctrl , arrivalStates)
-    memory_merge(module, CDFG, FSM, graph, departureStates2Ctrl, memory_keywords)
+    memory_merge(module, CDFG, FSM, graph, departureStates2Ctrl, memory_keywords, departureStates)
 
-    writePHIsStates(CDFG, FSM, module, graph, departureStates, "phi_states.txt")
     replaceMuxes(CDFG, FSM, module, graph, departureStates2Ctrl)
 
     # clean the departure states data structure
@@ -1527,9 +1864,11 @@ def buildOriginalCDFG(graph: pgv.AGraph, module: Module, FSM: pgv.AGraph, end_no
                 assignmentsNodes[node].append(expr)
     departureStates, assignmentsNodes = removeDuplicateVars(CDFG, departureStates, assignmentsNodes)
 
-    addPhisInputControls(CDFG, FSM, departureStates, assignmentsNodes, arrivalStates)
+    addBranches(CDFG, FSM, departureStates, assignmentsNodes, arrivalStates)
 
-    return CDFG
+    addPhisInputControls(CDFG, FSM, departureStates, assignmentsNodes, arrivalStates, "phi_states.txt")
+
+    return CDFG, departureStates
 
 # function to generate header of the verilog file
 def generateHeader(ports: list):
@@ -1698,7 +2037,7 @@ def generateAssigns(CDFG: pgv.AGraph, module: Module):
                     posAssignment = None
                     negAssignment = None
                     for assign in [assignment, assignment2, assignment3]:
-                        if "_enable" in assign:
+                        if "_enablePhi" in assign:
                             assert cond is None, "There should be only one enable signal"
                             cond = assign
                         elif posAssignment is None:
@@ -1717,7 +2056,7 @@ def generateAssigns(CDFG: pgv.AGraph, module: Module):
                             assignments.append(getInputRoot(CDFG, src))
                     cond = []
                     for assign in assignments:
-                        if "_enable" in assign:
+                        if "_enablePhi" in assign:
                             cond.append(assign)
                     assert len(cond) == 2, f"There should be two inputs that are not enable ({assignments})"
                     nonCond = [assign for assign in assignments if assign not in cond]
@@ -1803,8 +2142,11 @@ def addMemoryUnitsPorts(CDFG: pgv.AGraph, module: Module, memory_keywords: dict,
             addr = addr.replace("MEMORY_NAME", node.split("_")[1]).replace("MEMORY_ID", node.split("_")[2])
             addrNode = node + "_addr"
             additionalPOs[addrNode] = getWidth(addr, module)
+            BB_load = CDFG.get_node(node).attr["BB"]
             CDFG.add_node(fromMemNode, shape="box")
+            CDFG.get_node(fromMemNode).attr["BB"] = BB_load
             CDFG.add_node(addrNode, shape="box")
+            CDFG.get_node(addrNode).attr["BB"] = BB_load
             noCIPEdges = 0
             for src, dst in CDFG.in_edges(node):
                 if CDFG.get_edge(src, dst).attr["style"] == "dashed" and CDFG.get_edge(src, dst).attr["color"] == "red":
@@ -1843,14 +2185,19 @@ def addMemoryUnitsPorts(CDFG: pgv.AGraph, module: Module, memory_keywords: dict,
                     update_cip_dep(src, dst, fromMemNode, dst, distance_value, cip_dependencies)
             CDFG.remove_node(node)
         if "storeee" in node:
+            BB_store = CDFG.get_node(node).attr["BB"]
             toMem = memory_keywords["inMemory"][memoryIdx]
             toMem = toMem.replace("MEMORY_NAME", node.split("_")[1]).replace("MEMORY_ID", node.split("_")[2])
             toMemNode = node + "_toMem"
             additionalPOs[toMemNode] = getWidth(toMem, module)
+            CDFG.add_node(toMemNode, shape="box")
+            CDFG.get_node(toMemNode).attr["BB"] = BB_store
             addr = memory_keywords["outAddress"][memoryIdx]
             addr = addr.replace("MEMORY_NAME", node.split("_")[1]).replace("MEMORY_ID", node.split("_")[2])
             addrNode = node + "_addr"
             additionalPOs[addrNode] = getWidth(addr, module)
+            CDFG.add_node(addrNode, shape="box")
+            CDFG.get_node(addrNode).attr["BB"] = BB_store
             noCIPEdges = 0
             for src, dst in CDFG.in_edges(node):
                 if CDFG.get_edge(src, dst).attr["style"] == "dashed" and CDFG.get_edge(src, dst).attr["color"] == "red":
@@ -1947,7 +2294,8 @@ def addMultiLatencyPorts(CDFG: pgv.AGraph, module: Module, cip_dependencies: lis
     mult_nodes = {}
     for node in nodes:
         if "mult" in node:
-            if "_out_actual" in node:     
+            if "_out_actual" in node:   
+                BB_mult = CDFG.get_node(node).attr["BB"]  
                 multName = node.replace("_out_actual", "")
                 assert not multName in mult_nodes.keys(), "Mult node already found"
                 mult_nodes[multName] = {}
@@ -1961,8 +2309,11 @@ def addMultiLatencyPorts(CDFG: pgv.AGraph, module: Module, cip_dependencies: lis
                 additionalPOs[input2] = getWidth(node, module)
                 additionalPIs[result] = getWidth(node, module)
                 CDFG.add_node(input1, shape="box")
+                CDFG.get_node(input1).attr["BB"] = BB_mult
                 CDFG.add_node(input2, shape="box")
+                CDFG.get_node(input2).attr["BB"] = BB_mult
                 CDFG.add_node(result, shape="box")
+                CDFG.get_node(result).attr["BB"] = BB_mult
                 for src, dst in CDFG.out_edges(node):
                     CDFG.add_edge(result, dst, color="red")
                 assert len(CDFG.in_edges(node)) == 2 or len(CDFG.in_edges(node)) == 1 , "Mult node should have two inputs"
@@ -2037,11 +2388,15 @@ def breakLoopsPhis(CDFG: pgv.AGraph, module: Module, cip_dependencies: list):
             nxGraph.remove_edge(driverPhi, phi)
             CDFG.remove_edge(driverPhi, phi)
             newPO = "n" + driverPhi + "_po"
+            driverPhiBB = CDFG.get_node(driverPhi).attr["BB"]
             CDFG.add_node(newPO, shape="box")
+            CDFG.get_node(newPO).attr["BB"] = driverPhiBB
             additionalPOs[newPO] = getWidth(phi, module)
             CDFG.add_edge(driverPhi, newPO, color="red")
+            phiBB = CDFG.get_node(phi).attr["BB"]
             newPI = phi + "_pi"
             CDFG.add_node(newPI, shape="box")
+            CDFG.get_node(newPI).attr["BB"] = phiBB
             additionalPIs[newPI] = getWidth(phi, module)
             CDFG.add_edge(newPI, phi, color="red")
             cip_dependencies.append((newPI, newPO, "II"))
@@ -2065,11 +2420,13 @@ def addPhisEnable(CDFG: pgv.AGraph, module: Module, cip_dependencies: list):
                 if CDFG.get_edge(src, dst).attr["style"] == "dashed" and CDFG.get_edge(src, dst).attr["color"] == "red":
                     assert not src in srcEnables, "Enable already found"
                     srcEnables.append(src)
+            BB_phi = CDFG.get_node(node).attr["BB"]
             if srcEnables == []:
-                srcEnable = node + "_enable"
+                srcEnable = node + "_enablePhi_" + BB_phi
                 additionalPIs[srcEnable] = 1
                 CDFG.add_node(srcEnable, shape="box")
                 CDFG.add_edge(srcEnable, node, color="red")
+                CDFG.get_node(srcEnable).attr["BB"] = BB_phi
             else:
                 for srcEnable in srcEnables:
                     assert CDFG.get_edge(srcEnable, node).attr["color"] == "red" and CDFG.get_edge(srcEnable, node).attr["style"] == "dashed", "Not correct enable"
@@ -2077,14 +2434,17 @@ def addPhisEnable(CDFG: pgv.AGraph, module: Module, cip_dependencies: list):
                         distance_value = CDFG.get_edge(srcEnable, node).attr["comment"]
                     else:
                         distance_value = 0
-                    ctrlOut = "n" + srcEnable + "_ctrlOut"
+                    BB_ctrl = CDFG.get_node(srcEnable).attr["BB"]
+                    ctrlOut = "n" + srcEnable + "_ctrlOut_" + BB_ctrl
                     additionalPOs[ctrlOut] = 1
                     CDFG.add_node(ctrlOut, shape="box")
+                    CDFG.get_node(ctrlOut).attr["BB"] = BB_ctrl
                     if (srcEnable, ctrlOut) not in CDFG.edges():
                         CDFG.add_edge(srcEnable, ctrlOut, color="red")
-                    newSrcEnable = node + "_enable"
+                    newSrcEnable = node + "_enablePhi_" + BB_phi
                     additionalPIs[newSrcEnable] = 1
                     CDFG.add_node(newSrcEnable, shape="box")
+                    CDFG.get_node(newSrcEnable).attr["BB"] = BB_phi
                     if (newSrcEnable, node) not in CDFG.edges():
                         CDFG.add_edge(newSrcEnable, node, color="red")
                     CDFG.remove_edge(srcEnable, node)
@@ -2118,6 +2478,101 @@ def breakLoopsCond(CDFG: pgv.AGraph, module: Module, cip_dependencies: list):
 
     return additionalPIs, additionalPOs
 
+# function to add anchors to at least one operation at the beginning of the basic blocks
+def addAnchorsBB(CDFG: pgv.AGraph, FSM: pgv.AGraph, module: Module, PIs: dict, POs: dict, states2nodes: dict, verbose: bool = False):
+
+    anchorsPIs = {}
+    anchorsPOs = {}
+    
+    nodes = CDFG.nodes()
+    for node in nodes:
+        out_nodes = [dst for src, dst in CDFG.out_edges(node)]
+        for dst  in out_nodes:
+            BB_src = CDFG.get_node(node).attr["BB"]
+            BB_dst = CDFG.get_node(dst).attr["BB"]
+            assert BB_src is not None, "BB not found"
+            assert BB_dst is not None, "BB not found"
+            if BB_src != BB_dst:
+                width = getWidth(node, module)
+                anchorPi = dst + "_anchorPi_" + BB_dst
+                anchorsPIs[anchorPi] = width
+                anchorPo = node + "_anchorPo_" + BB_src
+                anchorsPOs[anchorPo] = width
+                if verbose:
+                    print(f"Anchor added between {node} and {dst} ({anchorPi} and {anchorPo})")
+
+    return anchorsPIs, anchorsPOs
+
+# function to add the POs of the branches
+def addBranchesPos(CDFG: pgv.AGraph, FSM: pgv.AGraph, module: Module, PIs: dict, POs: dict, states2nodes: dict, verbose: bool = False):
+
+    nodes = CDFG.nodes()
+    additionalPOs = {}
+    for branch in nodes:
+        if CDFG.get_node(branch).attr["label"] != "BRANCH":
+            continue
+        in_edges = CDFG.in_edges(branch)
+        assert len(in_edges) == 1, "Branch node should have one input"
+        condition = in_edges[0][0]
+        BB_ctrl = CDFG.get_node(condition).attr["BB"]
+        conditionPo = "n" + condition + "_ctrlOut_" + BB_ctrl
+        if not conditionPo in POs.keys():
+            #widthCondition = getWidth(condition, module)
+            widthCondition = 1
+            additionalPOs[conditionPo] = widthCondition
+            CDFG.add_node(conditionPo, shape="box")
+            CDFG.add_edge(condition, conditionPo, color="red")
+            CDFG.remove_node(branch)
+            CDFG.get_node(conditionPo).attr["BB"] = BB_ctrl
+            if verbose:
+                print(f"Branch {branch} added to the POs ({conditionPo})")
+        else:
+            CDFG.remove_node(branch)
+    return additionalPOs
+
+# function to add endCircuit ports
+def addEndCircuitPorts(CDFG: pgv.AGraph, module: Module, PIs: dict, POs: dict):
+
+    additionalPIs = {}
+    additionalPOs = {}
+    nodes = CDFG.nodes()
+    endCircuitNode = None
+    for node in nodes:
+        if "endCircuit" in node:
+            assert endCircuitNode is None, "End circuit node already found"
+            endCircuitNode = node
+            assert len(CDFG.in_edges(endCircuitNode)) == 1, "End node should have one input"
+            srcEnd = CDFG.in_edges(endCircuitNode)[0][0]
+            BB_ctrl = CDFG.get_node(srcEnd).attr["BB"]
+            ctrlOut = "n" + srcEnd + "_ctrlOut_" + BB_ctrl
+            if not ctrlOut in POs.keys():
+                additionalPOs[ctrlOut] = 1
+                CDFG.add_node(ctrlOut, shape="box")
+                CDFG.get_node(ctrlOut).attr["BB"] = BB_ctrl
+            CDFG.add_edge(srcEnd, ctrlOut, color="red")
+            CDFG.remove_edge(srcEnd, endCircuitNode)
+            newSrcEnd = endCircuitNode + "_endCircuitPI"
+            additionalPIs[newSrcEnd] = 1
+            CDFG.add_node(newSrcEnd, shape="box")
+            CDFG.add_edge(newSrcEnd, endCircuitNode, color="red")
+            BB_endNode = CDFG.get_node(endCircuitNode).attr["BB"]
+            CDFG.get_node(newSrcEnd).attr["BB"] = BB_endNode
+
+    return additionalPIs, additionalPOs
+
+def getBBsInfo(CDFG: pgv.AGraph):
+
+    BB_info = {}
+    nodes = CDFG.nodes()
+    for node in nodes:
+        assert "BB" in CDFG.get_node(node).attr.keys(), "BB not found"
+        BB_node = CDFG.get_node(node).attr["BB"]
+        if BB_node in BB_info.keys():
+            BB_info[BB_node].append(node)
+        else:
+            BB_info[BB_node] = [node]
+    return BB_info
+
 # function to remove multiple zeros assign in the phis
 def removeMultipleZerosAssignPhis(CDFG: pgv.AGraph):
     nodes = CDFG.nodes()
@@ -2143,12 +2598,13 @@ def invertII_Constraints(cip_dependencies: list):
             cip_dependencies.append((src, dst, delay))
 
 # function to generate the verilog that represents the CDFG
-def CDFGToVerilog(_CDFG: pgv.AGraph, module: Module, verilogFilePath: str, jsonFilePath: str, memory_keywords: dict):
+def CDFGToVerilog(_CDFG: pgv.AGraph, FSM: pgv.AGraph, module: Module, verilogFilePath: str, jsonFilePath: str, memory_keywords: dict, states2nodes: dict):
     
     CDFG = _CDFG.copy()
 
     dip_dependencies = {}
     cip_dependencies = []
+    BB_info = {}
 
     # find the memory regex that matches the memory ports
     memoryIdx = None
@@ -2188,6 +2644,19 @@ def CDFGToVerilog(_CDFG: pgv.AGraph, module: Module, verilogFilePath: str, jsonF
     # manually add clk and rst
     PIs.update({"clk": 1, "rst": 1})
 
+    endCircuitPIs, endCircuitPOs = addEndCircuitPorts(CDFG, module, PIs, POs)
+    PIs.update(endCircuitPIs)
+    POs.update(endCircuitPOs)
+
+    branchesPOs = addBranchesPos(CDFG, FSM, module, PIs, POs, states2nodes)
+    POs.update(branchesPOs)
+
+    anchorsPIs, anchorsPOs = addAnchorsBB(CDFG, FSM, module, PIs, POs, states2nodes)
+    PIs.update(anchorsPIs)
+    POs.update(anchorsPOs)
+
+    BB_info = getBBsInfo(CDFG)
+
     variables = extractVariables(CDFG, module, PIs.keys(), POs.keys())
 
     verilogData = ""
@@ -2203,10 +2672,89 @@ def CDFGToVerilog(_CDFG: pgv.AGraph, module: Module, verilogFilePath: str, jsonF
     # the order is inverted since leap backend uses the formulation dst - src >= D where (dst, src, D) is in cip_dependencies
     invertII_Constraints(cip_dependencies)
 
-    finalDataJSON = {"dip": dip_dependencies, "cip": cip_dependencies}
+    finalDataJSON = {"dip": dip_dependencies, "cip": cip_dependencies, "BB_info": BB_info}
 
     with open(jsonFilePath, "w") as f:
         json.dump(finalDataJSON, f)
     
     CDFG.write("CDFG_final.dot")
         
+def assignBBs2nodes(CDFG: pgv.AGraph, states2nodes: dict, CFG: pgv.AGraph, FSM: pgv.AGraph):
+    
+    states2BB = {}
+    for BB in CFG.nodes():
+        states = CFG.get_node(BB).attr["info"].split()
+        for state in states:
+            assert not state in states2BB.keys(), "State already found"
+            states2BB[state] = BB
+    
+    # first assign to phis the BB in which they execute:
+    for node in CDFG.nodes():
+        if CDFG.get_node(node).attr["label"] == "PHI":
+            foundStates = []
+            for state, nodes in states2nodes.items():
+                if node in nodes:
+                    foundStates.append(state)
+            assert len(foundStates) > 1, "PHI node should be in more than one state"
+            assert len(foundStates) == 2, "PHI node should be in two states"
+            if states2BB[foundStates[0]] == states2BB[foundStates[1]]:
+                BB = states2BB[foundStates[0]]
+                CDFG.get_node(node).attr["BB"] = BB
+                continue
+            commonDstState = None
+            for src0, dst0 in FSM.out_edges(foundStates[0]):
+                for src1, dst1 in FSM.out_edges(foundStates[1]):
+                    if dst0 == dst1:
+                        commonDstState = dst0
+                        break
+            assert commonDstState is not None, "Common destination state not found"
+            BB = states2BB[commonDstState]
+            CDFG.get_node(node).attr["BB"] = BB
+
+    # first assign to the assignments the BBs
+    for node in CDFG.nodes():
+        if CDFG.get_node(node).attr["label"] == "PHI":
+            continue
+        foundState = None
+        for state, nodes in states2nodes.items():
+            if node in nodes:
+                foundState = state
+                break
+        if foundState == None:
+            continue
+        BB = states2BB[foundState]
+        CDFG.get_node(node).attr["BB"] = BB
+    
+    # then assign it to the other nodes
+    for node in CDFG.nodes():
+        if not "BB" in CDFG.get_node(node).attr.keys():
+            continue
+        BB = CDFG.get_node(node).attr["BB"]
+        #list_nodes = [ src for src, dst in CDFG.in_edges(node) if not "BB" in CDFG.get_node(src).attr.keys() ]
+        list_nodes = [node]
+        while len(list_nodes) > 0:
+            src = list_nodes.pop(0)
+            CDFG.get_node(src).attr["BB"] = BB
+            for src2, dst in CDFG.in_edges(src):
+                # skip the control edges
+                if CDFG.get_edge(src2, src).attr["style"] == "dashed" and CDFG.get_edge(src2, src).attr["color"] == "red":
+                    continue
+                if not "BB" in CDFG.get_node(src2).attr.keys():
+                    list_nodes.append(src2)
+                    
+    return CDFG
+
+def printCDFGBB(CDFG: pgv.AGraph, CFG: pgv.AGraph, outputFile: str):
+
+    CDFG_BB = CDFG.copy()
+    subgraphs = {}
+    for BB in CFG.nodes():
+        subgraphs[BB] = CDFG_BB.add_subgraph(name="cluster_" + BB, label=BB, style="dashed")
+    
+    for node in CDFG.nodes():
+        if "BB" in CDFG.get_node(node).attr.keys():
+            BB = CDFG.get_node(node).attr["BB"]
+            subgraphs[BB].add_node(node)
+    
+    print("Writing CDFG with BBs to ", outputFile)
+    CDFG_BB.write(outputFile)
