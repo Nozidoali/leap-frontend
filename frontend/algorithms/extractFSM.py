@@ -2005,7 +2005,7 @@ def getInputRoot(CDFG: pgv.AGraph, node: pgv.Node):
         assert False, f"Node not recognized ({value})"
 
 # function to generate assign inside verilog module
-def generateAssigns(CDFG: pgv.AGraph, module: Module):
+def generateAssigns(CDFG: pgv.AGraph, module: Module, POs: dict):
 
     assignsString = ""
 
@@ -2512,8 +2512,11 @@ def addAnchorsBB(CDFG: pgv.AGraph, FSM: pgv.AGraph, module: Module, PIs: dict, P
                     width = getWidth(node, module)
                 #anchorPi = dst + "_anchorPi_" + BB_dst
                 #anchorsPIs[anchorPi] = width
-                anchorPo = node + "_anchorPo_" + BB_src
+                anchorPo = node + "_anchorPo_" + BB_src+"_"+BB_dst
                 anchorsPOs[anchorPo] = width
+                CDFG.add_node(anchorPo, shape="box")
+                CDFG.add_edge(node, anchorPo, color="red")
+                CDFG.get_node(anchorPo).attr["BB"] = BB_src
                 if verbose:
                     print(f"Anchor added between {node} and {dst} ({anchorPo})")
 
@@ -2681,7 +2684,7 @@ def CDFGToVerilog(_CDFG: pgv.AGraph, FSM: pgv.AGraph, module: Module, verilogFil
     verilogData += generateHeader(list(PIs.keys())+list(POs.keys()))
     verilogData += generateVariablesDef(PIs, POs, variables, dip_dependencies)
 
-    verilogData += generateAssigns(CDFG, module)
+    verilogData += generateAssigns(CDFG, module, POs)
 
     with open(verilogFilePath, "w") as f:
         f.write(verilogData)
