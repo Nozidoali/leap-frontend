@@ -2715,12 +2715,12 @@ def assignBBs2nodes(CDFG: pgv.AGraph, states2nodes: dict, CFG: pgv.AGraph, FSM: 
                     foundStates.append(state)
             assert len(foundStates) > 1, "PHI node should be in more than one state"
             assert len(foundStates) <= 3, "PHI node should be in two or three states"
-            sameState = True
+            sameBB = True
             for i in range(1, len(foundStates)):
-                if foundStates[i] != foundStates[0]:
-                    sameState = False
+                if states2BB[foundStates[i]] != states2BB[foundStates[0]]:
+                    sameBB = False
                     break
-            if sameState:
+            if sameBB:
                 BB = states2BB[foundStates[0]]
                 CDFG.get_node(node).attr["BB"] = BB
                 continue
