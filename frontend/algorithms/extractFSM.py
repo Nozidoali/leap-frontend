@@ -2494,12 +2494,12 @@ def addAnchorsBB(CDFG: pgv.AGraph, FSM: pgv.AGraph, module: Module, PIs: dict, P
             assert BB_dst is not None, "BB not found"
             if BB_src != BB_dst:
                 width = getWidth(node, module)
-                anchorPi = dst + "_anchorPi_" + BB_dst
-                anchorsPIs[anchorPi] = width
+                #anchorPi = dst + "_anchorPi_" + BB_dst
+                #anchorsPIs[anchorPi] = width
                 anchorPo = node + "_anchorPo_" + BB_src
                 anchorsPOs[anchorPo] = width
                 if verbose:
-                    print(f"Anchor added between {node} and {dst} ({anchorPi} and {anchorPo})")
+                    print(f"Anchor added between {node} and {dst} ({anchorPo})")
 
     return anchorsPIs, anchorsPOs
 
