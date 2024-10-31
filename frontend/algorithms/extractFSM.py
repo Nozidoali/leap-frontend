@@ -2401,14 +2401,14 @@ def breakLoopsPhis(CDFG: pgv.AGraph, module: Module, cip_dependencies: list):
             phi = loop[idxPhi]
             nxGraph.remove_edge(driverPhi, phi)
             CDFG.remove_edge(driverPhi, phi)
-            newPO = "n" + driverPhi + "_po"
             driverPhiBB = CDFG.get_node(driverPhi).attr["BB"]
+            newPO = "n" + driverPhi + "_po_" + driverPhiBB
             CDFG.add_node(newPO, shape="box")
             CDFG.get_node(newPO).attr["BB"] = driverPhiBB
             additionalPOs[newPO] = getWidth(phi, module)
             CDFG.add_edge(driverPhi, newPO, color="red")
             phiBB = CDFG.get_node(phi).attr["BB"]
-            newPI = phi + "_pi"
+            newPI = "n" + phi + "_pi_" + phiBB
             CDFG.add_node(newPI, shape="box")
             CDFG.get_node(newPI).attr["BB"] = phiBB
             additionalPIs[newPI] = getWidth(phi, module)
