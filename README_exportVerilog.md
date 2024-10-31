@@ -11,8 +11,10 @@ The following it's important terminology for the rest of the README
 nodeName: the name of a generic node
 PhiNodeName: name of the phi node
 IdBB: id of the BB where this node belongs to
-IdSrcBB: id of the BB src of the edge across BBs
-IdDstBB: id of the BB dst of the edge across BBs
+srcNodeName: name of the source node of an edge
+dstNodeName: name of the destination node of an edge
+IdSrcBB: id of the BB of srcNodeName
+IdDstBB: id of the BB od dstNodeName
 
 # NAMING FORMAT
 
@@ -30,7 +32,7 @@ Firstly, we have to mention name formats:
 
 	(vi) loops ports (ports created to break combinational loops whose destination are phi nodes): n`nodeName`_po_BB_`IdBB` (PO of the loop) and n`PhiNodeName`_pi_BB_`IdBB` (PI of the loop)
 
-	(vii) anchor ports (ports created to identify the edges connecting different BBs. It is only create one PO of the anchor which represents the output of the src node of the edge across BBs. Only this port is necessary to identify such an edge.): `nodeName`_anchorPo_BB_`IdSrcBB`_BB_`IdDstBB`
+	(vii) anchor ports (ports created to identify the edges connecting different BBs. It is only create one PO of the anchor which represents the output of the src node of the edge across BBs. Only this port is necessary to identify such an edge.): src_`srcNodeName`_dst_`dstNodeName`_anchorPo_BB_`IdSrcBB`_BB_`IdDstBB`
 
 
 # OUTPUT
