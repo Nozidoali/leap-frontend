@@ -304,6 +304,9 @@ def extractFSMGraph(module: Module, graph: pgv.AGraph, resetSignals: list):
         stateDst = assign.expression.toString()
         if stateDst == currStateVar:
             continue
+        # skipping the void state assignment
+        if stateDst == '\'bx':
+            continue
         condition = assign.condition
         condCurrState = findCondVar(condition, "==", currStateVar)
         condCurrStateExpr = condCurrState.children[1].variable_name
@@ -1355,11 +1358,14 @@ def memory_merge(module: Module, CDFG: pgv.AGraph, FSM: pgv.AGraph, graph: pgv.A
             # remove the nodes still existing in the CDFG and all the nodes connected to them
             removeMemNodes(CDFG, memoryNodes)
 
+            memory_Outdata_bitwidth = getWidth(memoryNodes["outMemory"], module)
             # add states of new memory operations
             for i in range(len(statesWriteOp)):
                 state2memOp[statesWriteOp[i]].append(newStoreOps[i])
             for i in range(len(statesReadOp)):
                 state2memOp[statesReadOp[i]].append(newLoadOps[i])
+                # saving the data bitwidth
+                CDFG.get_node(newLoadOps[i]).attr["dataBw"] = memory_Outdata_bitwidth
 
     # remove byteena node if present
     allNodes = CDFG.nodes()
@@ -1739,14 +1745,26 @@ def addPhisInputControls(CDFG: pgv.AGraph, FSM: pgv.AGraph, departureStates: dic
     writePHIsStates(allPhisStates, phisStatesFilename)
 
 # function to add branches to the CDFG
-def addBranches(CDFG: pgv.AGraph, FSM: pgv.AGraph, departureStates: dict, assignmentsNodes: dict, arrivalStates: list):
+def addBranches(CDFG: pgv.AGraph, FSM: pgv.AGraph, departureStates: dict, assignmentsNodes: dict, arrivalStates: list, end_nodes: list):
 
     for condNode, state in arrivalStates:
 
         branch_name = "branch_" + state
         CDFG.add_node(branch_name, color="green", label="BRANCH")
         CDFG.add_edge(condNode.get_name(), branch_name, color="green", style="dashed")
-        departureStates[state].append(branch_name)
+        if not(state in end_nodes):
+            departureStates[state].append(branch_name)
+        else:
+            # in this case the condition directly activates the end node without activating first a state
+            # so you have to find first the state in which the end node is activated
+            endNodeState = None
+            for departingState, nodes in departureStates.items():
+                if "endCircuit" in nodes: # the end node has been translated already in endCircuit node
+                    assert endNodeState is None, "End node state already found"
+                    endNodeState = departingState
+            assert endNodeState is not None, "End node state not found"
+            departureStates[endNodeState].append(branch_name)        
+            
 
 # function to build the original CDFG with the extracted data flow
 def buildOriginalCDFG(graph: pgv.AGraph, module: Module, FSM: pgv.AGraph, end_nodes: list, memory_keywords: dict):
@@ -1864,7 +1882,7 @@ def buildOriginalCDFG(graph: pgv.AGraph, module: Module, FSM: pgv.AGraph, end_no
                 assignmentsNodes[node].append(expr)
     departureStates, assignmentsNodes = removeDuplicateVars(CDFG, departureStates, assignmentsNodes)
 
-    addBranches(CDFG, FSM, departureStates, assignmentsNodes, arrivalStates)
+    addBranches(CDFG, FSM, departureStates, assignmentsNodes, arrivalStates, end_nodes)
 
     addPhisInputControls(CDFG, FSM, departureStates, assignmentsNodes, arrivalStates, "phi_states.txt")
 
@@ -2148,6 +2166,7 @@ def addMemoryUnitsPorts(CDFG: pgv.AGraph, module: Module, memory_keywords: dict,
             BB_load = CDFG.get_node(node).attr["BB"]
             CDFG.add_node(fromMemNode, shape="box")
             CDFG.get_node(fromMemNode).attr["BB"] = BB_load
+            CDFG.get_node(fromMemNode).attr["bitwidth"] = CDFG.get_node(node).attr["dataBw"] # copy the bitwidth of the load node
             CDFG.add_node(addrNode, shape="box")
             CDFG.get_node(addrNode).attr["BB"] = BB_load
             noCIPEdges = 0
@@ -2509,12 +2528,12 @@ def addAnchorsBB(CDFG: pgv.AGraph, FSM: pgv.AGraph, module: Module, PIs: dict, P
             if BB_src != BB_dst:
                 print(f"Anchor added between {node} and {dst}")
                 if "fromMem" in node:
-                    width = getWidth(dst, module)
+                    width = int(CDFG.get_node(node).attr["bitwidth"])
                 else:
                     width = getWidth(node, module)
                 #anchorPi = dst + "_anchorPi_" + BB_dst
                 #anchorsPIs[anchorPi] = width
-                anchorPo = node + "_anchorPo_" + BB_src+"_"+BB_dst
+                anchorPo = "src_" + node + "_dst_" + dst + "_anchorPo_" + BB_src+"_"+BB_dst
                 anchorsPOs[anchorPo] = width
                 CDFG.add_node(anchorPo, shape="box")
                 CDFG.add_edge(node, anchorPo, color="red")
