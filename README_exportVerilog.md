@@ -83,6 +83,12 @@ The leap-frontend produces three important files that can be used for the schedu
 
 		(vi) end circuit PI which is the input of the end signal value endCircuit_endCircuitPI. The endCircuit PO which represents the end signal sent by the datapath. In the majority of the cases in the datapath endCircuit = endCircuit_endCircuitPI. However, there could be more complicated cases where multiple conditions are needed to end a circuit
 
+	After obtaining the verilog file, schedule it and generate the FSM. You can connect the FSM to the verilog file. However, some IMPORTANT steps are necessary to execute to obtain a functional verilog:
+
+		(i) connect the loops with phis that have been broken in the previous step
+
+		(ii) merge the memory ports that are represented as separate in the verilog as a unique port and if necessary apply resource sharing for the ports
+
 
 ## CFG FILE
 
