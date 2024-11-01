@@ -1686,6 +1686,7 @@ def addPhisInputControls(CDFG: pgv.AGraph, FSM: pgv.AGraph, departureStates: dic
             assert node not in phis, "Phi node not correctly marked"
             continue
         assignments = assignmentsNodes[node]
+        assert type(assignments) is list, "`Assignments` should be a list"
         if len(assignments) <= 1:
             assert node not in phis, "Phi node not correctly marked"
             continue
@@ -1702,7 +1703,7 @@ def addPhisInputControls(CDFG: pgv.AGraph, FSM: pgv.AGraph, departureStates: dic
 
         statesNode = getStatesOfNode(node, departureStates)
         assert statesNode != None, "States not found"
-        assert len(statesNode) > 1, "Phi node not correctly marked. There should be more than one state for different assignments"
+        assert len(statesNode) > 1, f"Phi node not correctly marked ({node}). There should be more than one state for different assignments"
         phis_copy.remove(node)
     
     assert len(phis_copy) == 0, "Phi nodes not correctly marked. Some nodes have been marked as phis but they are not"
@@ -1764,7 +1765,124 @@ def addBranches(CDFG: pgv.AGraph, FSM: pgv.AGraph, departureStates: dict, assign
                     endNodeState = departingState
             assert endNodeState is not None, "End node state not found"
             departureStates[endNodeState].append(branch_name)        
-            
+
+# function to find distance between two states
+def findDistanceBetweenStates(FSM: pgv.AGraph, state1: str, state2: str):
+
+    visited = set()
+    queue = deque([state1])
+    distance = 0
+    while queue:
+        queue2 = queue.copy()
+        while queue2:
+            current_state = queue2.popleft()
+            queue.popleft()
+            visited.add(current_state)
+            if current_state == state2:
+                return distance
+            for src, dst in FSM.out_edges(current_state):
+                if dst not in visited:
+                    queue.append(dst)
+        distance += 1
+    return -1
+
+# function to separate shared resources in a CDFG
+def separateSharedResources(CDFG: pgv.AGraph, FSM: pgv.AGraph, module: Module, departureStates: dict, assignmentsNodes: dict, arrivalStates: list, verbose: bool = False):
+
+    assignmentsResources = {}
+    for node in CDFG.nodes():
+        if not node in assignmentsNodes.keys():
+            continue
+        assignments = module.getAssignmentsOf(node)
+        # skipping control enable and write enable nodes since they are handled during memory merge phase
+        if "_ce" in node or "_we" in node:
+            continue
+        if len(assignments) <= 1:
+            continue
+        expr = None
+        differentExpr = False
+        for assign in assignments:
+            if expr is None:
+                expr = assign.expression.toString()
+            else:
+                if expr != assign.expression.toString():
+                    differentExpr = True
+        assert expr is not None, "Expression not found"
+        if differentExpr:
+            continue # this is a "future" phi node
+        assignmentsResources[node] = assignments.copy()
+
+    if verbose:
+        print(f"Shared resources: {assignmentsResources.keys()}" )
+    for sharedResource, assignments in assignmentsResources.items():
+        statesProducer = [state for state, nodes in departureStates.items() if sharedResource in nodes]
+        assert len(statesProducer) == len(assignments), f"Different number of states and assignments for node {sharedResource}"
+        consumers = [dst for src, dst in CDFG.out_edges(sharedResource)]
+        statesConsumers = {}
+        # identify the states for each consumer by finding the closer node with a state
+        for consumer in consumers:
+            visited = set()
+            queue = deque([consumer])
+            stateFound = False
+            while queue and not stateFound:
+                node = queue.popleft()
+                visited.add(node)
+                candidateStates = []
+                for state, nodesState in departureStates.items():
+                    if node in nodesState:
+                        assert consumer not in statesConsumers.keys(), f"Node already found {consumer}"
+                        #statesConsumers[consumer] = state
+                        candidateStates.append(state)
+                        stateFound = True
+                if stateFound:
+                    statesConsumers[consumer] = candidateStates
+                    break
+                for src, dst in CDFG.out_edges(node):
+                    if dst not in visited:
+                        queue.append(dst)
+            assert stateFound, "State not found"
+
+        idResource = 0
+        for stateProducer in statesProducer:
+            # for each state producer create a new node and new port in the module
+            minimumDistance = -1
+            minimumDistanceState = None
+            minimumDistanceConsumer = None
+            if verbose:
+                print(f"State producer: {stateProducer}")
+                print(f"States consumers: {statesConsumers}")
+            for consumer, statesConsumer in statesConsumers.items():
+                for stateConsumer in statesConsumer:
+                    assert stateConsumer != stateProducer, "State consumer equal to state producer"
+                    distance = findDistanceBetweenStates(FSM, stateProducer, stateConsumer)
+                    #assert distance != -1, f"Distance not found between states {stateProducer} and {stateConsumer}"
+                    if distance == -1:
+                        continue
+                    if minimumDistance == -1 or distance < minimumDistance:
+                        minimumDistance = distance
+                        minimumDistanceState = stateConsumer
+                        minimumDistanceConsumer = consumer
+            if verbose:
+                print(f"Minimum distance: {minimumDistance} - State: {minimumDistanceState} - Consumer: {minimumDistanceConsumer} for producer {stateProducer}")
+            assert minimumDistanceState is not None, "Minimum distance state not found"
+            newResource = sharedResource + f"_shared_{idResource}"
+            idResource += 1
+            # IMPORTANT: memory duplication should appen after separation of resource sharing
+            #assert len(CDFG.in_edges(sharedResource)) == 1, f"Shared resource should have only one input ({CDFG.in_edges(sharedResource)})"            
+            inputResource = CDFG.in_edges(sharedResource)[0][0]
+            if len(CDFG.in_edges(inputResource)) != 0:
+                assert False, "Implement the case in which the input of a shared resource is not a port"
+            CDFG.add_node(newResource, color="blue", label=newResource)
+            CDFG.get_node(newResource).attr["sharing"] = sharedResource
+            CDFG.add_edge(inputResource, newResource, color="blue")
+            CDFG.add_edge(newResource, minimumDistanceConsumer, color="blue")
+            departureStates[minimumDistanceState].append(newResource)
+            assignmentsNodes[newResource] = [assignments[0].expression.toString()]
+        
+        CDFG.remove_node(sharedResource)
+
+    return
+
 
 # function to build the original CDFG with the extracted data flow
 def buildOriginalCDFG(graph: pgv.AGraph, module: Module, FSM: pgv.AGraph, end_nodes: list, memory_keywords: dict):
@@ -1859,6 +1977,20 @@ def buildOriginalCDFG(graph: pgv.AGraph, module: Module, FSM: pgv.AGraph, end_no
 
     # the pipeline states with no registers across them should be merged since do not represent real states
     mergeConsecutivePipelineStates(FSM, departureStates, departureStates2Ctrl , arrivalStates)
+    
+    # save the assignments to nodes in order to change them later
+    assignmentsNodes = {}
+    for node in CDFG.nodes():
+        if module.isDefined(node):
+            for assign in module.getAssignmentsOf(node):
+                expr = assign.expression.toString()
+                if node not in assignmentsNodes.keys():
+                    assignmentsNodes[node] = []
+                assignmentsNodes[node].append(expr)
+    
+    separateSharedResources(CDFG, FSM, module, departureStates, assignmentsNodes, arrivalStates)
+
+    
     memory_merge(module, CDFG, FSM, graph, departureStates2Ctrl, memory_keywords, departureStates)
 
     replaceMuxes(CDFG, FSM, module, graph, departureStates2Ctrl)
@@ -1871,15 +2003,6 @@ def buildOriginalCDFG(graph: pgv.AGraph, module: Module, FSM: pgv.AGraph, end_no
             if node not in departureStates[state]:
                 departureStates[state].append(node)
 
-    # save the assignments to nodes in order to change them later
-    assignmentsNodes = {}
-    for node in CDFG.nodes():
-        if module.isDefined(node):
-            for assign in module.getAssignmentsOf(node):
-                expr = assign.expression.toString()
-                if node not in assignmentsNodes.keys():
-                    assignmentsNodes[node] = []
-                assignmentsNodes[node].append(expr)
     departureStates, assignmentsNodes = removeDuplicateVars(CDFG, departureStates, assignmentsNodes)
 
     addBranches(CDFG, FSM, departureStates, assignmentsNodes, arrivalStates, end_nodes)
@@ -2377,7 +2500,11 @@ def extractVariables(CDFG: pgv.AGraph, module: Module, PIs: list, POs: list):
             continue
         if node in PIs or node in POs:
             continue
-        variables[node] = getWidth(node, module)
+        if "_shared_" in node:
+            width = getWidth(CDFG.get_node(node).attr["sharing"], module)
+        else:
+            width = getWidth(node, module)
+        variables[node] = width
     return variables
 
 # function to find the control edge in a loop that does not drive a PHI
@@ -2529,6 +2656,8 @@ def addAnchorsBB(CDFG: pgv.AGraph, FSM: pgv.AGraph, module: Module, PIs: dict, P
                 print(f"Anchor added between {node} and {dst}")
                 if "fromMem" in node:
                     width = int(CDFG.get_node(node).attr["bitwidth"])
+                elif "_shared_" in node:
+                    width = getWidth(CDFG.get_node(node).attr["sharing"], module)
                 else:
                     width = getWidth(node, module)
                 #anchorPi = dst + "_anchorPi_" + BB_dst
