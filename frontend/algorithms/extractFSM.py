@@ -464,7 +464,7 @@ def extractCFGGraph(module: Module, _FSM: pgv.AGraph):
         if node in lastStateBB:
             BB_name = "BB_" + str(BB_id)
             BB_id += 1
-            statesPerBB[BB_name] = node
+            statesPerBB[BB_name] = [node]
             CFG.add_node(BB_name, shape="box", color="blue")
             CFG.get_node(BB_name).attr["info"] = f"{node}"
         else:
@@ -666,7 +666,7 @@ def getDepartureStates_rec(
     for src, dst in CFG.out_edges(node):
         if isOpNode(dst):
             op_value = dst.attr["label"]
-            if op_value == "~":
+            if op_value == "~" or op_value == "!":
                 continue
         elif isVarNode(dst):
             if( isEdgeCond(src, dst, CFG, module) ):
@@ -696,6 +696,8 @@ def isPatternPresent(node: BNode, lhs: str, rhs: str, op: str):
         if node.children[1].variable_name == rhs and node.children[0].variable_name == lhs:
             return True
     for child in node.children:
+        if child.variable_name == "!" or child.variable_name == "~":
+            continue
         if isPatternPresent(child, lhs, rhs, op):
             return True
     return False
@@ -807,9 +809,29 @@ def findBottomNode(graph: pgv.AGraph, topNode: pgv.Node):
         if len(queue) == 0:
             return node
     return None
-        
+
+# function to replace the departure states of the dstState with the pipeline nodes
+def replaceDepartureStatesPipeline(graph: pgv.AGraph, dstState: pgv.Node, pipelineNodes: list, departureStates: dict, departureStates2Ctrl: dict):
+
+    for node in graph.nodes():
+        if node in departureStates[dstState]:
+            foundState = False
+            for pipelineState in pipelineNodes:
+                if node in departureStates[pipelineState]:
+                    foundState = True
+                    break
+            if foundState:
+                departureStates[dstState].remove(node)
+                id = 0
+                for iNode in departureStates[dstState]:
+                    if iNode == node:
+                        break
+                    id += 1
+                assert id < len(departureStates2Ctrl[dstState]), f"Index out of range for node {node}"
+                departureStates2Ctrl[dstState].pop(id)
+                
 # function to insert the pipeline graphs into the FSM graph
-def insertPipelineGraphs(graph: pgv.AGraph, FSM: pgv.AGraph, pipelineGraphs: dict):
+def insertPipelineGraphs(graph: pgv.AGraph, FSM: pgv.AGraph, pipelineGraphs: dict, departureStates: dict, departureStates2Ctrl: dict):
     for state, pipelineGraph in pipelineGraphs.items():
         assert state in FSM.nodes(), "State not found in FSM"
         assert len(FSM.out_edges(state)) <= 1, "More than one edge found"
@@ -831,6 +853,7 @@ def insertPipelineGraphs(graph: pgv.AGraph, FSM: pgv.AGraph, pipelineGraphs: dic
         FSM.add_edge(dstState, topNode, color="red", style="dashed")
         print("Pipeline graph inserted for state: {0}. Exporting new FSM graph FSM_{0}.dot".format(state))
         FSM.write("FSM_{}.dot".format(state))
+        replaceDepartureStatesPipeline(graph, dstState, pipelineGraph.nodes(), departureStates, departureStates2Ctrl)
 
 
 # function to check if the condition contains a data control signal
@@ -858,6 +881,84 @@ def containsDataControlSignal(graph: pgv.AGraph, module: Module, condition: BNod
             return True
     
     return False
+
+# function to check if there is inter-dependency between the control nodes
+def checkDependingCtrl(graph: pgv.AGraph, module: Module, candidateCouts: list):
+
+    cout2driverVar = {}
+    list_variables = {}
+    all_vars = []
+
+    # collect all the variables on which each control signal depends on
+    for cOut in candidateCouts:
+        list_variables[cOut] = []
+        visited = set()
+        queue = deque([cOut])
+        while queue:
+            node = queue.popleft()
+            visited.add(node)
+            if node in module.getPorts():
+                list_variables[cOut].append(node)
+                if not node in all_vars:
+                    all_vars.append(node)
+                continue
+            for src, dst in graph.in_edges(node):
+                if src in visited:
+                    continue
+                queue.append(src)
+
+    tmpGraph = pgv.AGraph(strict=False, directed=True)
+
+    # check for all vars if there is any inter-dependency and build a graph based on the dependencies
+    for var1 in all_vars:
+        list_vars = []
+        for var2 in all_vars:
+            if var1 == var2:
+                continue
+            for assignments in module.getAssignmentsOf(var2):
+                if assignments.expression.toString() == var1:
+                    list_vars.append(var2)
+        for var2 in list_vars:
+            tmpGraph.add_edge(var1, var2)
+
+    # find the longest inter-dependency chain
+    G = nx.DiGraph(nx.nx_agraph.from_agraph(tmpGraph))
+
+    # Ensure acyclic graph; exit if cycles are detected
+    if not nx.is_directed_acyclic_graph(G):
+        raise ValueError("Graph contains cycles")
+
+    longest_path = nx.dag_longest_path(G)
+    
+    if len(longest_path) == 0:
+        return [], {}
+    # check if the source of the longest path is data dependent
+    sourcePath = longest_path[0]
+    visited = set()
+    queue = deque([sourcePath])
+    while queue:
+        node = queue.popleft()
+        visited.add(node)
+        assignments = module.getAssignmentsOf(node)
+        for assignment in assignments:
+            # if it is data dependent, the inter-dependent values are not fsm controlled, but data controlled
+            targ, expr, cond = getAssignToNode(module, assignment)
+            if expr in graph.get_subgraph("cluster_data_flow").nodes():
+                return [], {}
+        for assignment in assignments:
+            targ, expr, cond = getAssignToNode(module, assignment)
+            if expr in visited:
+                continue
+            queue.append(expr)
+
+    for var in longest_path:
+        for cout in list_variables.keys():
+            if var in list_variables[cout]:
+                assert not cout in cout2driverVar.keys(), "Control signal already found"
+                cout2driverVar[cout] = var
+
+    return longest_path, cout2driverVar
+
 
 # function to extract the departure states of the ctrl data CFG
 def getDepartureStates(graph: pgv.AGraph, controlPaths: list, module: Module, FSM: pgv.AGraph, end_nodes: list):
@@ -926,11 +1027,12 @@ def getDepartureStates(graph: pgv.AGraph, controlPaths: list, module: Module, FS
                         candidateCouts.append(cOut)
                 CFG_outNode = {}
                 list_outNodes = []
-                for cOut in candidateCouts:
-                    driverCtrl = graph.in_edges(cOut)[0][0]
-                    CFG_outNode[cOut] = driverCtrl
-                    if not driverCtrl in list_outNodes:
-                        list_outNodes.append(driverCtrl)
+                list_outNodes, CFG_outNode = checkDependingCtrl(graph, module, candidateCouts)
+                #for cOut in candidateCouts:
+                #    driverCtrl = graph.in_edges(cOut)[0][0]
+                #    CFG_outNode[cOut] = driverCtrl
+                #    if not driverCtrl in list_outNodes:
+                #        list_outNodes.append(driverCtrl)
                 pipelineGraph = None
                 if len(list_outNodes) > 1:
                     pipelineGraph = checkPipeline(list_outNodes, currStateVar, nextStateVar, graph, module)
@@ -958,7 +1060,7 @@ def getDepartureStates(graph: pgv.AGraph, controlPaths: list, module: Module, FS
                         departureStates[state].append(dataEndPoint)
                         departureStates2Ctrl[state].append(ctrl)
 
-    insertPipelineGraphs(graph, FSM , pipelineGraphs)
+    insertPipelineGraphs(graph, FSM , pipelineGraphs, departureStates, departureStates2Ctrl)
 
     return departureStates, departureStates2Ctrl
 
@@ -972,7 +1074,7 @@ def findDrivingState(state2node: dict, module: Module, graph: pgv.AGraph, assign
             if driverCtrl == condition:
                 foundState = state        
                 break
-    assert foundState is not None, "State not found"
+    assert foundState is not None, "State not found for node {}".format(target)
     return foundState
 
 # function to get the memory operations associated with a state
@@ -1303,11 +1405,10 @@ def addInterMemoryDep(CDFG: pgv.AGraph, FSM: pgv.AGraph ,statesWriteOp: list, st
     
     return
 
-# function to merge memory ports of the CDFG
-def memory_merge(module: Module, CDFG: pgv.AGraph, FSM: pgv.AGraph, graph: pgv.AGraph , state2node: dict, memory_keywords: dict, state2memOp: dict):
+# function to get memory nodes
+def getMemoryNames(CDFG: pgv.AGraph, memory_keywords: dict):
 
     regex_memory = memory_keywords["regex_memory"]
-
     for _idMemReg in range(len(regex_memory)):
         regOutAddress = regex_memory[_idMemReg]
         memories = {}
@@ -1323,16 +1424,30 @@ def memory_merge(module: Module, CDFG: pgv.AGraph, FSM: pgv.AGraph, graph: pgv.A
         if len(memories) > 0:
             idMemReg = _idMemReg
             break
+    
     assert len(memories) > 0, "No memory ports found"
+    return memories, idMemReg
+
+# function to get memory nodes
+def getMemoryNodes(CDFG: pgv.AGraph, memory_keywords: dict, idMemReg: int, memory_name: str, memory_id: str):
+
+    memoryNodes = {}
+    for node in CDFG.nodes():
+        for keyword in memory_keywords.keys():
+            memoryNode = memory_keywords[keyword][idMemReg].replace("MEMORY_NAME", memory_name).replace("MEMORY_ID", memory_id)
+            if memoryNode == node.get_name():
+                assert keyword not in memoryNodes.keys(), "Memory node already exists"
+                memoryNodes[keyword] = node
+    return memoryNodes
+
+# function to merge memory ports of the CDFG
+def memory_merge(module: Module, CDFG: pgv.AGraph, FSM: pgv.AGraph, graph: pgv.AGraph , state2node: dict, memory_keywords: dict, state2memOp: dict):
+
+
+    memories, idMemReg = getMemoryNames(CDFG, memory_keywords)
     for memory_name in memories.keys():
         for memory_id in memories[memory_name]:
-            memoryNodes = {}
-            for node in CDFG.nodes():
-                for keyword in memory_keywords.keys():
-                    memoryNode = memory_keywords[keyword][idMemReg].replace("MEMORY_NAME", memory_name).replace("MEMORY_ID", memory_id)
-                    if memoryNode == node.get_name():
-                        assert keyword not in memoryNodes.keys(), "Memory node already exists"
-                        memoryNodes[keyword] = node
+            memoryNodes = getMemoryNodes(CDFG, memory_keywords, idMemReg, memory_name, memory_id)            
             # assert that memory nodes and memory keywords have the same length apart from the regex
             assert len(memoryNodes) >= len(memory_keywords) - 3, "Memory nodes not found"
             statesMem = getStatesMem(module, graph , memoryNodes["enable"], state2node)
@@ -1345,7 +1460,8 @@ def memory_merge(module: Module, CDFG: pgv.AGraph, FSM: pgv.AGraph, graph: pgv.A
             else:
                 statesWriteOp = []
             statesReadOp = [state for state in statesMem if state not in statesWriteOp]
-
+            newStoreOps = None
+            newLoadOps = None
             if len(statesWriteOp) > 0:
                 newStoreOps = addStoreOps(CDFG, graph, module, state2node, statesWriteOp, memoryNodes["outAddress"], memoryNodes["inMemory"], "storeee_{0}_{1}".format(memory_name, memory_id))
             if len(statesReadOp) > 0:
@@ -1358,7 +1474,8 @@ def memory_merge(module: Module, CDFG: pgv.AGraph, FSM: pgv.AGraph, graph: pgv.A
             # remove the nodes still existing in the CDFG and all the nodes connected to them
             removeMemNodes(CDFG, memoryNodes)
 
-            memory_Outdata_bitwidth = getWidth(memoryNodes["outMemory"], module)
+            if "outMemory" in memoryNodes.keys(): # there might be no outMemory port if the port is only for writing
+                memory_Outdata_bitwidth = getWidth(memoryNodes["outMemory"], module)
             # add states of new memory operations
             for i in range(len(statesWriteOp)):
                 state2memOp[statesWriteOp[i]].append(newStoreOps[i])
@@ -1787,8 +1904,19 @@ def findDistanceBetweenStates(FSM: pgv.AGraph, state1: str, state2: str):
     return -1
 
 # function to separate shared resources in a CDFG
-def separateSharedResources(CDFG: pgv.AGraph, FSM: pgv.AGraph, module: Module, departureStates: dict, assignmentsNodes: dict, arrivalStates: list, verbose: bool = False):
+def separateSharedResources(CDFG: pgv.AGraph, FSM: pgv.AGraph, module: Module, departureStates: dict, assignmentsNodes: dict, arrivalStates: list, memory_keywords: dict , verbose: bool = False):
 
+    verbose = True
+    # create a mapping between the data out ports and the write enable for memory since a data out port could be a consumer
+    memoryNames, memoryIdx = getMemoryNames(CDFG, memory_keywords)
+    dataOutPorts2WriteEnable = {}
+    for memoryName in memoryNames.keys():
+        for memoryId in memoryNames[memoryName]:
+            memoryNodes = getMemoryNodes(CDFG, memory_keywords, memoryIdx, memoryName, memoryId)
+            if "inMemory" in memoryNodes.keys():
+                dataOutPorts2WriteEnable[memoryNodes["inMemory"]] = memoryNodes["writeEnable"]
+    
+    # create a mapping between shared resources and the assignments
     assignmentsResources = {}
     for node in CDFG.nodes():
         if not node in assignmentsNodes.keys():
@@ -1840,7 +1968,12 @@ def separateSharedResources(CDFG: pgv.AGraph, FSM: pgv.AGraph, module: Module, d
                 for src, dst in CDFG.out_edges(node):
                     if dst not in visited:
                         queue.append(dst)
-            assert stateFound, "State not found"
+                # if the traversal reaches a data out port, the write enable should be checked as well
+                if node in dataOutPorts2WriteEnable.keys():
+                    writeEnablePort = dataOutPorts2WriteEnable[node]
+                    if writeEnablePort not in visited:
+                        queue.append(writeEnablePort)
+            assert stateFound, f"State not found for shared resource {sharedResource} and for consumer {consumer}"
 
         idResource = 0
         for stateProducer in statesProducer:
@@ -1988,7 +2121,7 @@ def buildOriginalCDFG(graph: pgv.AGraph, module: Module, FSM: pgv.AGraph, end_no
                     assignmentsNodes[node] = []
                 assignmentsNodes[node].append(expr)
     
-    separateSharedResources(CDFG, FSM, module, departureStates, assignmentsNodes, arrivalStates)
+    separateSharedResources(CDFG, FSM, module, departureStates, assignmentsNodes, arrivalStates, memory_keywords)
 
     
     memory_merge(module, CDFG, FSM, graph, departureStates2Ctrl, memory_keywords, departureStates)
@@ -2075,7 +2208,7 @@ def getInputRoot(CDFG: pgv.AGraph, node: pgv.Node):
             CDFG.remove_edge(src, dst)
             #print("Removed edge: {0} -> {1}".format(src, dst))
     value = CDFG.get_node(node).attr["label"]
-    if value == "+" or value == "-" or value == "*" or value == "/" or value == "==" or value == ">" or value == "===":
+    if value == "+" or value == "-" or value == "*" or value == "/" or value == "==" or value == ">" or value == "===" or value == "^" or value == "|":
         if value == "-" and len(CDFG.in_edges(node)) == 1:
             return "(-" + getInputRoot(CDFG, CDFG.in_edges(node)[0][0]) + ")"
         lhs = getInputRoot(CDFG, CDFG.in_edges(node)[0][0])
@@ -2736,7 +2869,7 @@ def getBBsInfo(CDFG: pgv.AGraph):
     BB_info = {}
     nodes = CDFG.nodes()
     for node in nodes:
-        assert "BB" in CDFG.get_node(node).attr.keys(), "BB not found"
+        assert "BB" in CDFG.get_node(node).attr.keys(), f"BB not found for node {node}"
         BB_node = CDFG.get_node(node).attr["BB"]
         if BB_node in BB_info.keys():
             BB_info[BB_node].append(node)
@@ -2866,8 +2999,8 @@ def assignBBs2nodes(CDFG: pgv.AGraph, states2nodes: dict, CFG: pgv.AGraph, FSM: 
             for state, nodes in states2nodes.items():
                 if node in nodes:
                     foundStates.append(state)
-            assert len(foundStates) > 1, "PHI node should be in more than one state"
-            assert len(foundStates) <= 3, "PHI node should be in two or three states"
+            assert len(foundStates) > 1, f"PHI node should be in more than one state ({node})"
+            assert len(foundStates) <= 3, f"PHI node should be in two or three states ({node} in {foundStates})"
             sameBB = True
             for i in range(1, len(foundStates)):
                 if states2BB[foundStates[i]] != states2BB[foundStates[0]]:
@@ -2877,6 +3010,18 @@ def assignBBs2nodes(CDFG: pgv.AGraph, states2nodes: dict, CFG: pgv.AGraph, FSM: 
                 BB = states2BB[foundStates[0]]
                 CDFG.get_node(node).attr["BB"] = BB
                 continue
+            # consider the case in which one BB enters the other BB
+            if len(foundStates) == 2:
+                BB = None
+                BB1 = states2BB[foundStates[0]]
+                BB2 = states2BB[foundStates[1]]
+                if FSM.has_edge(foundStates[0], foundStates[1]):
+                    BB = BB2
+                elif FSM.has_edge(foundStates[1], foundStates[0]):
+                    BB = BB1
+                if BB is not None:
+                    CDFG.get_node(node).attr["BB"] = BB
+                    continue
             commonDstState = None
             for src0, dst0 in FSM.out_edges(foundStates[0]):
                 for src1, dst1 in FSM.out_edges(foundStates[1]):
@@ -2891,7 +3036,7 @@ def assignBBs2nodes(CDFG: pgv.AGraph, states2nodes: dict, CFG: pgv.AGraph, FSM: 
                             assert commonDstState is None, "Common destination state already found"
                             commonDstState = dst0
                             break
-            assert commonDstState is not None, "Common destination state not found"
+            assert commonDstState is not None, f"Common destination state not found for node {node} with states {foundStates}"
             BB = states2BB[commonDstState]
             CDFG.get_node(node).attr["BB"] = BB
 
