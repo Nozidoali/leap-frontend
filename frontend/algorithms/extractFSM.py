@@ -854,7 +854,9 @@ def insertPipelineGraphs(graph: pgv.AGraph, FSM: pgv.AGraph, pipelineGraphs: dic
         print("Pipeline graph inserted for state: {0}. Exporting new FSM graph FSM_{0}.dot".format(state))
         FSM.write("FSM_{}.dot".format(state))
         replaceDepartureStatesPipeline(graph, dstState, pipelineGraph.nodes(), departureStates, departureStates2Ctrl)
-
+        # if the dstState has loops on itself, remove them
+        while FSM.has_edge(dstState, dstState):
+            FSM.remove_edge(dstState, dstState)
 
 # function to check if the condition contains a data control signal
 def containsDataControlSignal(graph: pgv.AGraph, module: Module, condition: BNode, skipVars: list):
@@ -1789,10 +1791,9 @@ def isLoopbackState(stateTest: str, stateOther: str, FSM: pgv.AGraph):
     
 
 # function to write the states in which the phi is activated
-def addPhisInputControls(CDFG: pgv.AGraph, FSM: pgv.AGraph, departureStates: dict, assignmentsNodes: dict, arrivalStates: list, phisStatesFilename: str):
+def addPhisInputControls(CDFG: pgv.AGraph, FSM: pgv.AGraph, departureStates: dict, assignmentsNodes: dict, arrivalStates: list, phisStatesFilename: str, verbose: bool = False):
 
     # ensure all the phis have been correctly marked
-    verbose = False
     phis = []
     for node in CDFG.nodes():
         if CDFG.get_node(node).attr["label"] == "PHI":
@@ -1906,7 +1907,6 @@ def findDistanceBetweenStates(FSM: pgv.AGraph, state1: str, state2: str):
 # function to separate shared resources in a CDFG
 def separateSharedResources(CDFG: pgv.AGraph, FSM: pgv.AGraph, module: Module, departureStates: dict, assignmentsNodes: dict, arrivalStates: list, memory_keywords: dict , verbose: bool = False):
 
-    verbose = True
     # create a mapping between the data out ports and the write enable for memory since a data out port could be a consumer
     memoryNames, memoryIdx = getMemoryNames(CDFG, memory_keywords)
     dataOutPorts2WriteEnable = {}
