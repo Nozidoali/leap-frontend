@@ -577,6 +577,8 @@ def getAssignStatement(module: Module, target: str, expression: str, condition: 
             return module.node2assignment[(tmpTarget, tmpExpression, tmpCondition)]
         if targetIsNone and tmpExpression == expression and tmpCondition == condition:
             return module.node2assignment[(tmpTarget, tmpExpression, tmpCondition)]
+        if conditionIsNone and tmpExpression == expression and tmpTarget == target:
+            return module.node2assignment[(tmpTarget, tmpExpression, tmpCondition)]
     return None
 
 def getArrivalState_rec(
@@ -688,7 +690,10 @@ def getDepartureStates_rec(
         elif isVarNode(dst):
             if( isEdgeCond(src, dst, CFG, module) ):
                 assign = getAssignStatement(module, dst, None, src)
-                assert assign is not None, "Assignment statement not found"
+                # consider the case when the condition is the target of the assignment
+                if assign == None:
+                    assign = getAssignStatement(module, dst, src, None)
+                assert assign is not None, f"Assignment statement not found for {dst}"
                 if assign.expression.isConstant():
                     value = assign.expression.toString()
                     if value == "1'b0" or value == "0" or value == "1'd0":
