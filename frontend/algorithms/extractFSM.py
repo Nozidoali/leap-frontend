@@ -2422,9 +2422,9 @@ def generateVariablesDef(inputs: dict, outputs: dict, vars: dict, dip_dependenci
         else:
             bitwidth = inputs[input]
             text += "input [{0}:0] {1};\n".format(bitwidth - 1, input)
-            dip_dependencies[input] = []
+            #dip_dependencies[input] = []
             for i in range(bitwidth):
-                dip_dependencies[input].append(input + "[" + str(i) + "]")
+                dip_dependencies[input + "[" + str(i) + "]"] = input
 
     for output in outputs.keys():
         if outputs[output] == 1:
@@ -2433,9 +2433,9 @@ def generateVariablesDef(inputs: dict, outputs: dict, vars: dict, dip_dependenci
         else:
             bitwidth = outputs[output]
             text += "output [{0}:0] {1};\n".format(bitwidth - 1, output)
-            dip_dependencies[output] = []
+            #dip_dependencies[output] = []
             for i in range(bitwidth):
-                dip_dependencies[output].append(output + "[" + str(i) + "]")
+                dip_dependencies[output + "[" + str(i) + "]"] = output
 
     for var in vars.keys():
         if vars[var] == 1:
